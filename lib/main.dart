@@ -12,7 +12,7 @@ Future<void> main() async {
           'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoc3F2dXl6b3B0bWtwYXB4eWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyODY5NjcsImV4cCI6MjA2Njg2Mjk2N30._ERJc5TyJr_Q-KL06FjfpR05mtPm5o12m9mqFsfugVs',
     );
   } catch (e) {
-    debugPrint('Error initializing Supabase: $e');
+    // Supabase initialization failed
   }
 
   runApp(const MyApp());

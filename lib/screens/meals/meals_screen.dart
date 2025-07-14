@@ -13,7 +13,7 @@ class _MealsScreenState extends State<MealsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFF0F3),
-      appBar: const Navbar(showLoginButton: true),
+      appBar: const Navbar(), // Remove showLoginButton since navbar auto-detects auth state
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
