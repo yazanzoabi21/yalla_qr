@@ -121,11 +121,14 @@ class _NavbarState extends State<Navbar> {
                 ),
                 if (_isAuthenticated) ...[
                   const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
+                    const PopupMenuItem<String>(
                     value: 'logout',
                     child: ListTile(
-                      leading: Icon(Icons.logout),
-                      title: Text('Logout'),
+                      leading: Icon(Icons.logout, color: Colors.red),
+                      title: Text(
+                      'Logout',
+                      style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   ),
                 ] else if (widget.showLoginButton) ...[
@@ -206,7 +209,7 @@ class _NavbarState extends State<Navbar> {
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                content: Text('Successfully logged out - session cleared'),
+                content: Text('Successfully logged out'),
                 backgroundColor: Colors.green,
                 duration: Duration(seconds: 2),
               ),
@@ -216,7 +219,10 @@ class _NavbarState extends State<Navbar> {
             await Future.delayed(const Duration(milliseconds: 500));
 
             // Navigate to login screen with the current category as intended destination
-            NavigationHelper.navigateToLogin(context, intendedDestination: currentCategory);
+            if (!mounted) return;
+            if (context.mounted) {
+              NavigationHelper.navigateToLogin(context, intendedDestination: currentCategory);
+            }
           }
         } catch (e) {
           // Try force reset as a last resort
@@ -237,7 +243,10 @@ class _NavbarState extends State<Navbar> {
               
               // Still try to preserve the category context even in error case
               String? currentCategory = _getCurrentCategory(context);
-              NavigationHelper.navigateToLogin(context, intendedDestination: currentCategory);
+              if (!mounted) return;
+              if (context.mounted) {
+                NavigationHelper.navigateToLogin(context, intendedDestination: currentCategory);
+              }
             }
           } catch (forceError) {
             if (context.mounted) {

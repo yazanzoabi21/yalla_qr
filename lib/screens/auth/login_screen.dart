@@ -566,6 +566,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await Future.delayed(const Duration(milliseconds: 800));
 
         // Navigate based on intended destination
+        if (!mounted) return; // Ensure the widget is still mounted
         if (widget.intendedDestination != null) {
           // Navigate directly to the category screen after login
           NavigationHelper.navigateToCategory(context, widget.intendedDestination!);

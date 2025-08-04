@@ -1100,6 +1100,7 @@ class _SignupScreenState extends State<SignupScreen> {
         await Future.delayed(const Duration(milliseconds: 1000));
 
         // Navigate based on intended destination
+        if (!mounted) return;
         if (widget.intendedDestination != null) {
           // Navigate directly to the category screen after signup with fresh token
           NavigationHelper.navigateToCategory(context, widget.intendedDestination!);

@@ -1,56 +1,11 @@
 import 'package:flutter/material.dart';
-import '../screens/meals/meals_screen.dart';
-import '../screens/gym/gym_screen.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/home/home_screen.dart';
+import '../screens/meals/meals_screen.dart';
+import '../screens/gym/gym_screen.dart';
 
 class NavigationHelper {
-  /// Navigate to the appropriate category screen based on category name
-  static void navigateToCategory(BuildContext context, String categoryName) {
-    if (!context.mounted) return;
-
-    switch (categoryName.toLowerCase()) {
-      case 'meals':
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const MealsScreen(),
-            settings: const RouteSettings(name: '/meals'), // Set route name for identification
-          ),
-          (Route<dynamic> route) => false, // Remove all previous routes
-        );
-        break;
-      case 'gym':
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const GymScreen(),
-            settings: const RouteSettings(name: '/gym'), // Set route name for identification
-          ),
-          (Route<dynamic> route) => false, // Remove all previous routes
-        );
-        break;
-      default:
-        // For unimplemented categories, go to home screen
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (context) => const HomeScreen(),
-            settings: const RouteSettings(name: '/home'),
-          ),
-          (Route<dynamic> route) => false,
-        );
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('$categoryName screen coming soon!'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        break;
-    }
-  }
-
-  /// Navigate to login screen
+  /// Navigate to login screen with optional intended destination
   static void navigateToLogin(BuildContext context, {String? intendedDestination}) {
     Navigator.pushAndRemoveUntil(
       context,
@@ -58,7 +13,7 @@ class NavigationHelper {
         builder: (context) => LoginScreen(intendedDestination: intendedDestination),
         settings: const RouteSettings(name: '/login'),
       ),
-      (Route<dynamic> route) => false, // Remove all previous routes
+      (route) => false, // Remove all previous routes
     );
   }
 
@@ -70,18 +25,160 @@ class NavigationHelper {
         builder: (context) => const HomeScreen(),
         settings: const RouteSettings(name: '/home'),
       ),
-      (Route<dynamic> route) => false, // Remove all previous routes
+      (route) => false, // Remove all previous routes
     );
   }
 
-  /// Check if a category screen exists
-  static bool categoryScreenExists(String categoryName) {
-    switch (categoryName.toLowerCase()) {
+  /// Navigate to meals screen
+  static void navigateToMeals(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const MealsScreen(),
+        settings: const RouteSettings(name: '/meals'),
+      ),
+    );
+  }
+
+  /// Navigate to gym screen
+  static void navigateToGym(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const GymScreen(),
+        settings: const RouteSettings(name: '/gym'),
+      ),
+    );
+  }
+
+  /// Navigate to specific category after authentication
+  static void navigateToCategory(BuildContext context, String? category) {
+    switch (category?.toLowerCase()) {
       case 'meals':
+        navigateToMeals(context);
+        break;
       case 'gym':
-        return true;
+        navigateToGym(context);
+        break;
       default:
-        return false;
+        navigateToHome(context);
+        break;
+    }
+  }
+
+  /// Get the current route name
+  static String? getCurrentRouteName(BuildContext context) {
+    final route = ModalRoute.of(context);
+    return route?.settings.name;
+  }
+
+  /// Check if currently on a specific route
+  static bool isOnRoute(BuildContext context, String routeName) {
+    return getCurrentRouteName(context) == routeName;
+  }
+
+  /// Navigate back with fallback to home if no previous route
+  static void navigateBackOrHome(BuildContext context) {
+    if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    } else {
+      navigateToHome(context);
+    }
+  }
+
+  /// Show a confirmation dialog before navigation (useful for logout, etc.)
+  static Future<bool> showConfirmationDialog({
+    required BuildContext context,
+    required String title,
+    required String message,
+    String confirmText = 'Confirm',
+    String cancelText = 'Cancel',
+    Color? confirmColor,
+  }) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: Text(cancelText),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: confirmColor != null
+                  ? ElevatedButton.styleFrom(backgroundColor: confirmColor)
+                  : null,
+              child: Text(
+                confirmText,
+                style: TextStyle(
+                  color: confirmColor != null ? Colors.white : null,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    ) ?? false;
+  }
+
+  /// Navigate with slide transition animation
+  static void navigateWithSlideTransition(
+    BuildContext context,
+    Widget destination, {
+    String? routeName,
+    bool replace = false,
+  }) {
+    final route = PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => destination,
+      settings: RouteSettings(name: routeName),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        const begin = Offset(1.0, 0.0);
+        const end = Offset.zero;
+        const curve = Curves.ease;
+
+        var tween = Tween(begin: begin, end: end).chain(
+          CurveTween(curve: curve),
+        );
+
+        return SlideTransition(
+          position: animation.drive(tween),
+          child: child,
+        );
+      },
+    );
+
+    if (replace) {
+      Navigator.pushReplacement(context, route);
+    } else {
+      Navigator.push(context, route);
+    }
+  }
+
+  /// Navigate with fade transition animation
+  static void navigateWithFadeTransition(
+    BuildContext context,
+    Widget destination, {
+    String? routeName,
+    bool replace = false,
+  }) {
+    final route = PageRouteBuilder(
+      pageBuilder: (context, animation, secondaryAnimation) => destination,
+      settings: RouteSettings(name: routeName),
+      transitionsBuilder: (context, animation, secondaryAnimation, child) {
+        return FadeTransition(
+          opacity: animation,
+          child: child,
+        );
+      },
+    );
+
+    if (replace) {
+      Navigator.pushReplacement(context, route);
+    } else {
+      Navigator.push(context, route);
     }
   }
 }

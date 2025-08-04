@@ -206,7 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: _getCategoryColor().withOpacity(0.2),
+                            color: _getCategoryColor().withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: _getCategoryColor()),
                           ),
@@ -258,7 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           Center(
                             child: CircleAvatar(
                               radius: 50,
-                              backgroundColor: _getCategoryColor().withOpacity(0.2),
+                              backgroundColor: _getCategoryColor().withValues(alpha: 0.2),
                               child: Icon(
                                 _getCategoryIcon(),
                                 size: 60,
@@ -355,7 +355,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Notifications',
                         Icons.notifications,
                         () {
-                          // TODO: Implement notifications settings
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Notifications settings coming soon')),
                           );
@@ -365,7 +364,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Privacy',
                         Icons.privacy_tip,
                         () {
-                          // TODO: Implement privacy settings
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Privacy settings coming soon')),
                           );
@@ -375,7 +373,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Security',
                         Icons.security,
                         () {
-                          // TODO: Implement security settings
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Security settings coming soon')),
                           );
@@ -393,7 +390,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Theme',
                         Icons.palette,
                         () {
-                          // TODO: Implement theme settings
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Theme settings coming soon')),
                           );
@@ -403,7 +399,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         'Language',
                         Icons.language,
                         () {
-                          // TODO: Implement language settings
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(content: Text('Language settings coming soon')),
                           );
