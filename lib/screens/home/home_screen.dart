@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'home_item.dart';
 import '../../widgets/navbar.dart';
 import '../../models/category.dart';
@@ -79,10 +80,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     String categoryName = title.toLowerCase();
 
-    // Only require authentication for actual categories (not "Coming Soon")
+    // Only require authentication for real categories (not "Coming Soon").
+    // If already authenticated, go straight to the category dashboard; otherwise go to login.
     if (categoryName != 'coming soon') {
-      // Navigate to login screen for categories - login/signup will handle direct navigation to category
-      NavigationHelper.navigateToLogin(context, intendedDestination: categoryName);
+      final isAuthenticated =
+          Supabase.instance.client.auth.currentSession != null;
+
+      if (isAuthenticated) {
+        NavigationHelper.navigateToCategory(context, categoryName);
+      } else {
+        NavigationHelper.navigateToLogin(
+          context,
+          intendedDestination: categoryName,
+        );
+      }
     }
   }
 

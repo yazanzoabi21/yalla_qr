@@ -1,10 +1,14 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../exceptions/category_not_registered_exception.dart';
+import 'qr_code_service.dart';
 
 class AuthService {
   final SupabaseClient _client;
+  late final QRCodeService _qrCodeService;
 
-  AuthService(this._client);
+  AuthService(this._client) {
+    _qrCodeService = QRCodeService(_client);
+  }
   Future<void> signUpUser({
     required String email,
     required String password,
@@ -69,22 +73,54 @@ class AuthService {
       'updated_at': DateTime.now().toIso8601String(),
     };
 
-    // Check if account already exists for this user
-    final existingAccount = await _client
+    // Check if account already exists for this user AND category
+    // If category is specified, check for that specific category
+    // If no category, check for accounts without category
+    final accountQuery = _client
         .from('accounts')
         .select('id')
-        .eq('owner_id', userId)
-        .maybeSingle();
+        .eq('owner_id', userId);
+    
+    if (categoryId != null) {
+      accountQuery.eq('category_id', categoryId);
+    } else {
+      accountQuery.is_('category_id', null);
+    }
+    
+    final existingAccount = await accountQuery.maybeSingle();
 
+    String accountId;
     if (existingAccount != null) {
-      // Update existing account instead of creating new one
-      await _client
+      // Update existing account for this category
+      final updateQuery = _client
           .from('accounts')
           .update(accountData)
           .eq('owner_id', userId);
+      
+      if (categoryId != null) {
+        updateQuery.eq('category_id', categoryId);
+      } else {
+        updateQuery.is_('category_id', null);
+      }
+      
+      await updateQuery;
+      accountId = existingAccount['id'] as String;
     } else {
-      // Insert new account
-      await _client.from('accounts').insert(accountData);
+      // Insert new account for this category
+      final newAccount = await _client
+          .from('accounts')
+          .insert(accountData)
+          .select('id')
+          .single();
+      accountId = newAccount['id'] as String;
+      
+      // Generate QR code for new account
+      try {
+        await _qrCodeService.createQRCodeForAccount(accountId);
+      } catch (e) {
+        // Log error but don't fail the signup
+        print('Warning: Failed to create QR code for account: $e');
+      }
     }
   }
 

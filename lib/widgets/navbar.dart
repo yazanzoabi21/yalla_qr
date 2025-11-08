@@ -5,6 +5,7 @@ import '../screens/settings/settings_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:async';
 import '../utils/navigation_helper.dart';
+import '../services/secure_storage_service.dart';
 
 class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final bool showLoginButton;
@@ -192,12 +193,19 @@ class _NavbarState extends State<Navbar> {
           // Determine the current category from the current route
           String? currentCategory = _getCurrentCategory(context);
           
+          debugPrint('🚪 Logging out user...');
+          
           // Use the enhanced logout with complete session clearing
           await _authService.signOut();
+          // Clear session flag from secure storage
+          await SecureStorageService.clearSession();
+          
+          debugPrint('✅ Session cleared from storage');
           
           // Verify logout was successful
           final sessionAfterLogout = _authService.getCurrentSession();
           if (sessionAfterLogout != null) {
+            debugPrint('⚠️ Session still exists, forcing auth reset');
             await _authService.forceAuthReset();
           }
           

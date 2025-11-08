@@ -4,6 +4,8 @@ import '../../services/auth_service.dart';
 import '../../exceptions/category_not_registered_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/navigation_helper.dart';
+import '../../services/secure_storage_service.dart';
+import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   final String? intendedDestination; // The screen to navigate to after login
@@ -544,6 +546,26 @@ class _LoginScreenState extends State<LoginScreen> {
         );
 
         if (!mounted) return;
+
+        // Save Supabase session JSON in secure storage IMMEDIATELY after login
+        final session = Supabase.instance.client.auth.currentSession;
+        if (session != null) {
+          debugPrint('💾 Saving session for user: ${session.user.email}');
+          final sessionJson = jsonEncode(session.toJson());
+          debugPrint('📝 Session JSON length: ${sessionJson.length}');
+          
+          await SecureStorageService.saveSessionJson(sessionJson);
+          
+          // Double-check the session was saved
+          final savedSession = await SecureStorageService.getSessionJson();
+          if (savedSession != null) {
+            debugPrint('✅ Session confirmed saved and retrievable');
+          } else {
+            debugPrint('❌ WARNING: Session was not saved properly!');
+          }
+        } else {
+          debugPrint('⚠️ No session found after login');
+        }
 
         setState(() {
           _isLoading = false;
