@@ -6,6 +6,8 @@ import '../../widgets/navbar.dart';
 import '../../models/category.dart';
 import '../../services/category_service.dart';
 import '../../utils/navigation_helper.dart';
+import '../../services/auth_service.dart';
+import '../../exceptions/category_not_registered_exception.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -81,14 +83,48 @@ class _HomeScreenState extends State<HomeScreen> {
     String categoryName = title.toLowerCase();
 
     // Only require authentication for real categories (not "Coming Soon").
-    // If already authenticated, go straight to the category dashboard; otherwise go to login.
+    // Validate access per category; redirect to login if not permitted.
     if (categoryName != 'coming soon') {
-      final isAuthenticated =
-          Supabase.instance.client.auth.currentSession != null;
+      final client = Supabase.instance.client;
+      final session = client.auth.currentSession;
 
-      if (isAuthenticated) {
+      if (session == null) {
+        // Not authenticated at all -> go to login for this category
+        NavigationHelper.navigateToLogin(
+          context,
+          intendedDestination: categoryName,
+        );
+        return;
+      }
+
+      // Session exists: verify this user has access to the tapped category.
+      try {
+        final authService = AuthService(client);
+        final user = client.auth.currentUser;
+        if (user == null) {
+          // Inconsistent state, require login
+          NavigationHelper.navigateToLogin(
+            context,
+            intendedDestination: categoryName,
+          );
+          return;
+        }
+
+        await authService.validateAccountAccess(user, categoryName);
+        // Access granted for this category
+        if (!mounted) return;
         NavigationHelper.navigateToCategory(context, categoryName);
-      } else {
+      } on CategoryNotRegisteredException {
+        // User is authenticated but not registered for this category.
+        // Navigate to login for this specific category (AuthService already signs out).
+        if (!mounted) return;
+        NavigationHelper.navigateToLogin(
+          context,
+          intendedDestination: categoryName,
+        );
+      } catch (e) {
+        // Any other error: fall back to login flow for this category.
+        if (!mounted) return;
         NavigationHelper.navigateToLogin(
           context,
           intendedDestination: categoryName,

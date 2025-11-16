@@ -6,7 +6,7 @@ class ProductService {
   static final SupabaseClient _supabase = Supabase.instance.client;
 
   /// Get current user's account ID
-  static Future<String?> _getCurrentAccountId() async {
+  static Future<String?> _getCurrentAccountId({String? categoryId}) async {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) {
@@ -14,11 +14,17 @@ class ProductService {
         return null;
       }
 
-      final response = await _supabase
+      final query = _supabase
           .from('accounts')
           .select('id')
-          .eq('owner_id', user.id)
-          .maybeSingle();
+          .eq('owner_id', user.id);
+
+      // If a category is specified, narrow to that account
+      if (categoryId != null) {
+        query.eq('category_id', categoryId);
+      }
+
+      final response = await query.maybeSingle();
 
       if (response != null) {
         final accountId = response['id'] as String;
@@ -37,10 +43,18 @@ class ProductService {
   /// Fetch all products from the database
   static Future<List<Product>> getProducts() async {
     try {
-      debugPrint('🔍 Fetching all products...');
+      debugPrint('🔍 Fetching all products for current account...');
+
+      final accountId = await _getCurrentAccountId();
+      if (accountId == null) {
+        debugPrint('⚠️ No account context; returning empty products list');
+        return [];
+      }
+
       final response = await _supabase
           .from('products')
           .select('id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category, account_id')
+          .eq('account_id', accountId)
           .order('name', ascending: true);
 
       debugPrint('Fetched ${response.length} products');
@@ -57,10 +71,17 @@ class ProductService {
   static Future<List<Product>> getProductsBySubCategory(int subCategoryId) async {
     try {
       debugPrint('🔍 Fetching products for sub-category: $subCategoryId');
+      final accountId = await _getCurrentAccountId();
+      if (accountId == null) {
+        debugPrint('⚠️ No account context; returning empty products list');
+        return [];
+      }
+
       final response = await _supabase
           .from('products')
           .select('id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category, account_id')
           .eq('sub_category', subCategoryId)
+          .eq('account_id', accountId)
           .order('name', ascending: true);
 
       debugPrint('Fetched ${response.length} products for sub-category $subCategoryId');
@@ -215,10 +236,17 @@ class ProductService {
   static Future<List<Product>> searchProducts(String query, {int? subCategoryId}) async {
     try {
       debugPrint('Searching products with query: "$query"');
-      
+      // Restrict to current account products
+      final accountId = await _getCurrentAccountId();
+      if (accountId == null) {
+        debugPrint('⚠️ No account context; returning empty search results');
+        return [];
+      }
+
       var queryBuilder = _supabase
           .from('products')
-          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category');
+          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category')
+          .eq('account_id', accountId);
       
       if (subCategoryId != null) {
         queryBuilder = queryBuilder.eq('sub_category', subCategoryId);

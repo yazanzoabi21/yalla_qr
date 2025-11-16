@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/settings/settings_screen.dart';
+import '../screens/search/search_results_screen.dart';
 import '../services/auth_service.dart';
 import 'dart:async';
 import '../utils/navigation_helper.dart';
@@ -23,6 +24,7 @@ class _NavbarState extends State<Navbar> {
   bool _isAuthenticated = false;
   late final AuthService _authService;
   late final StreamSubscription<AuthState> _authSubscription;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _NavbarState extends State<Navbar> {
   @override
   void dispose() {
     _authSubscription.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -72,16 +75,30 @@ class _NavbarState extends State<Navbar> {
             //     Navigator.pop(context);
             //   },
             // ),
-            const Expanded(
+            Expanded(
               child: TextField(
+                controller: _searchController,
                 textAlignVertical: TextAlignVertical.center,
-                decoration: InputDecoration(
+                decoration: const InputDecoration(
                   hintText: 'Search',
                   hintStyle: TextStyle(color: Colors.grey),
                   border: InputBorder.none,
                   prefixIcon: Icon(Icons.search, color: Colors.grey),
                   contentPadding: EdgeInsets.symmetric(vertical: 0),
                 ),
+                onTap: () {
+                  // Navigate to search screen when tapping the search field
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SearchResultsScreen(
+                        initialQuery: _searchController.text,
+                        categoryId: _getCurrentCategoryId(context),
+                      ),
+                    ),
+                  );
+                },
+                readOnly: true, // Make it read-only so it only acts as a button
               ),
             ),
             PopupMenuButton<String>(
@@ -298,5 +315,13 @@ class _NavbarState extends State<Navbar> {
     }
     
     return null; // Unknown category, will go to home
+  }
+
+  /// Get the current category ID for search filtering
+  String? _getCurrentCategoryId(BuildContext context) {
+    final categoryName = _getCurrentCategory(context);
+    // You may need to map category names to IDs from your database
+    // For now, we'll return the name as it might match the ID
+    return categoryName;
   }
 }

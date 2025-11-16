@@ -223,7 +223,7 @@ class AuthService {
           .maybeSingle();
 
       if (accountResponse == null) {
-        await _client.auth.signOut();
+        // Do NOT sign out here; caller decides navigation.
         throw Exception('No account found for this user');
       }
 
@@ -252,8 +252,7 @@ class AuthService {
         .maybeSingle();
 
     if (accountResponse == null) {
-      // User exists but not registered for this category
-      await _client.auth.signOut(); // Sign out the user
+      // User exists but not registered for this category. Do NOT sign out; let UI handle flow.
       throw CategoryNotRegisteredException(
         'Your account is not registered for "$categoryName". Please register for this category first.',
         categoryName,

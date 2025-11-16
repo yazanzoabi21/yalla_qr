@@ -3,19 +3,152 @@ import 'package:flutter/services.dart';
 import '../models/index.dart';
 import '../services/index.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:qr_flutter/qr_flutter.dart';
+import 'package:printing/printing.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'dart:ui' as ui;
 
 /// Widget to display QR code information and statistics
 class QRCodeCard extends StatelessWidget {
   final QRCodeModel qrCode;
   final VoidCallback? onRefresh;
   final VoidCallback? onViewDetails;
-
+  
   const QRCodeCard({
     super.key,
     required this.qrCode,
     this.onRefresh,
     this.onViewDetails,
   });
+
+  Future<void> _printQr(BuildContext context) async {
+    try {
+      // Show loading indicator
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Preparing QR code for printing...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      await Printing.layoutPdf(
+        onLayout: (format) async {
+          final doc = pw.Document();
+          // Render QR to image bytes using QrPainter for high quality
+          final painter = QrPainter(
+            data: qrCode.code,
+            version: QrVersions.auto,
+            gapless: true,
+            errorCorrectionLevel: QrErrorCorrectLevel.H,
+          );
+          final ByteData? pngBytes = await painter.toImageData(2048, format: ui.ImageByteFormat.png);
+          final bytes = pngBytes?.buffer.asUint8List() ?? Uint8List(0);
+
+          doc.addPage(
+            pw.Page(
+              build: (pw.Context ctx) => pw.Center(
+                child: pw.Column(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.Text(
+                      'QR Code',
+                      style: pw.TextStyle(
+                        fontSize: 24,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 20),
+                    if (bytes.isNotEmpty)
+                      pw.Container(
+                        width: 300,
+                        height: 300,
+                        decoration: pw.BoxDecoration(
+                          border: pw.Border.all(width: 2),
+                          borderRadius: pw.BorderRadius.circular(8),
+                        ),
+                        padding: const pw.EdgeInsets.all(16),
+                        child: pw.Image(
+                          pw.MemoryImage(bytes),
+                          fit: pw.BoxFit.contain,
+                        ),
+                      ),
+                    pw.SizedBox(height: 20),
+                    pw.Text(
+                      qrCode.code,
+                      style: pw.TextStyle(
+                        fontSize: 14,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Text(
+                      'Scan this QR code to access your information',
+                      style: pw.TextStyle(
+                        fontSize: 12,
+                        color: PdfColor.fromInt(0xFF616161),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
+          return doc.save();
+        },
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to print QR: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  Future<void> _shareQr(BuildContext context) async {
+    try {
+      final painter = QrPainter(
+        data: qrCode.code,
+        version: QrVersions.auto,
+        gapless: true,
+        errorCorrectionLevel: QrErrorCorrectLevel.H,
+      );
+      final ByteData? pngBytes = await painter.toImageData(1024, format: ui.ImageByteFormat.png);
+      final bytes = pngBytes?.buffer.asUint8List();
+
+      if (bytes != null) {
+        await Printing.sharePdf(
+          bytes: bytes,
+          filename: 'qr_code_${qrCode.code}.png',
+        );
+      }
+    } catch (e) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to share QR: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   void _copyToClipboard(BuildContext context, String text) {
     Clipboard.setData(ClipboardData(text: text));
@@ -56,58 +189,191 @@ class QRCodeCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             
-            // QR Code placeholder (will show actual QR with qr_flutter package)
-            Container(
-              width: double.infinity,
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300, width: 2),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.qr_code_2,
-                    size: 120,
-                    color: Colors.grey.shade400,
+            // Actual QR Code with enhanced design
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      Colors.blue.shade50,
+                      Colors.purple.shade50,
+                    ],
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'QR Code Preview',
-                    style: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 14,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.blue.withOpacity(0.1),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // QR Code container with white background
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.05),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: QrImageView(
+                        data: qrCode.code,
+                        version: QrVersions.auto,
+                        size: 220,
+                        eyeStyle: QrEyeStyle(
+                          eyeShape: QrEyeShape.square,
+                          color: Colors.blue.shade900,
+                        ),
+                        dataModuleStyle: QrDataModuleStyle(
+                          dataModuleShape: QrDataModuleShape.square,
+                          color: Colors.black87,
+                        ),
+                        backgroundColor: Colors.white,
+                        embeddedImage: null,
+                        embeddedImageStyle: const QrEmbeddedImageStyle(
+                          size: Size(40, 40),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    
+                    // Action buttons
+Column(
+  mainAxisSize: MainAxisSize.min,
+  children: [
+    ElevatedButton.icon(
+      onPressed: () => _printQr(context),
+      icon: const Icon(Icons.print, size: 20),
+      label: const Text('Print QR'),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.blue.shade600,
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(
+          horizontal: 24,
+          vertical: 12,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        elevation: 2,
+      ),
+    ),
+    const SizedBox(height: 12),
+    OutlinedButton.icon(
+      onPressed: () => _shareQr(context),
+      icon: const Icon(Icons.share, size: 20),
+      label: const Text('Share'),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.blue.shade700,
+        side: BorderSide(color: Colors.blue.shade600, width: 2),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 24,
+          vertical: 12,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    ),
+  ],
+),
+                    const SizedBox(height: 12),
+                    
+                    // Scan instruction text
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.qr_code_scanner,
+                            size: 16,
+                            color: Colors.blue.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Scan to view details',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.blue.shade900,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             
-            const SizedBox(height: 16),
+            const SizedBox(height: 24),
             
-            // QR Code details
+            // QR Code details with enhanced design
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.grey.shade50,
+                    Colors.grey.shade100,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: Colors.grey.shade200,
+                  width: 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Icon(
+                          Icons.key,
+                          color: Colors.blue.shade700,
+                          size: 20,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Code',
+                              'QR Code',
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 13,
                                 color: Colors.grey.shade600,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
                             const SizedBox(height: 4),
@@ -116,26 +382,51 @@ class QRCodeCard extends StatelessWidget {
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'monospace',
+                                fontSize: 13,
                               ),
                             ),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.copy, size: 20),
+                        icon: Icon(
+                          Icons.copy_rounded,
+                          size: 22,
+                          color: Colors.blue.shade700,
+                        ),
                         onPressed: () => _copyToClipboard(context, qrCode.code),
                         tooltip: 'Copy code',
+                        style: IconButton.styleFrom(
+                          backgroundColor: Colors.blue.shade50,
+                        ),
                       ),
                     ],
                   ),
-                  const Divider(height: 24),
+                  const SizedBox(height: 16),
+                  Divider(height: 1, color: Colors.grey.shade300),
+                  const SizedBox(height: 16),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _buildStat('Total Scans', qrCode.scanCount.toString()),
-                      _buildStat(
-                        'Created',
-                        _formatDate(qrCode.createdAt),
+                      Expanded(
+                        child: _buildEnhancedStat(
+                          'Total Scans',
+                          qrCode.scanCount.toString(),
+                          Icons.qr_code_scanner,
+                          Colors.blue,
+                        ),
+                      ),
+                      Container(
+                        width: 1,
+                        height: 60,
+                        color: Colors.grey.shade300,
+                      ),
+                      Expanded(
+                        child: _buildEnhancedStat(
+                          'Created',
+                          _formatDate(qrCode.createdAt),
+                          Icons.calendar_today,
+                          Colors.green,
+                        ),
                       ),
                     ],
                   ),
@@ -181,6 +472,41 @@ class QRCodeCard extends StatelessWidget {
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEnhancedStat(String label, String value, IconData icon, Color color) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Icon(icon, color: color, size: 24),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.grey.shade600,
+            fontWeight: FontWeight.w500,
+          ),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: color.withOpacity(0.9),
+          ),
+          textAlign: TextAlign.center,
         ),
       ],
     );
