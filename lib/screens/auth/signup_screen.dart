@@ -40,7 +40,7 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _phoneErrorText;
   String? _descriptionErrorText;
   String? _locationAddressErrorText;
-  // String? _selectedCategoryId;
+  bool _isOrganization = false;
 
   // List of countries with ISO codes and flags
   final List<Map<String, String>> _countries = [
@@ -61,8 +61,6 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void initState() {
     super.initState();
-    // Remove aggressive listeners that cause crashes
-    // Error clearing will be handled by onChanged callbacks in the TextFormFields
   }
 
   void _clearFields() {
@@ -260,6 +258,111 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
 
                 const SizedBox(height: 30),
+
+                // Account Type Toggle
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withValues(alpha: 0.1),
+                        blurRadius: 15,
+                        offset: const Offset(0, 5),
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isOrganization = false;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: !_isOrganization
+                                  ? Colors.green
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.person,
+                                  color: !_isOrganization
+                                      ? Colors.white
+                                      : Colors.grey,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'User',
+                                  style: TextStyle(
+                                    color: !_isOrganization
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: GestureDetector(
+                          onTap: () {
+                            setState(() {
+                              _isOrganization = true;
+                            });
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            decoration: BoxDecoration(
+                              color: _isOrganization
+                                  ? Colors.green
+                                  : Colors.transparent,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.business,
+                                  color: _isOrganization
+                                      ? Colors.white
+                                      : Colors.grey,
+                                  size: 20,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Organization',
+                                  style: TextStyle(
+                                    color: _isOrganization
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
 
                 // Signup Form
                 Container(
@@ -550,7 +653,9 @@ class _SignupScreenState extends State<SignupScreen> {
                           validator: _validateConfirmPassword,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted && _confirmPasswordError && value.isNotEmpty) {
+                            if (mounted &&
+                                _confirmPasswordError &&
+                                value.isNotEmpty) {
                               setState(() {
                                 _confirmPasswordError = false;
                                 _confirmPasswordErrorText = null;
@@ -722,7 +827,9 @@ class _SignupScreenState extends State<SignupScreen> {
                           validator: _validateDescription,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted && _descriptionError && value.isNotEmpty) {
+                            if (mounted &&
+                                _descriptionError &&
+                                value.isNotEmpty) {
                               setState(() {
                                 _descriptionError = false;
                                 _descriptionErrorText = null;
@@ -787,7 +894,9 @@ class _SignupScreenState extends State<SignupScreen> {
                           validator: _validateLocationAddress,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted && _locationAddressError && value.isNotEmpty) {
+                            if (mounted &&
+                                _locationAddressError &&
+                                value.isNotEmpty) {
                               setState(() {
                                 _locationAddressError = false;
                                 _locationAddressErrorText = null;
@@ -1068,6 +1177,7 @@ class _SignupScreenState extends State<SignupScreen> {
           description: _descriptionController.text,
           locationAddress: _locationAddressController.text,
           categoryName: widget.intendedDestination, // Associate with category
+          role: _isOrganization ? 'ORG' : 'USER', // Set role based on toggle
         );
 
         if (!mounted) return;
@@ -1075,9 +1185,11 @@ class _SignupScreenState extends State<SignupScreen> {
         // Verify user is authenticated and has token after signup
         final currentUser = authService.getCurrentUser();
         final sessionInfo = authService.getSessionInfo();
-        
+
         if (currentUser == null || !sessionInfo['sessionValid']) {
-          throw Exception('Authentication failed after signup - no valid session created');
+          throw Exception(
+            'Authentication failed after signup - no valid session created',
+          );
         }
 
         setState(() {
@@ -1103,7 +1215,10 @@ class _SignupScreenState extends State<SignupScreen> {
         if (!mounted) return;
         if (widget.intendedDestination != null) {
           // Navigate directly to the category screen after signup with fresh token
-          NavigationHelper.navigateToCategory(context, widget.intendedDestination!);
+          NavigationHelper.navigateToCategory(
+            context,
+            widget.intendedDestination!,
+          );
         } else {
           Navigator.pop(context);
         }

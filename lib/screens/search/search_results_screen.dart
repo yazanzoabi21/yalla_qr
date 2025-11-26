@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/search_result.dart';
 import '../../models/product.dart';
 import '../../models/category.dart';
 import '../../models/sub_category.dart';
 import '../../services/search_service.dart';
+import '../../services/auth_service.dart';
+import '../../services/sub_category_service.dart';
+import '../../utils/navigation_helper.dart';
+import '../../exceptions/category_not_registered_exception.dart';
 import '../meals/meal_detail_screen.dart';
 import '../meals/meals_screen.dart';
 import '../gym/gym_screen.dart';
@@ -12,11 +17,13 @@ import '../gym/gym_screen.dart';
 class SearchResultsScreen extends StatefulWidget {
   final String initialQuery;
   final String? categoryId;
+  final bool categoriesOnly;
 
   const SearchResultsScreen({
     super.key,
     this.initialQuery = '',
     this.categoryId,
+    this.categoriesOnly = false,
   });
 
   @override
@@ -89,7 +96,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     try {
       List<SearchResult> results;
       
-      if (widget.categoryId != null) {
+      if (widget.categoriesOnly) {
+        // Search only categories (for home screen)
+        results = await SearchService.searchCategoriesOnly(query);
+      } else if (widget.categoryId != null) {
         // Search within specific category
         results = await SearchService.searchInCategory(
           query: query,
@@ -139,18 +149,30 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   Future<void> _navigateToProductDetail(Product product) async {
     try {
-      // Create a meal map format that MealDetailScreen expects
+      // Fetch the sub-category details to get proper name, icon, and color
       if (product.subCategory != null) {
+        final subCategory = await SubCategoryService.getSubCategoryById(product.subCategory!);
+        
+        if (subCategory == null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Sub-category not found')),
+          );
+          return;
+        }
+
+        // Create a meal map format that MealDetailScreen expects
         final mealMap = {
-          'id': product.subCategory!,
-          'name': 'Products',
-          'icon': Icons.restaurant.codePoint,
-          'color': Colors.deepOrange.value,
+          'id': subCategory.id.toString(),
+          'name': subCategory.name ?? 'Products',
+          'icon': subCategory.icon,
+          'color': subCategory.color,
+          'description': subCategory.description ?? '',
         };
 
         if (!mounted) return;
         
-        Navigator.push(
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => MealDetailScreen(
@@ -164,6 +186,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             ),
           ),
         );
+        
+        // After returning from detail screen, pop back to refresh the parent screen
+        if (!mounted) return;
+        Navigator.pop(context, true); // Return true to indicate data was changed
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Product details not available')),
@@ -177,8 +203,56 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     }
   }
 
-  void _navigateToCategoryScreen(Category category) {
-    // Navigate to the appropriate category screen
+  void _navigateToCategoryScreen(Category category) async {
+    // Check if user is authenticated
+    final authService = AuthService(Supabase.instance.client);
+    final isAuthenticated = authService.isAuthenticated();
+
+    if (!isAuthenticated) {
+      // User is not logged in, navigate to login with intended destination
+      NavigationHelper.navigateToLogin(
+        context,
+        intendedDestination: category.name.toLowerCase(),
+      );
+      return;
+    }
+
+    // User is authenticated, check if they have access to this specific category
+    try {
+      final currentUser = Supabase.instance.client.auth.currentUser;
+      if (currentUser != null) {
+        await authService.validateAccountAccess(currentUser, category.name);
+      }
+    } on CategoryNotRegisteredException catch (e) {
+      // User is logged in but not registered for this category
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.message),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+      
+      // Navigate to login for this category
+      NavigationHelper.navigateToLogin(
+        context,
+        intendedDestination: category.name.toLowerCase(),
+      );
+      return;
+    } catch (e) {
+      // Other errors
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // User has access, navigate to the appropriate category screen
     Widget targetScreen;
     
     switch (category.name.toLowerCase()) {
@@ -205,15 +279,16 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     try {
       // Create a meal map format that MealDetailScreen expects
       final mealMap = {
-        'id': subCategory.id,
+        'id': subCategory.id.toString(),
         'name': subCategory.name ?? 'Sub-Category',
-        'icon': subCategory.icon.codePoint,
-        'color': subCategory.color.value,
+        'icon': subCategory.icon,
+        'color': subCategory.color,
+        'description': subCategory.description ?? '',
       };
 
       if (!mounted) return;
       
-      Navigator.push(
+      await Navigator.push(
         context,
         MaterialPageRoute(
           builder: (context) => MealDetailScreen(
@@ -227,6 +302,10 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           ),
         ),
       );
+      
+      // After returning from detail screen, pop back to refresh the parent screen
+      if (!mounted) return;
+      Navigator.pop(context, true); // Return true to indicate data was changed
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -258,9 +337,11 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             autofocus: true,
             textAlignVertical: TextAlignVertical.center,
             decoration: InputDecoration(
-              hintText: widget.categoryId != null 
-                  ? 'Search in this category...' 
-                  : 'Search for products, categories...',
+              hintText: widget.categoriesOnly 
+                  ? 'Search categories...'
+                  : (widget.categoryId != null 
+                      ? 'Search in this category...' 
+                      : 'Search for products, categories...'),
               hintStyle: const TextStyle(color: Colors.grey, fontSize: 15),
               border: InputBorder.none,
               prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 22),
@@ -379,7 +460,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 48.0),
               child: Text(
-                'Type something to search for products, categories, or sub-categories',
+                widget.categoriesOnly
+                    ? 'Type something to search for categories'
+                    : 'Type something to search for products, categories, or sub-categories',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,

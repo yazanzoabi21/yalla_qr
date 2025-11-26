@@ -42,6 +42,24 @@ class SearchService {
     }
   }
 
+  /// Search only categories (for home screen)
+  static Future<List<SearchResult>> searchCategoriesOnly(String query) async {
+    if (query.trim().isEmpty) {
+      return [];
+    }
+
+    debugPrint('🔍 Starting category-only search for: "$query"');
+    
+    try {
+      final results = await _searchCategories(query);
+      debugPrint('✅ Found ${results.length} categories');
+      return results;
+    } catch (e) {
+      debugPrint('❌ Error in category search: $e');
+      rethrow;
+    }
+  }
+
   /// Search products with relevance scoring
   static Future<List<SearchResult>> _searchProducts(String query) async {
     try {

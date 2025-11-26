@@ -17,6 +17,7 @@ class AuthService {
     String? description,
     String? locationAddress,
     String? categoryName, // Add category name parameter
+    String? role, // Optional role (e.g. 'ADMIN') - should be used carefully
   }) async {
     final AuthResponse response = await _client.auth.signUp(
       email: email,
@@ -53,7 +54,7 @@ class AuthService {
       }
     }
 
-    final accountData = {
+    final Map<String, dynamic> accountData = {
       'owner_id': userId,
       'email': email.trim(),
       'name': name.trim(),
@@ -72,6 +73,11 @@ class AuthService {
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
     };
+
+    // Only set role explicitly when provided. By default the DB will use 'USER'.
+    if (role != null && role.trim().isNotEmpty) {
+      accountData['role'] = role.trim().toUpperCase();
+    }
 
     // Check if account already exists for this user AND category
     // If category is specified, check for that specific category
@@ -92,7 +98,7 @@ class AuthService {
     String accountId;
     if (existingAccount != null) {
       // Update existing account for this category
-      final updateQuery = _client
+        final updateQuery = _client
           .from('accounts')
           .update(accountData)
           .eq('owner_id', userId);
@@ -107,7 +113,7 @@ class AuthService {
       accountId = existingAccount['id'] as String;
     } else {
       // Insert new account for this category
-      final newAccount = await _client
+        final newAccount = await _client
           .from('accounts')
           .insert(accountData)
           .select('id')

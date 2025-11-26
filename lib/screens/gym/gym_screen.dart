@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../widgets/navbar.dart';
+import '../../services/category_service.dart';
 
 class GymScreen extends StatefulWidget {
   const GymScreen({super.key});
@@ -9,11 +10,42 @@ class GymScreen extends StatefulWidget {
 }
 
 class _GymScreenState extends State<GymScreen> {
+  String? gymCategoryId;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadGymCategoryId();
+  }
+
+  Future<void> _loadGymCategoryId() async {
+    try {
+      final categories = await CategoryService.getCategories();
+      final gymCategory = categories.firstWhere(
+        (cat) => cat.name.toLowerCase().trim() == 'gym',
+        orElse: () => categories.firstWhere(
+          (cat) => cat.name.toLowerCase().contains('gym'),
+        ),
+      );
+      setState(() {
+        gymCategoryId = gymCategory.id;
+      });
+    } catch (e) {
+      debugPrint('Error loading gym category: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFEFF0F3),
-      appBar: const Navbar(), // Remove showLoginButton since navbar auto-detects auth state
+      appBar: Navbar(
+        categoryId: gymCategoryId,
+        onSearchReturn: () {
+          // Refresh gym data when returning from search if needed
+          setState(() {});
+        },
+      ), // Navbar auto-detects auth state
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(

@@ -10,8 +10,10 @@ import '../services/secure_storage_service.dart';
 
 class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final bool showLoginButton;
+  final VoidCallback? onSearchReturn;
+  final String? categoryId; // The actual category UUID
 
-  const Navbar({super.key, this.showLoginButton = false});
+  const Navbar({super.key, this.showLoginButton = false, this.onSearchReturn, this.categoryId});
 
   @override
   State<Navbar> createState() => _NavbarState();
@@ -86,17 +88,25 @@ class _NavbarState extends State<Navbar> {
                   prefixIcon: Icon(Icons.search, color: Colors.grey),
                   contentPadding: EdgeInsets.symmetric(vertical: 0),
                 ),
-                onTap: () {
+                onTap: () async {
                   // Navigate to search screen when tapping the search field
-                  Navigator.push(
+                  final isHomeScreen = widget.categoryId == null;
+                  
+                  final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => SearchResultsScreen(
                         initialQuery: _searchController.text,
-                        categoryId: _getCurrentCategoryId(context),
+                        categoryId: widget.categoryId,
+                        categoriesOnly: isHomeScreen, // Only show categories on home screen
                       ),
                     ),
                   );
+                  
+                  // If data was changed, trigger the callback
+                  if (result == true && widget.onSearchReturn != null) {
+                    widget.onSearchReturn!();
+                  }
                 },
                 readOnly: true, // Make it read-only so it only acts as a button
               ),
@@ -315,13 +325,5 @@ class _NavbarState extends State<Navbar> {
     }
     
     return null; // Unknown category, will go to home
-  }
-
-  /// Get the current category ID for search filtering
-  String? _getCurrentCategoryId(BuildContext context) {
-    final categoryName = _getCurrentCategory(context);
-    // You may need to map category names to IDs from your database
-    // For now, we'll return the name as it might match the ID
-    return categoryName;
   }
 }

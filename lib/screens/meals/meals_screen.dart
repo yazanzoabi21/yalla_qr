@@ -166,7 +166,13 @@ class _MealsScreenState extends State<MealsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
-      appBar: const Navbar(),
+      appBar: Navbar(
+        categoryId: mealsCategory?.id,
+        onSearchReturn: () {
+          // Refresh product counts when returning from search
+          _loadProductCounts();
+        },
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20.0),
         child: _buildBody(),
