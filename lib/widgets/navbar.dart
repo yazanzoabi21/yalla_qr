@@ -12,8 +12,17 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final bool showLoginButton;
   final VoidCallback? onSearchReturn;
   final String? categoryId; // The actual category UUID
+  final bool showScanButton;
+  final VoidCallback? onScanPressed;
 
-  const Navbar({super.key, this.showLoginButton = false, this.onSearchReturn, this.categoryId});
+  const Navbar({
+    super.key,
+    this.showLoginButton = false,
+    this.onSearchReturn,
+    this.categoryId,
+    this.showScanButton = false,
+    this.onScanPressed,
+  });
 
   @override
   State<Navbar> createState() => _NavbarState();
@@ -111,6 +120,12 @@ class _NavbarState extends State<Navbar> {
                 readOnly: true, // Make it read-only so it only acts as a button
               ),
             ),
+            if (widget.showScanButton && widget.onScanPressed != null)
+              IconButton(
+                icon: const Icon(Icons.qr_code_scanner, color: Colors.grey),
+                onPressed: widget.onScanPressed,
+                tooltip: 'Scan QR Code',
+              ),
             PopupMenuButton<String>(
               icon: const Icon(Icons.menu, color: Colors.grey),
               onSelected: (String value) {

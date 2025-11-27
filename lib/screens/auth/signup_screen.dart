@@ -40,7 +40,6 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _phoneErrorText;
   String? _descriptionErrorText;
   String? _locationAddressErrorText;
-  bool _isOrganization = false;
 
   // List of countries with ISO codes and flags
   final List<Map<String, String>> _countries = [
@@ -258,111 +257,6 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
 
                 const SizedBox(height: 30),
-
-                // Account Type Toggle
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.grey.withValues(alpha: 0.1),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isOrganization = false;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: !_isOrganization
-                                  ? Colors.green
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.person,
-                                  color: !_isOrganization
-                                      ? Colors.white
-                                      : Colors.grey,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'User',
-                                  style: TextStyle(
-                                    color: !_isOrganization
-                                        ? Colors.white
-                                        : Colors.grey,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: GestureDetector(
-                          onTap: () {
-                            setState(() {
-                              _isOrganization = true;
-                            });
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            decoration: BoxDecoration(
-                              color: _isOrganization
-                                  ? Colors.green
-                                  : Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.business,
-                                  color: _isOrganization
-                                      ? Colors.white
-                                      : Colors.grey,
-                                  size: 20,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Organization',
-                                  style: TextStyle(
-                                    color: _isOrganization
-                                        ? Colors.white
-                                        : Colors.grey,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                const SizedBox(height: 20),
 
                 // Signup Form
                 Container(
@@ -1177,7 +1071,7 @@ class _SignupScreenState extends State<SignupScreen> {
           description: _descriptionController.text,
           locationAddress: _locationAddressController.text,
           categoryName: widget.intendedDestination, // Associate with category
-          role: _isOrganization ? 'ORG' : 'USER', // Set role based on toggle
+          role: 'ORG', // All new accounts are organizations
         );
 
         if (!mounted) return;

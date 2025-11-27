@@ -41,6 +41,7 @@ dependencies:
   qr_flutter: ^4.1.0
   printing: ^5.13.4
   pdf: ^3.11.1
+  qr_code_scanner_plus: 2.0.14
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.

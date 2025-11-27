@@ -14,7 +14,7 @@ class QRCodeCard extends StatelessWidget {
   final QRCodeModel qrCode;
   final VoidCallback? onRefresh;
   final VoidCallback? onViewDetails;
-  
+
   const QRCodeCard({
     super.key,
     required this.qrCode,
@@ -56,7 +56,10 @@ class QRCodeCard extends StatelessWidget {
             gapless: true,
             errorCorrectionLevel: QrErrorCorrectLevel.H,
           );
-          final ByteData? pngBytes = await painter.toImageData(2048, format: ui.ImageByteFormat.png);
+          final ByteData? pngBytes = await painter.toImageData(
+            2048,
+            format: ui.ImageByteFormat.png,
+          );
           final bytes = pngBytes?.buffer.asUint8List() ?? Uint8List(0);
 
           doc.addPage(
@@ -130,7 +133,10 @@ class QRCodeCard extends StatelessWidget {
         gapless: true,
         errorCorrectionLevel: QrErrorCorrectLevel.H,
       );
-      final ByteData? pngBytes = await painter.toImageData(1024, format: ui.ImageByteFormat.png);
+      final ByteData? pngBytes = await painter.toImageData(
+        1024,
+        format: ui.ImageByteFormat.png,
+      );
       final bytes = pngBytes?.buffer.asUint8List();
 
       if (bytes != null) {
@@ -175,9 +181,9 @@ class QRCodeCard extends StatelessWidget {
               children: [
                 Text(
                   'Your QR Code',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 if (onRefresh != null)
                   IconButton(
@@ -188,7 +194,7 @@ class QRCodeCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            
+
             // Actual QR Code with enhanced design
             Center(
               child: Container(
@@ -197,10 +203,7 @@ class QRCodeCard extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Colors.blue.shade50,
-                      Colors.purple.shade50,
-                    ],
+                    colors: [Colors.blue.shade50, Colors.purple.shade50],
                   ),
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
@@ -248,49 +251,52 @@ class QRCodeCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    
+
                     // Action buttons
-Column(
-  mainAxisSize: MainAxisSize.min,
-  children: [
-    ElevatedButton.icon(
-      onPressed: () => _printQr(context),
-      icon: const Icon(Icons.print, size: 20),
-      label: const Text('Print QR'),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue.shade600,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 12,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-        elevation: 2,
-      ),
-    ),
-    const SizedBox(height: 12),
-    OutlinedButton.icon(
-      onPressed: () => _shareQr(context),
-      icon: const Icon(Icons.share, size: 20),
-      label: const Text('Share'),
-      style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.blue.shade700,
-        side: BorderSide(color: Colors.blue.shade600, width: 2),
-        padding: const EdgeInsets.symmetric(
-          horizontal: 24,
-          vertical: 12,
-        ),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-    ),
-  ],
-),
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: () => _printQr(context),
+                          icon: const Icon(Icons.print, size: 20),
+                          label: const Text('Print QR'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue.shade600,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => _shareQr(context),
+                          icon: const Icon(Icons.share, size: 20),
+                          label: const Text('Share'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.blue.shade700,
+                            side: BorderSide(
+                              color: Colors.blue.shade600,
+                              width: 2,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24,
+                              vertical: 12,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
-                    
+
                     // Scan instruction text
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -325,9 +331,9 @@ Column(
                 ),
               ),
             ),
-            
+
             const SizedBox(height: 24),
-            
+
             // QR Code details with enhanced design
             Container(
               padding: const EdgeInsets.all(20),
@@ -335,16 +341,10 @@ Column(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    Colors.grey.shade50,
-                    Colors.grey.shade100,
-                  ],
+                  colors: [Colors.grey.shade50, Colors.grey.shade100],
                 ),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: Colors.grey.shade200,
-                  width: 1,
-                ),
+                border: Border.all(color: Colors.grey.shade200, width: 1),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -433,7 +433,7 @@ Column(
                 ],
               ),
             ),
-            
+
             if (onViewDetails != null) ...[
               const SizedBox(height: 16),
               SizedBox(
@@ -460,24 +460,23 @@ Column(
       children: [
         Text(
           label,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey.shade600,
-          ),
+          style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
         ),
         const SizedBox(height: 4),
         Text(
           value,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
         ),
       ],
     );
   }
 
-  Widget _buildEnhancedStat(String label, String value, IconData icon, Color color) {
+  Widget _buildEnhancedStat(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Column(
       children: [
         Container(
@@ -537,11 +536,7 @@ class QRCodeGenerator extends StatefulWidget {
   final String accountId;
   final Function(QRCodeModel)? onGenerated;
 
-  const QRCodeGenerator({
-    super.key,
-    required this.accountId,
-    this.onGenerated,
-  });
+  const QRCodeGenerator({super.key, required this.accountId, this.onGenerated});
 
   @override
   State<QRCodeGenerator> createState() => _QRCodeGeneratorState();
@@ -566,23 +561,27 @@ class _QRCodeGeneratorState extends State<QRCodeGenerator> {
     });
 
     try {
-      final qrCode = await _qrCodeService.getQRCodeByAccountId(widget.accountId);
-      
+      final qrCode = await _qrCodeService.getQRCodeByAccountId(
+        widget.accountId,
+      );
+
       if (qrCode == null) {
         // Generate new QR code
-        final newQRCode = await _qrCodeService.createQRCodeForAccount(widget.accountId);
+        final newQRCode = await _qrCodeService.createQRCodeForAccount(
+          widget.accountId,
+        );
         setState(() {
           _qrCode = newQRCode;
           _isLoading = false;
         });
-        
+
         widget.onGenerated?.call(newQRCode);
       } else {
         setState(() {
           _qrCode = qrCode;
           _isLoading = false;
         });
-        
+
         widget.onGenerated?.call(qrCode);
       }
     } catch (e) {
@@ -611,11 +610,7 @@ class _QRCodeGeneratorState extends State<QRCodeGenerator> {
           padding: const EdgeInsets.all(16),
           child: Column(
             children: [
-              Icon(
-                Icons.error_outline,
-                size: 48,
-                color: Colors.red.shade300,
-              ),
+              Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
               const SizedBox(height: 16),
               Text(
                 'Failed to load QR code',
@@ -651,7 +646,8 @@ class _QRCodeGeneratorState extends State<QRCodeGenerator> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => QRCodeStatisticsScreen(accountId: widget.accountId),
+            builder: (context) =>
+                QRCodeStatisticsScreen(accountId: widget.accountId),
           ),
         );
       },
@@ -663,10 +659,7 @@ class _QRCodeGeneratorState extends State<QRCodeGenerator> {
 class QRCodeStatisticsScreen extends StatefulWidget {
   final String accountId;
 
-  const QRCodeStatisticsScreen({
-    super.key,
-    required this.accountId,
-  });
+  const QRCodeStatisticsScreen({super.key, required this.accountId});
 
   @override
   State<QRCodeStatisticsScreen> createState() => _QRCodeStatisticsScreenState();
@@ -693,8 +686,11 @@ class _QRCodeStatisticsScreenState extends State<QRCodeStatisticsScreen> {
 
     try {
       final stats = await _qrCodeService.getScanStatistics(widget.accountId);
-      final scans = await _qrCodeService.getScanLogsByAccountId(widget.accountId, limit: 20);
-      
+      final scans = await _qrCodeService.getScanLogsByAccountId(
+        widget.accountId,
+        limit: 20,
+      );
+
       setState(() {
         _statistics = stats;
         _recentScans = scans;
@@ -723,87 +719,87 @@ class _QRCodeStatisticsScreenState extends State<QRCodeStatisticsScreen> {
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Colors.red.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Failed to load statistics',
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _error!,
-                          style: TextStyle(color: Colors.grey.shade600),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: _loadStatistics,
-                          child: const Text('Retry'),
-                        ),
-                      ],
+          ? Center(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.error_outline,
+                      size: 64,
+                      color: Colors.red.shade300,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Failed to load statistics',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      style: TextStyle(color: Colors.grey.shade600),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _loadStatistics,
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            )
+          : RefreshIndicator(
+              onRefresh: _loadStatistics,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // Statistics cards
+                  _buildStatisticsGrid(),
+                  const SizedBox(height: 24),
+
+                  // Recent scans
+                  Text(
+                    'Recent Scans',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
-                )
-              : RefreshIndicator(
-                  onRefresh: _loadStatistics,
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      // Statistics cards
-                      _buildStatisticsGrid(),
-                      const SizedBox(height: 24),
-                      
-                      // Recent scans
-                      Text(
-                        'Recent Scans',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                              fontWeight: FontWeight.bold,
-                            ),
-                      ),
-                      const SizedBox(height: 16),
-                      
-                      if (_recentScans == null || _recentScans!.isEmpty)
-                        Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(32),
-                            child: Center(
-                              child: Column(
-                                children: [
-                                  Icon(
-                                    Icons.qr_code_scanner,
-                                    size: 64,
-                                    color: Colors.grey.shade300,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Text(
-                                    'No scans yet',
-                                    style: Theme.of(context).textTheme.titleMedium,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'Share your QR code to get started',
-                                    style: TextStyle(color: Colors.grey.shade600),
-                                  ),
-                                ],
+                  const SizedBox(height: 16),
+
+                  if (_recentScans == null || _recentScans!.isEmpty)
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Icon(
+                                Icons.qr_code_scanner,
+                                size: 64,
+                                color: Colors.grey.shade300,
                               ),
-                            ),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No scans yet',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Share your QR code to get started',
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                            ],
                           ),
-                        )
-                      else
-                        ..._recentScans!.map((scan) => _buildScanLogCard(scan)),
-                    ],
-                  ),
-                ),
+                        ),
+                      ),
+                    )
+                  else
+                    ..._recentScans!.map((scan) => _buildScanLogCard(scan)),
+                ],
+              ),
+            ),
     );
   }
 
@@ -844,7 +840,12 @@ class _QRCodeStatisticsScreenState extends State<QRCodeStatisticsScreen> {
     );
   }
 
-  Widget _buildStatCard(String label, String value, IconData icon, Color color) {
+  Widget _buildStatCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       elevation: 2,
       child: Padding(
@@ -858,10 +859,7 @@ class _QRCodeStatisticsScreenState extends State<QRCodeStatisticsScreen> {
               children: [
                 Text(
                   label,
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey.shade600,
-                  ),
+                  style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
                 ),
                 Icon(icon, color: color, size: 20),
               ],
@@ -886,17 +884,16 @@ class _QRCodeStatisticsScreenState extends State<QRCodeStatisticsScreen> {
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: Colors.blue.shade100,
-          child: Icon(
-            Icons.qr_code_scanner,
-            color: Colors.blue.shade700,
-          ),
+          child: Icon(Icons.qr_code_scanner, color: Colors.blue.shade700),
         ),
         title: Text(
           _formatDateTime(scan.scannedAt),
           style: const TextStyle(fontWeight: FontWeight.bold),
         ),
         subtitle: scan.locationLat != null && scan.locationLng != null
-            ? Text('Location: ${scan.locationLat!.toStringAsFixed(4)}, ${scan.locationLng!.toStringAsFixed(4)}')
+            ? Text(
+                'Location: ${scan.locationLat!.toStringAsFixed(4)}, ${scan.locationLng!.toStringAsFixed(4)}',
+              )
             : const Text('No location data'),
         trailing: scan.deviceInfo != null
             ? Icon(Icons.phone_android, color: Colors.grey.shade600)
