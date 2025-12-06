@@ -103,12 +103,12 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         errorMessage = null;
       });
 
-      // Get the sub-category ID from the meal data
-      final subCategoryId = int.parse(widget.meal['id']);
+      // Get the category ID from the meal data
+      final categoryId = widget.meal['id'] as String;
 
-      // Fetch products for this sub-category
-      final products = await ProductService.getProductsBySubCategory(
-        subCategoryId,
+      // Fetch products for this category
+      final products = await ProductService.getProductsByCategory(
+        categoryId,
       );
 
       setState(() {
@@ -514,9 +514,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                     borderRadius: BorderRadius.circular(16),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: quantity > 0 
-                                            ? Colors.black.withAlpha(15)
-                                            : Colors.black.withAlpha(8),
+                                        color: Colors.black.withAlpha(15),
                                         blurRadius: 20,
                                         offset: const Offset(0, 8),
                                       ),
@@ -533,7 +531,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: quantity > 0
+                                            color: product.quantity > 0
                                                 ? Colors.green.withValues(
                                                     alpha: 0.1,
                                                   )
@@ -545,13 +543,13 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                             ),
                                           ),
                                           child: Text(
-                                            quantity > 0
+                                            product.quantity > 0
                                                 ? 'In Stock'
                                                 : 'Out of Stock',
                                             style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
-                                              color: quantity > 0
+                                              color: product.quantity > 0
                                                   ? Colors.green
                                                   : Colors.red,
                                             ),
@@ -563,7 +561,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                       // Content with conditional opacity
                                       AnimatedOpacity(
                                         duration: const Duration(milliseconds: 200),
-                                        opacity: quantity > 0 ? 1.0 : 0.4,
+                                        opacity: product.quantity > 0 ? 1.0 : 0.4,
                                         child: Column(
                                           children: [
                                             // ✅ Tap to open product details
@@ -677,7 +675,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                       ),
                                       const SizedBox(height: 6),
 
-                                      // ➖ quantity ➕ (always full opacity)
+                                      // ➖ Stock quantity ➕ (always full opacity)
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.center,
@@ -687,21 +685,29 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                               Icons.remove_circle_outline,
                                               size: 20,
                                             ),
-                                            onPressed: () {
-                                              if (quantity > 0) {
-                                                setState(() {
-                                                  quantity--;
-                                                  productQuantities[product
-                                                          .id] =
-                                                      quantity;
-                                                });
-                                                setProductState(() {});
-                                                _saveQuantities(); // Save to SharedPreferences
+                                            onPressed: () async {
+                                              if (product.quantity > 0) {
+                                                try {
+                                                  final updatedProduct = await ProductService.updateProductQuantity(
+                                                    productId: product.id,
+                                                    quantity: product.quantity - 1,
+                                                  );
+                                                  setState(() {
+                                                    mealProducts[index] = updatedProduct;
+                                                  });
+                                                  setProductState(() {});
+                                                } catch (e) {
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      SnackBar(content: Text('Failed to update stock: $e')),
+                                                    );
+                                                  }
+                                                }
                                               }
                                             },
                                           ),
                                           Text(
-                                            '$quantity',
+                                            '${product.quantity}',
                                             style: const TextStyle(
                                               fontWeight: FontWeight.bold,
                                               fontSize: 14,
@@ -712,14 +718,23 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                               Icons.add_circle_outline,
                                               size: 20,
                                             ),
-                                            onPressed: () {
-                                              setState(() {
-                                                quantity++;
-                                                productQuantities[product.id] =
-                                                    quantity;
-                                              });
-                                              setProductState(() {});
-                                              _saveQuantities(); // Save to SharedPreferences
+                                            onPressed: () async {
+                                              try {
+                                                final updatedProduct = await ProductService.updateProductQuantity(
+                                                  productId: product.id,
+                                                  quantity: product.quantity + 1,
+                                                );
+                                                setState(() {
+                                                  mealProducts[index] = updatedProduct;
+                                                });
+                                                setProductState(() {});
+                                              } catch (e) {
+                                                if (mounted) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(
+                                                    SnackBar(content: Text('Failed to update stock: $e')),
+                                                  );
+                                                }
+                                              }
                                             },
                                           ),
                                         ],
@@ -1217,7 +1232,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
     File? imageFile,
   }) async {
     try {
-      final subCategoryId = int.parse(widget.meal['id']);
+      final categoryId = widget.meal['id'] as String;
       String? imageUrl;
 
       // Upload image if provided
@@ -1249,7 +1264,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         priceLbp: priceLbp,
         priceUsd: priceUsd,
         imageUrl: imageUrl,
-        subCategoryId: subCategoryId,
+        categoryId: categoryId,
       );
 
       // Show success message
@@ -1454,17 +1469,18 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             ),
                             _buildDetailRow(
                               'Stock Status:',
-                              productQuantities[product.id] != null &&
-                                      productQuantities[product.id]! > 0
-                                  ? 'In Stock'
+                              product.quantity > 0
+                                  ? 'In Stock (${product.quantity})'
                                   : 'Out of Stock',
-                              valueTextColor: productQuantities[product.id]! > 0
+                              valueTextColor: product.quantity > 0
                                   ? inStockColor
                                   : outOfStockColor,
-                              valueBgColor: productQuantities[product.id]! > 0
+                              valueBgColor: product.quantity > 0
                                   ? inStockBg
                                   : outOfStockBg,
                             ),
+                            const SizedBox(height: 8),
+                            
                             _buildDetailRow('Created:', _formatDate(product.createdAt)),
 
                             const SizedBox(height: 24),

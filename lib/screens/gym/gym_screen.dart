@@ -20,7 +20,7 @@ class _GymScreenState extends State<GymScreen> {
 
   Future<void> _loadGymCategoryId() async {
     try {
-      final categories = await CategoryService.getCategories();
+      final categories = await CategoryService.getCategoriesForAccount();
       final gymCategory = categories.firstWhere(
         (cat) => cat.name.toLowerCase().trim() == 'gym',
         orElse: () => categories.firstWhere(
@@ -41,6 +41,7 @@ class _GymScreenState extends State<GymScreen> {
       backgroundColor: const Color(0xFFEFF0F3),
       appBar: Navbar(
         categoryId: gymCategoryId,
+        showMenuButton: false, // Hide menu in sub-category
         onSearchReturn: () {
           // Refresh gym data when returning from search if needed
           setState(() {});
@@ -51,6 +52,23 @@ class _GymScreenState extends State<GymScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Back button
+            Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+                ),
+                const Text(
+                  'Gym',
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
             // Header Section
             Container(
               width: double.infinity,

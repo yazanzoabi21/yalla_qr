@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/search/search_results_screen.dart';
@@ -14,6 +15,8 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final String? categoryId; // The actual category UUID
   final bool showScanButton;
   final VoidCallback? onScanPressed;
+  final bool showBackButton;
+  final bool showMenuButton; // New parameter to control menu visibility
 
   const Navbar({
     super.key,
@@ -22,6 +25,8 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
     this.categoryId,
     this.showScanButton = false,
     this.onScanPressed,
+    this.showBackButton = false,
+    this.showMenuButton = true, // Default to true (show menu)
   });
 
   @override
@@ -80,12 +85,13 @@ class _NavbarState extends State<Navbar> {
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(
           children: [
-            // IconButton(
-            //   icon: const Icon(Icons.arrow_back, color: Colors.grey),
-            //   onPressed: () {
-            //     Navigator.pop(context);
-            //   },
-            // ),
+            if (widget.showBackButton)
+              IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.grey),
+                onPressed: () {
+                  Navigator.pop(context);
+                },
+              ),
             Expanded(
               child: TextField(
                 controller: _searchController,
@@ -126,7 +132,8 @@ class _NavbarState extends State<Navbar> {
                 onPressed: widget.onScanPressed,
                 tooltip: 'Scan QR Code',
               ),
-            PopupMenuButton<String>(
+            if (widget.showMenuButton)
+              PopupMenuButton<String>(
               icon: const Icon(Icons.menu, color: Colors.grey),
               onSelected: (String value) {
                 _handleMenuSelection(context, value);
@@ -146,6 +153,13 @@ class _NavbarState extends State<Navbar> {
                     title: Text('Feedback'),
                   ),
                 ),
+                const PopupMenuItem<String>(
+                  value: 'about',
+                  child: ListTile(
+                    leading: Icon(Icons.info),
+                    title: Text('About'),
+                  ),
+                ),
                 if (_isAuthenticated) ...[
                   const PopupMenuItem<String>(
                     value: 'settings',
@@ -155,13 +169,6 @@ class _NavbarState extends State<Navbar> {
                     ),
                   ),
                 ],
-                const PopupMenuItem<String>(
-                  value: 'about',
-                  child: ListTile(
-                    leading: Icon(Icons.info),
-                    title: Text('About'),
-                  ),
-                ),
                 if (_isAuthenticated) ...[
                   const PopupMenuDivider(),
                     const PopupMenuItem<String>(
@@ -231,16 +238,75 @@ class _NavbarState extends State<Navbar> {
         );
         break;
       case 'logout':
+        // Show classic loading dialog
+        if (context.mounted) {
+          showDialog(
+            context: context,
+            barrierDismissible: false,
+            barrierColor: Colors.black.withOpacity(0.5),
+            builder: (BuildContext context) {
+              return WillPopScope(
+                onWillPop: () async => false,
+                child: Dialog(
+                  backgroundColor: Colors.transparent,
+                  elevation: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(20),
+                    constraints: const BoxConstraints(maxWidth: 140),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        SizedBox(
+                          width: 40,
+                          height: 40,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 3,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.blue.shade600,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Logging out...',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade800,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          );
+        }
+
         try {
-          // Determine the current category from the current route
-          String? currentCategory = _getCurrentCategory(context);
-          
           debugPrint('🚪 Logging out user...');
           
           // Use the enhanced logout with complete session clearing
           await _authService.signOut();
           // Clear session flag from secure storage
           await SecureStorageService.clearSession();
+          
+          // Clear login context from SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.remove('login_context');
+          await prefs.remove('last_scanned_qr');
           
           debugPrint('✅ Session cleared from storage');
           
@@ -256,6 +322,11 @@ class _NavbarState extends State<Navbar> {
             _isAuthenticated = false;
           });
           
+          // Close loading dialog
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+          
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -268,16 +339,27 @@ class _NavbarState extends State<Navbar> {
             // Add a small delay to ensure logout is complete
             await Future.delayed(const Duration(milliseconds: 500));
 
-            // Navigate to login screen with the current category as intended destination
+            // Navigate to Welcome screen
             if (!mounted) return;
             if (context.mounted) {
-              NavigationHelper.navigateToLogin(context, intendedDestination: currentCategory);
+              Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
             }
           }
         } catch (e) {
+          // Close loading dialog
+          if (context.mounted) {
+            Navigator.of(context, rootNavigator: true).pop();
+          }
+          
           // Try force reset as a last resort
           try {
             await _authService.forceAuthReset();
+            
+            // Clear login context even in error case
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.remove('login_context');
+            await prefs.remove('last_scanned_qr');
+            
             setState(() {
               _isAuthenticated = false;
             });
@@ -291,11 +373,10 @@ class _NavbarState extends State<Navbar> {
                 ),
               );
               
-              // Still try to preserve the category context even in error case
-              String? currentCategory = _getCurrentCategory(context);
+              // Navigate to Welcome screen
               if (!mounted) return;
               if (context.mounted) {
-                NavigationHelper.navigateToLogin(context, intendedDestination: currentCategory);
+                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
               }
             }
           } catch (forceError) {

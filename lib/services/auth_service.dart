@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../exceptions/category_not_registered_exception.dart';
 import 'qr_code_service.dart';
@@ -19,6 +20,12 @@ class AuthService {
     String? categoryName, // Add category name parameter
     String? role, // Optional role (e.g. 'ADMIN') - should be used carefully
   }) async {
+    debugPrint('🔐 [AuthService.signUpUser] Starting registration');
+    debugPrint('   📧 Email: $email');
+    debugPrint('   👤 Name: $name');
+    debugPrint('   📁 Category: $categoryName');
+    debugPrint('   🎭 Role: ${role ?? "USER (default)"}');
+    
     final AuthResponse response = await _client.auth.signUp(
       email: email,
       password: password,
@@ -72,12 +79,13 @@ class AuthService {
       'logo_url': null,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
+      'role': role != null && role.trim().isNotEmpty ? role.trim().toUpperCase() : 'USER', // Default to USER if not specified
     };
 
-    // Only set role explicitly when provided. By default the DB will use 'USER'.
-    if (role != null && role.trim().isNotEmpty) {
-      accountData['role'] = role.trim().toUpperCase();
-    }
+    debugPrint('📝 [AuthService] Account data prepared:');
+    debugPrint('   - owner_id: $userId');
+    debugPrint('   - category_id: $categoryId');
+    debugPrint('   - role: ${accountData['role']}');
 
     // Check if account already exists for this user AND category
     // If category is specified, check for that specific category
@@ -126,6 +134,25 @@ class AuthService {
       } catch (e) {
         // Log error but don't fail the signup
         print('Warning: Failed to create QR code for account: $e');
+      }
+    }
+
+    // Link account to category in the join table when a category is provided
+    if (categoryId != null) {
+      try {
+        await _client
+            .from('account_categories')
+            .upsert(
+              {
+                'account_id': accountId,
+                'category_id': categoryId,
+                'is_hidden': false,
+              },
+              onConflict: 'account_id,category_id',
+            );
+      } catch (e) {
+        debugPrint('⚠️ [AuthService] Failed to link account to category: $e');
+        // Do not fail signup on linkage error
       }
     }
   }
@@ -221,18 +248,19 @@ class AuthService {
   /// Validate account access for category
   Future<void> validateAccountAccess(User user, String? categoryName) async {
     // If no category is specified, just check if user has any account
+    // Don't fail if multiple accounts exist - this is now handled by login context
     if (categoryName == null || categoryName.isEmpty || categoryName == 'general') {
-      final accountResponse = await _client
+      final accountsResponse = await _client
           .from('accounts')
           .select('*')
-          .eq('owner_id', user.id)
-          .maybeSingle();
+          .eq('owner_id', user.id);
 
-      if (accountResponse == null) {
+      if (accountsResponse.isEmpty) {
         // Do NOT sign out here; caller decides navigation.
         throw Exception('No account found for this user');
       }
 
+      // User has at least one account - login context will determine which one to use
       return;
     }
 
@@ -249,15 +277,29 @@ class AuthService {
 
     final categoryId = categoryResponse['id'] as String;
 
-    // Check if user has an account associated with this category
-    final accountResponse = await _client
+    // Get all accounts for this user
+    final accountsResponse = await _client
         .from('accounts')
-        .select('*')
-        .eq('owner_id', user.id)
+        .select('id')
+        .eq('owner_id', user.id);
+
+    if (accountsResponse.isEmpty) {
+      throw Exception('No account found for this user');
+    }
+
+    final accountIds = (accountsResponse as List)
+        .map((a) => a['id'] as String)
+        .toList();
+
+    // Check mapping in account_categories join table
+    final mapping = await _client
+        .from('account_categories')
+        .select('id')
         .eq('category_id', categoryId)
+        .in_('account_id', accountIds)
         .maybeSingle();
 
-    if (accountResponse == null) {
+    if (mapping == null) {
       // User exists but not registered for this category. Do NOT sign out; let UI handle flow.
       throw CategoryNotRegisteredException(
         'Your account is not registered for "$categoryName". Please register for this category first.',

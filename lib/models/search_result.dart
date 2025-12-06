@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'product.dart';
 import 'category.dart';
-import 'sub_category.dart';
 
 /// Enum for different types of search results
 enum SearchResultType {
   product,
   category,
-  subCategory,
 }
 
 /// Unified search result model that can represent different types of results
@@ -56,19 +54,6 @@ class SearchResult {
     );
   }
 
-  /// Create SearchResult from SubCategory
-  factory SearchResult.fromSubCategory(SubCategory subCategory, {double relevanceScore = 1.0}) {
-    return SearchResult(
-      id: subCategory.id.toString(),
-      title: subCategory.name ?? 'Unnamed',
-      subtitle: 'Sub-Category',
-      description: subCategory.description,
-      type: SearchResultType.subCategory,
-      data: subCategory,
-      relevanceScore: relevanceScore,
-    );
-  }
-
   /// Get icon for the search result type
   IconData get icon {
     switch (type) {
@@ -76,9 +61,6 @@ class SearchResult {
         return Icons.shopping_bag;
       case SearchResultType.category:
         return Icons.category;
-      case SearchResultType.subCategory:
-        final subCat = data as SubCategory;
-        return subCat.icon;
     }
   }
 
@@ -90,9 +72,6 @@ class SearchResult {
       case SearchResultType.category:
         final cat = data as Category;
         return cat.color;
-      case SearchResultType.subCategory:
-        final subCat = data as SubCategory;
-        return subCat.color;
     }
   }
 
@@ -103,8 +82,6 @@ class SearchResult {
         return 'Product';
       case SearchResultType.category:
         return 'Category';
-      case SearchResultType.subCategory:
-        return 'Sub-Category';
     }
   }
 }

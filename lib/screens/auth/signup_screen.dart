@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // import '../../widgets/navbar.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yalla_qr/services/auth_service.dart';
@@ -7,8 +8,15 @@ import '../../utils/navigation_helper.dart';
 
 class SignupScreen extends StatefulWidget {
   final String? intendedDestination; // The screen to navigate to after signup
+  final bool registerAsClient; // If true, register as USER (client), otherwise as ORG
+  final bool showAccountTypeToggle; // Show toggle to switch between USER and ORG
 
-  const SignupScreen({super.key, this.intendedDestination});
+  const SignupScreen({
+    super.key, 
+    this.intendedDestination, 
+    this.registerAsClient = false,
+    this.showAccountTypeToggle = false,
+  });
 
   @override
   State<SignupScreen> createState() => _SignupScreenState();
@@ -40,6 +48,7 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _phoneErrorText;
   String? _descriptionErrorText;
   String? _locationAddressErrorText;
+  bool _isOrgAccount = false; // Toggle state: false = User, true = Org
 
   // List of countries with ISO codes and flags
   final List<Map<String, String>> _countries = [
@@ -60,6 +69,13 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Debug: Log what type of registration this is
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('📝 [SignupScreen.initState] Screen initialized');
+    debugPrint('   📋 widget.registerAsClient = ${widget.registerAsClient}');
+    debugPrint('   📁 widget.intendedDestination = ${widget.intendedDestination}');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
   void _clearFields() {
@@ -198,7 +214,7 @@ class _SignupScreenState extends State<SignupScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.grey),
             onPressed: () {
-              NavigationHelper.navigateToLogin(context);
+              Navigator.pop(context); // Just go back instead of creating new login
             },
           ),
         ),
@@ -257,6 +273,111 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
 
                 const SizedBox(height: 30),
+
+                // Account Type Toggle (if enabled)
+                if (widget.showAccountTypeToggle) ...[
+                  Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isOrgAccount = false;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: !_isOrgAccount
+                                    ? Colors.green
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.person,
+                                    color: !_isOrgAccount
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'User',
+                                    style: TextStyle(
+                                      color: !_isOrgAccount
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _isOrgAccount = true;
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: _isOrgAccount
+                                    ? Colors.purple
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.business,
+                                    color: _isOrgAccount
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Organization',
+                                    style: TextStyle(
+                                      color: _isOrgAccount
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
 
                 // Signup Form
                 Container(
@@ -1063,6 +1184,27 @@ class _SignupScreenState extends State<SignupScreen> {
 
       try {
         final authService = AuthService(Supabase.instance.client);
+        
+        // Debug: Log the registration type
+        // Determine role based on toggle (if shown) or registerAsClient parameter
+        String role;
+        if (widget.showAccountTypeToggle) {
+          role = _isOrgAccount ? 'ORG' : 'USER';
+        } else {
+          role = widget.registerAsClient ? 'USER' : 'ORG';
+        }
+        
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('🎯 [SignupScreen] BEFORE calling signUpUser:');
+        debugPrint('   📋 widget.registerAsClient = ${widget.registerAsClient}');
+        debugPrint('   📋 widget.showAccountTypeToggle = ${widget.showAccountTypeToggle}');
+        debugPrint('   📋 _isOrgAccount = $_isOrgAccount');
+        debugPrint('   🎭 Calculated role = $role');
+        debugPrint('   📧 Email = ${_emailController.text}');
+        debugPrint('   👤 Name = ${_nameController.text}');
+        debugPrint('   📁 Category = ${widget.intendedDestination}');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        
         await authService.signUpUser(
           email: _emailController.text,
           password: _passwordController.text,
@@ -1071,7 +1213,7 @@ class _SignupScreenState extends State<SignupScreen> {
           description: _descriptionController.text,
           locationAddress: _locationAddressController.text,
           categoryName: widget.intendedDestination, // Associate with category
-          role: 'ORG', // All new accounts are organizations
+          role: role, // USER for clients, ORG for organizations
         );
 
         if (!mounted) return;
@@ -1090,6 +1232,12 @@ class _SignupScreenState extends State<SignupScreen> {
           _isLoading = false;
         });
 
+        // Save login context to SharedPreferences
+        final prefs = await SharedPreferences.getInstance();
+        final loginContext = role == 'ORG' ? 'ORG' : 'CLIENT';
+        await prefs.setString('login_context', loginContext);
+        debugPrint('🔖 Signup: Login context saved: $loginContext');
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -1105,9 +1253,22 @@ class _SignupScreenState extends State<SignupScreen> {
         // Small delay to show the success message
         await Future.delayed(const Duration(milliseconds: 1000));
 
-        // Navigate based on intended destination
+        // Navigate based on account type and context
         if (!mounted) return;
-        if (widget.intendedDestination != null) {
+        
+        if (widget.showAccountTypeToggle) {
+          // New flow: navigate based on toggle selection
+          if (_isOrgAccount) {
+            // Navigate to ORG home screen
+            Navigator.pushReplacementNamed(context, '/home');
+          } else {
+            // Navigate to CLIENT page
+            Navigator.pushReplacementNamed(context, '/client');
+          }
+        } else if (widget.registerAsClient) {
+          // Old flow: Client registration - return to previous screen (client page)
+          Navigator.pop(context);
+        } else if (widget.intendedDestination != null) {
           // Navigate directly to the category screen after signup with fresh token
           NavigationHelper.navigateToCategory(
             context,

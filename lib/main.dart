@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-//! import 'screens/home/home_screen.dart';
+import 'screens/auth/welcome_screen.dart';
+import 'screens/home/home_screen.dart';
 import 'screens/client/client_categories_screen.dart';
-
 import 'utils/supabase_setup.dart';
 
 Future<void> main() async {
@@ -37,8 +37,11 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      //! home: const HomeScreen(),
-      home: const ClientCategoriesScreen(),
+      home: const WelcomeScreen(),
+      routes: {
+        '/home': (context) => const HomeScreen(),
+        '/client': (context) => const ClientCategoriesScreen(),
+      },
     );
   }
 }

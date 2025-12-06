@@ -1,9 +1,8 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../widgets/navbar.dart';
-import '../../services/sub_category_service.dart';
 import '../../services/category_service.dart';
 import '../../services/product_service.dart';
-import '../../models/sub_category.dart';
 import '../../models/category.dart';
 import 'meal_detail_screen.dart';
 
@@ -16,8 +15,8 @@ class MealsScreen extends StatefulWidget {
 
 class _MealsScreenState extends State<MealsScreen> {
   List<Map<String, dynamic>> capturedImages = [];
-  List<SubCategory> subCategories = [];
-  Map<int, int> productCounts = {}; // Store product counts for each sub-category
+  List<Category> childCategories = [];
+  Map<String, int> productCounts = {}; // Store product counts for each child category
   Category? mealsCategory;
   bool isLoading = true;
   String? errorMessage;
@@ -36,8 +35,8 @@ class _MealsScreenState extends State<MealsScreen> {
         errorMessage = null;
       });
 
-      // Find the "Meals" category first
-      final categories = await CategoryService.getCategories();
+      // Find the "Meals" category first - using account-filtered categories
+      final categories = await CategoryService.getCategoriesForAccount();
       
       // Try to find the "Meals" category (case-insensitive and trim whitespace)
       try {
@@ -60,13 +59,13 @@ class _MealsScreenState extends State<MealsScreen> {
         throw Exception('Category not found. Available categories: ${categories.map((c) => '"${c.name}"').join(', ')}');
       }
 
-      // Load sub-categories for the meals category
-      subCategories = await SubCategoryService.getSubCategoriesByCategoryId(mealsCategory!.id.toString());
+      // Load child categories for the meals category - using account-filtered method
+      childCategories = await CategoryService.getChildCategoriesForAccount(mealsCategory!.id);
       
-      // Load product counts for each sub-category
+      // Load product counts for each child category
       await _loadProductCounts();
       
-      // Note: It's okay to have 0 sub-categories, we'll show the empty state
+      // Note: It's okay to have 0 child categories, we'll show the empty state
       setState(() {
         isLoading = false;
       });
@@ -80,10 +79,12 @@ class _MealsScreenState extends State<MealsScreen> {
 
   Future<void> _loadProductCounts() async {
     try {
-      Map<int, int> counts = {};
-      for (var subCategory in subCategories) {
-        final products = await ProductService.getProductsBySubCategory(subCategory.id);
-        counts[subCategory.id] = products.length;
+      Map<String, int> counts = {};
+      for (var childCategory in childCategories) {
+        final products = await ProductService.getProductsByCategory(
+          childCategory.id,
+        );
+        counts[childCategory.id] = products.length;
       }
       setState(() {
         productCounts = counts;
@@ -94,26 +95,26 @@ class _MealsScreenState extends State<MealsScreen> {
     }
   }
 
-  Future<void> _refreshSubCategories() async {
+  Future<void> _refreshChildCategories() async {
     try {
       if (mealsCategory != null) {
-        debugPrint("Refreshing sub-categories for category: ${mealsCategory!.name}");
+        debugPrint("Refreshing child categories for category: ${mealsCategory!.name}");
         
-        // Load sub-categories for the meals category without showing loading state
-        final updatedSubCategories = await SubCategoryService.getSubCategoriesByCategoryId(mealsCategory!.id.toString());
+        // Load child categories for the meals category without showing loading state - using account-filtered method
+        final updatedChildCategories = await CategoryService.getChildCategoriesForAccount(mealsCategory!.id);
         
-        debugPrint("Loaded ${updatedSubCategories.length} sub-categories from database");
-        for (var subCat in updatedSubCategories) {
-          debugPrint("SubCategory: ${subCat.name}, iconValue: ${subCat.iconValue}, colorValue: ${subCat.colorValue}");
+        debugPrint("Loaded ${updatedChildCategories.length} child categories from database");
+        for (var cat in updatedChildCategories) {
+          debugPrint("Child Category: ${cat.name}");
         }
         
         // Force a complete state update
         if (mounted) {
           setState(() {
-            subCategories = List.from(updatedSubCategories); // Create new list to force rebuild
+            childCategories = List.from(updatedChildCategories); // Create new list to force rebuild
           });
           
-          // Load product counts for the refreshed sub-categories
+          // Load product counts for the refreshed child categories
           await _loadProductCounts();
           
           debugPrint("UI state updated with refreshed sub-categories");
@@ -162,19 +163,31 @@ class _MealsScreenState extends State<MealsScreen> {
     }
   }
 
+  /// Generate a vibrant random color for new categories
+  Color _generateRandomColor() {
+    final random = Random();
+    // Generate vibrant colors by ensuring high saturation and value
+    final hue = random.nextDouble() * 360; // 0-360 degrees
+    final saturation = 0.6 + random.nextDouble() * 0.4; // 60-100%
+    final value = 0.7 + random.nextDouble() * 0.3; // 70-100%
+    
+    return HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: Navbar(
         categoryId: mealsCategory?.id,
+        showMenuButton: false, // Hide menu in sub-category
         onSearchReturn: () {
           // Refresh product counts when returning from search
           _loadProductCounts();
         },
       ),
       body: Padding(
-        padding: const EdgeInsets.all(20.0),
+        padding: const EdgeInsets.all(8),
         child: _buildBody(),
       ),
     );
@@ -258,11 +271,44 @@ class _MealsScreenState extends State<MealsScreen> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: _refreshData,
-      child: CustomScrollView(
-        physics: const BouncingScrollPhysics(),
-        slivers: [
+    return Column(
+      children: [
+        // Fixed header with back button
+        Row(
+          children: [
+            // IconButton(
+            //   icon: const Icon(Icons.arrow_back, size: 20),
+            //   onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+            //   padding: const EdgeInsets.all(4),
+            //   constraints: const BoxConstraints(),
+            // ),
+            InkWell(
+              onTap: () => Navigator.pushReplacementNamed(context, '/home'),
+              borderRadius: BorderRadius.circular(20),
+              child: Icon(
+                Icons.arrow_back,
+                size: 25,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            SizedBox(width: 12),
+            const Text(
+              'Meals',
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+        // Scrollable content
+        Expanded(
+          child: RefreshIndicator(
+            onRefresh: _refreshData,
+            child: CustomScrollView(
+              physics: const BouncingScrollPhysics(),
+              slivers: [
           // Header Section as Sliver
           SliverToBoxAdapter(
             child: Container(
@@ -369,12 +415,11 @@ class _MealsScreenState extends State<MealsScreen> {
         // Grid View as Sliver
         SliverPadding(
           padding: const EdgeInsets.only(bottom: 32),
-          sliver: subCategories.isEmpty
+          sliver: childCategories.isEmpty
               ? SliverToBoxAdapter(
                   child: Container(
-                    height: 220,
-                    margin: const EdgeInsets.symmetric(horizontal: 20),
-                    padding: const EdgeInsets.all(40),
+                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(24),
@@ -398,6 +443,7 @@ class _MealsScreenState extends State<MealsScreen> {
                       ),
                     ),
                     child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Container(
@@ -423,20 +469,30 @@ class _MealsScreenState extends State<MealsScreen> {
                         Text(
                           'No categories found',
                           style: TextStyle(
-                            fontSize: 20,
+                            fontSize: 18,
                             color: Colors.grey.shade800,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.3,
                           ),
+                          textAlign: TextAlign.center,
+                          maxLines: 2,  
+                          overflow: TextOverflow.ellipsis,
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          'Start by adding your first category',
-                          style: TextStyle(
-                            fontSize: 15,
-                            color: Colors.grey.shade600,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 0.1,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            'Start by adding your first category',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w500,
+                              letterSpacing: 0.1,
+                              height: 1.4,
+                            ),
+                            textAlign: TextAlign.center,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ],
@@ -452,9 +508,9 @@ class _MealsScreenState extends State<MealsScreen> {
                   ),
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
-                      final subCategory = subCategories[index];
+                      final childCategory = childCategories[index];
                       return GestureDetector(
-                        onTap: () => _navigateToMealDetail(subCategory),
+                        onTap: () => _navigateToMealDetail(childCategory),
                         child: AnimatedContainer(
                           duration: const Duration(milliseconds: 200),
                           padding: const EdgeInsets.all(18),
@@ -475,14 +531,14 @@ class _MealsScreenState extends State<MealsScreen> {
                                 spreadRadius: 0,
                               ),
                               BoxShadow(
-                                color: subCategory.color.withValues(alpha: 0.08),
+                                color: childCategory.color.withValues(alpha: 0.08),
                                 blurRadius: 15,
                                 offset: const Offset(0, 5),
                                 spreadRadius: 0,
                               ),
                             ],
                             border: Border.all(
-                              color: subCategory.color.withValues(alpha: 0.08),
+                              color: Colors.deepOrange.withValues(alpha: 0.08),
                               width: 1,
                             ),
                           ),
@@ -500,20 +556,20 @@ class _MealsScreenState extends State<MealsScreen> {
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      subCategory.color.withValues(alpha: 0.15),
-                                      subCategory.color.withValues(alpha: 0.08),
+                                      childCategory.color.withValues(alpha: 0.15),
+                                      childCategory.color.withValues(alpha: 0.08),
                                     ],
                                     begin: Alignment.topLeft,
                                     end: Alignment.bottomRight,
                                   ),
                                   borderRadius: BorderRadius.circular(18),
                                   border: Border.all(
-                                    color: subCategory.color.withValues(alpha: 0.2),
+                                    color: childCategory.color.withValues(alpha: 0.2),
                                     width: 1,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: subCategory.color.withValues(alpha: 0.1),
+                                      color: childCategory.color.withValues(alpha: 0.1),
                                       blurRadius: 8,
                                       offset: const Offset(0, 4),
                                       spreadRadius: 0,
@@ -521,14 +577,14 @@ class _MealsScreenState extends State<MealsScreen> {
                                   ],
                                 ),
                                 child: Icon(
-                                  subCategory.icon,
-                                  color: subCategory.color,
+                                  childCategory.icon,
+                                  color: childCategory.color,
                                   size: 28,
                                 ),
                               ),
                               const SizedBox(height: 14),
                               Text(
-                                subCategory.name ?? 'Unknown',
+                                childCategory.name,
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
@@ -541,18 +597,20 @@ class _MealsScreenState extends State<MealsScreen> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 4),
-                              Text(
-                                subCategory.description ?? 'No description',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: Colors.grey.shade600,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.3,
-                                  letterSpacing: 0.1,
+                              Center(
+                                child: Text(
+                                  childCategory.description ?? 'No description',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey.shade600,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.3,
+                                    letterSpacing: 0.1,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
                               ),
                               const SizedBox(height: 10),
                               Container(
@@ -560,15 +618,15 @@ class _MealsScreenState extends State<MealsScreen> {
                                 decoration: BoxDecoration(
                                   gradient: LinearGradient(
                                     colors: [
-                                      subCategory.color.withValues(alpha: 0.12),
-                                      subCategory.color.withValues(alpha: 0.08),
+                                      childCategory.color.withValues(alpha: 0.12),
+                                      childCategory.color.withValues(alpha: 0.08),
                                     ],
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
                                   ),
                                   borderRadius: BorderRadius.circular(18),
                                   border: Border.all(
-                                    color: subCategory.color.withValues(alpha: 0.15),
+                                    color: childCategory.color.withValues(alpha: 0.15),
                                     width: 1,
                                   ),
                                 ),
@@ -578,14 +636,14 @@ class _MealsScreenState extends State<MealsScreen> {
                                     Icon(
                                       Icons.inventory_2_rounded,
                                       size: 11,
-                                      color: subCategory.color,
+                                      color: childCategory.color,
                                     ),
                                     const SizedBox(width: 3),
                                     Text(
-                                      '${productCounts[subCategory.id] ?? 0} products',
+                                      '${productCounts[childCategory.id] ?? 0} products',
                                       style: TextStyle(
                                         fontSize: 10,
-                                        color: subCategory.color,
+                                        color: childCategory.color,
                                         fontWeight: FontWeight.w700,
                                         letterSpacing: 0.2,
                                       ),
@@ -602,7 +660,7 @@ class _MealsScreenState extends State<MealsScreen> {
                             top: 4,
                             right: 4,
                             child: GestureDetector(
-                              onTap: () => _showEditMealDialog(subCategory),
+                              onTap: () => _showEditMealDialog(childCategory),
                               child: Container(
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
@@ -616,21 +674,21 @@ class _MealsScreenState extends State<MealsScreen> {
                                       spreadRadius: 0,
                                     ),
                                     BoxShadow(
-                                      color: subCategory.color.withValues(alpha: 0.12),
+                                      color: Colors.deepOrange.withValues(alpha: 0.12),
                                       blurRadius: 8,
                                       offset: const Offset(0, 3),
                                       spreadRadius: 0,
                                     ),
                                   ],
                                   border: Border.all(
-                                    color: subCategory.color.withValues(alpha: 0.15),
+                                    color: Colors.deepOrange.withValues(alpha: 0.15),
                                     width: 1,
                                   ),
                                 ),
-                                child: Icon(
+                                child: const Icon(
                                   Icons.edit_rounded,
                                   size: 14,
-                                  color: subCategory.color,
+                                  color: Colors.deepOrange,
                                 ),
                               ),
                             ),
@@ -640,22 +698,27 @@ class _MealsScreenState extends State<MealsScreen> {
                     ),
                   );
                     },
-                    childCount: subCategories.length,
+                    childCount: childCategories.length,
                   ),
                 ),
+                ),
+              ],
+            ),
+          ),
         ),
       ],
-      ),
     );
   }
 
   Future<void> _showDebugInfo() async {
     try {
-      final categories = await CategoryService.getCategories();
-      final subCategories = await SubCategoryService.getSubCategories();
-      
+      final categories = await CategoryService.getCategoriesForAccount();
+      final childCats = mealsCategory != null
+          ? await CategoryService.getChildCategoriesForAccount(mealsCategory!.id)
+          : <Category>[];
+
       if (!mounted) return;
-      
+
       showDialog(
         context: context,
         builder: (context) => Dialog(
@@ -680,8 +743,8 @@ class _MealsScreenState extends State<MealsScreen> {
                         const Text('Categories:', style: TextStyle(fontWeight: FontWeight.bold)),
                         ...categories.map((c) => Text('- ${c.name} (ID: ${c.id})')),
                         const SizedBox(height: 16),
-                        const Text('Sub-Categories:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ...subCategories.map((s) => Text('- ${s.name} (Category ID: ${s.categoryId})')),
+                        Text('Child categories under "${mealsCategory?.name ?? 'Unknown'}":', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ...childCats.map((s) => Text('- ${s.name} (Parent ID: ${s.parentId ?? 'none'})')),
                       ],
                     ),
                   ),
@@ -727,7 +790,7 @@ class _MealsScreenState extends State<MealsScreen> {
   void _showAddMealDialog() {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController descriptionController = TextEditingController();
-    Color selectedColor = Colors.deepOrange;
+    Color selectedColor = _generateRandomColor(); // Generate random color
     IconData selectedIcon = Icons.restaurant;
 
     final List<Color> colors = [
@@ -768,7 +831,7 @@ class _MealsScreenState extends State<MealsScreen> {
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
-                        color: selectedColor,
+                                color: selectedColor,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -900,26 +963,19 @@ class _MealsScreenState extends State<MealsScreen> {
                                   // Show loading dialog
                                   _showLoadingDialog(scaffoldContext, nameController.text);
 
-                                  // Prepare icon and color values
-                                  final values = SubCategoryService.validateAndPrepareValues(
-                                    icon: selectedIcon,
-                                    color: selectedColor,
-                                  );
-
-                                  // Create the new sub-category in the database
-                                  debugPrint("Creating sub-category with iconValue: ${values['iconValue']}, colorValue: ${values['colorValue']}");
-                                  await SubCategoryService.createSubCategory(
+                                  // Create the new child category in the database and link to account
+                                  await CategoryService.createCategoryForAccount(
                                     name: nameController.text,
                                     description: descriptionController.text.isNotEmpty
                                         ? descriptionController.text
                                         : 'Custom meal category',
-                                    categoryId: mealsCategory!.id.toString(),
-                                    colorValue: values['colorValue'],
-                                    iconValue: values['iconValue'],
+                                    parentId: mealsCategory!.id,
+                                    iconCode: selectedIcon.codePoint,
+                                    colorValue: '0x${selectedColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
                                   );
 
-                                  // Refresh the sub-categories without showing main loading state
-                                  await _refreshSubCategories();
+                                  // Refresh the child categories without showing main loading state
+                                  await _refreshChildCategories();
 
                                   // Close loading dialog safely
                                   _closeLoadingDialog();
@@ -982,11 +1038,11 @@ class _MealsScreenState extends State<MealsScreen> {
     );
   }
 
-  void _showEditMealDialog(SubCategory subCategory) {
-    final TextEditingController nameController = TextEditingController(text: subCategory.name);
-    final TextEditingController descriptionController = TextEditingController(text: subCategory.description);
-    Color selectedColor = subCategory.color;
-    IconData selectedIcon = subCategory.icon;
+  void _showEditMealDialog(Category childCategory) {
+    final TextEditingController nameController = TextEditingController(text: childCategory.name);
+    final TextEditingController descriptionController = TextEditingController(text: childCategory.description ?? '');
+    Color selectedColor = childCategory.color;
+    IconData selectedIcon = childCategory.icon;
 
     final List<Color> colors = [
       Colors.deepOrange, Colors.green, Colors.blue, Colors.purple,
@@ -1143,7 +1199,7 @@ class _MealsScreenState extends State<MealsScreen> {
                         Expanded(
                           flex: 2,
                           child: TextButton(
-                            onPressed: () => _showDeleteConfirmation(dialogContext, subCategory),
+                            onPressed: () => _showDeleteConfirmation(dialogContext, childCategory),
                             style: TextButton.styleFrom(
                               foregroundColor: Colors.red,
                             ),
@@ -1169,26 +1225,20 @@ class _MealsScreenState extends State<MealsScreen> {
                                   // Show loading dialog
                                   _showLoadingDialog(scaffoldContext, nameController.text, action: 'Updating');
 
-                                  // Prepare icon and color values
-                                  final values = SubCategoryService.validateAndPrepareValues(
-                                    icon: selectedIcon,
-                                    color: selectedColor,
-                                  );
-
-                                  // Update the sub-category in the database
-                                  debugPrint("Updating sub-category with iconValue: ${values['iconValue']}, colorValue: ${values['colorValue']}");
-                                  await SubCategoryService.updateSubCategory(
-                                    id: subCategory.id,
+                                  // Update the child category in the database
+                                  await CategoryService.updateCategory(
+                                    id: childCategory.id,
                                     name: nameController.text,
                                     description: descriptionController.text.isNotEmpty
                                         ? descriptionController.text
                                         : 'Custom meal category',
-                                    colorValue: values['colorValue'],
-                                    iconValue: values['iconValue'],
+                                    parentId: mealsCategory?.id,
+                                    iconCode: selectedIcon.codePoint,
+                                    colorValue: '0x${selectedColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
                                   );
 
-                                  // Refresh the sub-categories without showing main loading state
-                                  await _refreshSubCategories();
+                                  // Refresh the child categories without showing main loading state
+                                  await _refreshChildCategories();
 
                                   // Close loading dialog safely
                                   _closeLoadingDialog();
@@ -1251,7 +1301,7 @@ class _MealsScreenState extends State<MealsScreen> {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext dialogContext, SubCategory subCategory) {
+  void _showDeleteConfirmation(BuildContext dialogContext, Category subCategory) {
     showDialog(
       context: context,
       builder: (BuildContext confirmContext) {
@@ -1276,13 +1326,13 @@ class _MealsScreenState extends State<MealsScreen> {
                   
                   // Show loading dialog
                   final scaffoldContext = context;
-                  _showLoadingDialog(scaffoldContext, subCategory.name ?? 'Category', action: 'Deleting');
+                  _showLoadingDialog(scaffoldContext, subCategory.name, action: 'Deleting');
 
-                  // Delete the sub-category from the database
-                  await SubCategoryService.deleteSubCategory(subCategory.id);
+                  // Delete the child category from the database
+                  await CategoryService.deleteCategory(subCategory.id);
 
-                  // Refresh the sub-categories
-                  await _refreshSubCategories();
+                  // Refresh the child categories
+                  await _refreshChildCategories();
 
                   // Close loading dialog
                   _closeLoadingDialog();
@@ -1325,14 +1375,15 @@ class _MealsScreenState extends State<MealsScreen> {
     );
   }
 
-  void _navigateToMealDetail(SubCategory subCategory) {
-    // Convert SubCategory to the format expected by MealDetailScreen
+  void _navigateToMealDetail(Category childCategory) {
+    // Convert child category to the format expected by MealDetailScreen
     final meal = {
-      'id': subCategory.id.toString(),
-      'name': subCategory.name ?? 'Unknown',
-      'description': subCategory.description ?? 'No description',
-      'color': subCategory.color,
-      'icon': subCategory.icon,
+      'id': childCategory.id,
+      'name': childCategory.name,
+      'description': childCategory.description ?? 'No description',
+      'category_id': mealsCategory?.id,
+      'color': childCategory.color, // Add color from category
+      'icon': childCategory.icon, // Add icon from category
     };
 
     Navigator.push(

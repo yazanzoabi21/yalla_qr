@@ -10,32 +10,82 @@ class ProductService {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null) {
-        debugPrint('⚠️ No authenticated user found');
+        debugPrint('⚠️ [ProductService] No authenticated user found');
         return null;
       }
 
-      final query = _supabase
-          .from('accounts')
-          .select('id')
-          .eq('owner_id', user.id);
-
-      // If a category is specified, narrow to that account
+      debugPrint('🔍 [ProductService] Looking for account with owner_id: ${user.id}');
       if (categoryId != null) {
-        query.eq('category_id', categoryId);
+        debugPrint('   📁 Filtering by category_id: $categoryId');
       }
 
-      final response = await query.maybeSingle();
-
-      if (response != null) {
-        final accountId = response['id'] as String;
-        debugPrint('✅ Found account ID: $accountId for user: ${user.id}');
-        return accountId;
-      } else {
-        debugPrint('⚠️ No account found for user: ${user.id}');
+      // Get all accounts for the user
+      final allAccounts = await _supabase
+          .from('accounts')
+          .select('id, name, owner_id, role')
+          .eq('owner_id', user.id);
+      
+      if (allAccounts.isEmpty) {
+        debugPrint('❌ [ProductService] No accounts found for user: ${user.id}');
         return null;
       }
+
+      debugPrint('📊 [ProductService] User has ${allAccounts.length} total accounts:');
+      for (var acc in allAccounts) {
+        debugPrint('   - ${acc['name']} (role: ${acc['role']})');
+      }
+
+      // Strategy for finding the right account:
+      // 1. If categoryId is specified, look for account with that category in account_categories
+      // 2. If no match, fall back to ORG account
+      // 3. If no ORG account, use any available account
+      
+      dynamic selectedAccount;
+      
+      if (categoryId != null) {
+        // Try to find account that has access to this category via account_categories
+        for (var acc in allAccounts) {
+          final hasCategory = await _supabase
+              .from('account_categories')
+              .select('id')
+              .eq('account_id', acc['id'])
+              .eq('category_id', categoryId)
+              .maybeSingle();
+          
+          if (hasCategory != null) {
+            selectedAccount = acc;
+            debugPrint('✅ [ProductService] Found account with access to category: ${selectedAccount['name']}');
+            break;
+          }
+        }
+        
+        if (selectedAccount == null) {
+          debugPrint('⚠️ [ProductService] No account found with access to category_id: $categoryId');
+        }
+      }
+      
+      // If no account found yet, try to find ORG account
+      if (selectedAccount == null) {
+        try {
+          selectedAccount = allAccounts.firstWhere(
+            (acc) => acc['role'] == 'ORG'
+          );
+          debugPrint('✅ [ProductService] Using ORG account: ${selectedAccount['name']}');
+        } catch (e) {
+          debugPrint('⚠️ [ProductService] No ORG account found');
+        }
+      }
+      
+      // If still no account, use the first available one
+      if (selectedAccount == null) {
+        selectedAccount = allAccounts.first;
+        debugPrint('✅ [ProductService] Using first available account: ${selectedAccount['name']}');
+      }
+
+      final accountId = selectedAccount['id'] as String;
+      return accountId;
     } catch (e) {
-      debugPrint('❌ Error getting account ID: $e');
+      debugPrint('❌ [ProductService] Error getting account ID: $e');
       return null;
     }
   }
@@ -53,7 +103,7 @@ class ProductService {
 
       final response = await _supabase
           .from('products')
-          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category, account_id')
+          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id, account_id')
           .eq('account_id', accountId)
           .order('name', ascending: true);
 
@@ -67,11 +117,14 @@ class ProductService {
     }
   }
 
-  /// Get products by sub-category ID
-  static Future<List<Product>> getProductsBySubCategory(int subCategoryId) async {
+  /// Get products by category ID
+  static Future<List<Product>> getProductsByCategory(
+    String categoryId,
+  ) async {
     try {
-      debugPrint('🔍 Fetching products for sub-category: $subCategoryId');
-      final accountId = await _getCurrentAccountId();
+      debugPrint('🔍 Fetching products for category: $categoryId');
+      
+      final accountId = await _getCurrentAccountId(categoryId: categoryId);
       if (accountId == null) {
         debugPrint('⚠️ No account context; returning empty products list');
         return [];
@@ -79,12 +132,12 @@ class ProductService {
 
       final response = await _supabase
           .from('products')
-          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category, account_id')
-          .eq('sub_category', subCategoryId)
+          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id, account_id')
+          .eq('category_id', categoryId)
           .eq('account_id', accountId)
           .order('name', ascending: true);
 
-      debugPrint('Fetched ${response.length} products for sub-category $subCategoryId');
+      debugPrint('Fetched ${response.length} products for category $categoryId');
       final products = (response as List)
           .map((json) => Product.fromJson(json as Map<String, dynamic>))
           .toList();
@@ -96,8 +149,8 @@ class ProductService {
 
       return products;
     } catch (e) {
-      debugPrint('Failed to fetch products for sub-category $subCategoryId: $e');
-      throw Exception('Failed to fetch products for sub-category $subCategoryId: $e');
+      debugPrint('Failed to fetch products for category $categoryId: $e');
+      throw Exception('Failed to fetch products for category $categoryId: $e');
     }
   }
 
@@ -109,15 +162,15 @@ class ProductService {
     double? priceUsd,
     String? imageUrl,
     bool inStock = true,
-    required int subCategoryId,
+    required String categoryId,
     String? accountId,
   }) async {
     try {
-      debugPrint('🔄 Creating new product: $name for sub-category: $subCategoryId');
-      debugPrint('📝 Product data: name=$name, sub_category=$subCategoryId, price_lbp=$priceLbp, price_usd=$priceUsd');
+      debugPrint('🔄 Creating new product: $name for category: $categoryId');
+      debugPrint('📝 Product data: name=$name, category_id=$categoryId, price_lbp=$priceLbp, price_usd=$priceUsd');
       
       // Get current account ID if not provided
-      final currentAccountId = accountId ?? await _getCurrentAccountId();
+      final currentAccountId = accountId ?? await _getCurrentAccountId(categoryId: categoryId);
       debugPrint('📝 Using account ID: $currentAccountId');
       
       if (currentAccountId == null) {
@@ -133,10 +186,11 @@ class ProductService {
             'price_usd': priceUsd,
             'image_url': imageUrl,
             'in_stock': inStock,
-            'sub_category': subCategoryId,
+            'quantity': inStock ? 1 : 0,
+            'category_id': categoryId,
             'account_id': currentAccountId,
           })
-          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category, account_id')
+          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id, account_id')
           .single();
 
       debugPrint('Product created successfully with ID: ${response['id']}');
@@ -144,6 +198,32 @@ class ProductService {
     } catch (e) {
       debugPrint('Failed to create product: $e');
       throw Exception('Failed to create product: $e');
+    }
+  }
+
+  /// Update product quantity (stock)
+  static Future<Product> updateProductQuantity({
+    required String productId,
+    required int quantity,
+  }) async {
+    try {
+      debugPrint('📦 Updating product quantity: $productId to $quantity');
+      
+      final response = await _supabase
+          .from('products')
+          .update({
+            'quantity': quantity,
+            'in_stock': quantity > 0,
+          })
+          .eq('id', productId)
+          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id')
+          .single();
+
+      debugPrint('✅ Product quantity updated successfully');
+      return Product.fromJson(response as Map<String, dynamic>);
+    } catch (e) {
+      debugPrint('❌ Failed to update product quantity: $e');
+      throw Exception('Failed to update product quantity: $e');
     }
   }
 
@@ -156,7 +236,8 @@ class ProductService {
     double? priceUsd,
     String? imageUrl,
     bool? inStock,
-    int? subCategoryId,
+    String? categoryId,
+    int? quantity,
   }) async {
     try {
       debugPrint('🔄 Updating product: $productId');
@@ -168,13 +249,17 @@ class ProductService {
       if (priceUsd != null) updateData['price_usd'] = priceUsd;
       if (imageUrl != null) updateData['image_url'] = imageUrl;
       if (inStock != null) updateData['in_stock'] = inStock;
-      if (subCategoryId != null) updateData['sub_category'] = subCategoryId;
+      if (categoryId != null) updateData['category_id'] = categoryId;
+      if (quantity != null) {
+        updateData['quantity'] = quantity;
+        updateData['in_stock'] = quantity > 0;
+      }
 
       final response = await _supabase
           .from('products')
           .update(updateData)
           .eq('id', productId)
-          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category')
+          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id')
           .single();
 
       debugPrint('Product updated successfully');
@@ -221,7 +306,7 @@ class ProductService {
           .from('products')
           .update({'in_stock': newStock})
           .eq('id', productId)
-          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category')
+          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, category_id')
           .single();
 
       debugPrint('Product stock status toggled to: $newStock');
@@ -233,7 +318,7 @@ class ProductService {
   }
 
   /// Search products by name or description
-  static Future<List<Product>> searchProducts(String query, {int? subCategoryId}) async {
+  static Future<List<Product>> searchProducts(String query, {String? categoryId}) async {
     try {
       debugPrint('Searching products with query: "$query"');
       // Restrict to current account products
@@ -245,11 +330,11 @@ class ProductService {
 
       var queryBuilder = _supabase
           .from('products')
-          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, sub_category')
+          .select('id, account_id, name, description, price_lbp, price_usd, image_url, in_stock, created_at, category_id')
           .eq('account_id', accountId);
       
-      if (subCategoryId != null) {
-        queryBuilder = queryBuilder.eq('sub_category', subCategoryId);
+      if (categoryId != null) {
+        queryBuilder = queryBuilder.eq('category_id', categoryId);
       }
       
       final response = await queryBuilder
@@ -263,6 +348,31 @@ class ProductService {
     } catch (e) {
       debugPrint('Failed to search products: $e');
       throw Exception('Failed to search products: $e');
+    }
+  }
+
+  /// Get products by account ID and category (for viewing other organizations' products)
+  static Future<List<Product>> getProductsByAccountAndCategory(
+    String accountId,
+    String categoryId,
+  ) async {
+    try {
+      debugPrint('🔍 Fetching products for account: $accountId, category: $categoryId');
+      
+      final response = await _supabase
+          .from('products')
+          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id, account_id')
+          .eq('account_id', accountId)
+          .eq('category_id', categoryId)
+          .order('name', ascending: true);
+
+      debugPrint('Fetched ${response.length} products');
+      return (response as List)
+          .map((json) => Product.fromJson(json as Map<String, dynamic>))
+          .toList();
+    } catch (e) {
+      debugPrint('Failed to fetch products: $e');
+      throw Exception('Failed to fetch products: $e');
     }
   }
 }

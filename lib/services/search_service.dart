@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../models/search_result.dart';
 import 'product_service.dart';
 import 'category_service.dart';
-import 'sub_category_service.dart';
 
 class SearchService {
   /// Perform a global search across all entities
@@ -18,7 +17,6 @@ class SearchService {
       final results = await Future.wait([
         _searchProducts(query),
         _searchCategories(query),
-        _searchSubCategories(query),
       ]);
 
       // Flatten the results
@@ -33,7 +31,6 @@ class SearchService {
       debugPrint('✅ Found ${allResults.length} total results');
       debugPrint('   - Products: ${results[0].length}');
       debugPrint('   - Categories: ${results[1].length}');
-      debugPrint('   - Sub-Categories: ${results[2].length}');
 
       return allResults;
     } catch (e) {
@@ -104,30 +101,7 @@ class SearchService {
     }
   }
 
-  /// Search sub-categories with relevance scoring
-  static Future<List<SearchResult>> _searchSubCategories(String query) async {
-    try {
-      final subCategories = await SubCategoryService.getSubCategories();
-      
-      // Filter sub-categories that match the query
-      final matchingSubCategories = subCategories.where((subCategory) {
-        return (subCategory.name != null && _matchesQuery(query, subCategory.name!)) ||
-               (subCategory.description != null && _matchesQuery(query, subCategory.description!));
-      }).toList();
 
-      return matchingSubCategories.map((subCategory) {
-        final score = _calculateRelevanceScore(
-          query: query,
-          title: subCategory.name ?? '',
-          description: subCategory.description,
-        );
-        return SearchResult.fromSubCategory(subCategory, relevanceScore: score);
-      }).toList();
-    } catch (e) {
-      debugPrint('⚠️ Error searching sub-categories: $e');
-      return [];
-    }
-  }
 
   /// Check if a text matches the query (case-insensitive)
   static bool _matchesQuery(String query, String text) {
@@ -242,7 +216,7 @@ class SearchService {
     return score;
   }
 
-  /// Search within a specific category
+  /// Search within a specific category (includes child categories and products)
   static Future<List<SearchResult>> searchInCategory({
     required String query,
     required String categoryId,
@@ -254,44 +228,42 @@ class SearchService {
     debugPrint('🔍 Searching in category: $categoryId for: "$query"');
 
     try {
-      // Get sub-categories for this category
-      final subCategories = await SubCategoryService.getSubCategoriesByCategoryId(categoryId);
+      // Get child categories for this category
+      final childCategories = await CategoryService.getChildCategories(categoryId);
       
       final results = <SearchResult>[];
 
-      // Search products in each sub-category
-      for (var subCategory in subCategories) {
-        final products = await ProductService.getProductsBySubCategory(subCategory.id);
-        
-        // Filter products that match the query
-        final matchingProducts = products.where((product) {
-          return _matchesQuery(query, product.name) ||
-                 (product.description != null && _matchesQuery(query, product.description!));
-        }).toList();
-
-        for (var product in matchingProducts) {
-          final score = _calculateRelevanceScore(
-            query: query,
-            title: product.name,
-            description: product.description,
-          );
-          results.add(SearchResult.fromProduct(product, relevanceScore: score));
-        }
-      }
-
-      // Also add matching sub-categories
-      final matchingSubCategories = subCategories.where((subCategory) {
-        return (subCategory.name != null && _matchesQuery(query, subCategory.name!)) ||
-               (subCategory.description != null && _matchesQuery(query, subCategory.description!));
+      // Search products in category and each child category
+      final products = await ProductService.getProductsByCategory(categoryId);
+      
+      // Filter products that match the query
+      final matchingProducts = products.where((product) {
+        return _matchesQuery(query, product.name) ||
+               (product.description != null && _matchesQuery(query, product.description!));
       }).toList();
 
-      for (var subCategory in matchingSubCategories) {
+      for (var product in matchingProducts) {
         final score = _calculateRelevanceScore(
           query: query,
-          title: subCategory.name ?? '',
-          description: subCategory.description,
+          title: product.name,
+          description: product.description,
         );
-        results.add(SearchResult.fromSubCategory(subCategory, relevanceScore: score));
+        results.add(SearchResult.fromProduct(product, relevanceScore: score));
+      }
+
+      // Also add matching child categories
+      final matchingChildCategories = childCategories.where((category) {
+        return _matchesQuery(query, category.name) ||
+               (category.description != null && _matchesQuery(query, category.description!));
+      }).toList();
+
+      for (var category in matchingChildCategories) {
+        final score = _calculateRelevanceScore(
+          query: query,
+          title: category.name,
+          description: category.description,
+        );
+        results.add(SearchResult.fromCategory(category, relevanceScore: score));
       }
 
       // Sort by relevance

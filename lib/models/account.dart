@@ -4,7 +4,6 @@ class Account {
   final String name;
   final String? email;
   final String? phone;
-  final String? categoryId;
   final String? description;
   final String? locationAddress;
   final double? locationLat;
@@ -16,6 +15,9 @@ class Account {
   
   // Optional: QR code associated with this account
   final String? qrCode;
+  
+  // Optional: Categories associated with this account (loaded via join)
+  final List<String>? categoryIds;
 
   Account({
     required this.id,
@@ -23,7 +25,6 @@ class Account {
     required this.name,
     this.email,
     this.phone,
-    this.categoryId,
     this.description,
     this.locationAddress,
     this.locationLat,
@@ -33,6 +34,7 @@ class Account {
     required this.updatedAt,
     this.role = 'USER',
     this.qrCode,
+    this.categoryIds,
   });
 
   factory Account.fromJson(Map<String, dynamic> json) {
@@ -42,7 +44,6 @@ class Account {
       name: json['name'] as String,
       email: json['email'] as String?,
       phone: json['phone'] as String?,
-      categoryId: json['category_id'] as String?,
       description: json['description'] as String?,
       locationAddress: json['location_address'] as String?,
       locationLat: json['location_lat'] != null
@@ -56,6 +57,9 @@ class Account {
       updatedAt: DateTime.parse(json['updated_at'] as String),
       role: json['role'] as String? ?? 'USER',
       qrCode: json['qr_code'] as String?,
+      categoryIds: json['category_ids'] != null
+          ? List<String>.from(json['category_ids'])
+          : null,
     );
   }
 
@@ -66,7 +70,6 @@ class Account {
       'name': name,
       'email': email,
       'phone': phone,
-      'category_id': categoryId,
       'description': description,
       'location_address': locationAddress,
       'location_lat': locationLat,
@@ -84,7 +87,6 @@ class Account {
     String? name,
     String? email,
     String? phone,
-    String? categoryId,
     String? description,
     String? locationAddress,
     double? locationLat,
@@ -94,6 +96,7 @@ class Account {
     DateTime? updatedAt,
     String? role,
     String? qrCode,
+    List<String>? categoryIds,
   }) {
     return Account(
       id: id ?? this.id,
@@ -101,7 +104,6 @@ class Account {
       name: name ?? this.name,
       email: email ?? this.email,
       phone: phone ?? this.phone,
-      categoryId: categoryId ?? this.categoryId,
       description: description ?? this.description,
       locationAddress: locationAddress ?? this.locationAddress,
       locationLat: locationLat ?? this.locationLat,
@@ -111,6 +113,7 @@ class Account {
       updatedAt: updatedAt ?? this.updatedAt,
       role: role ?? this.role,
       qrCode: qrCode ?? this.qrCode,
+      categoryIds: categoryIds ?? this.categoryIds,
     );
   }
 }

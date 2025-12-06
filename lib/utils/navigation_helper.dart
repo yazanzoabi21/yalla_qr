@@ -6,11 +6,14 @@ import '../screens/gym/gym_screen.dart';
 
 class NavigationHelper {
   /// Navigate to login screen with optional intended destination
-  static void navigateToLogin(BuildContext context, {String? intendedDestination}) {
+  static void navigateToLogin(BuildContext context, {String? intendedDestination, bool registerAsClient = false}) {
     Navigator.pushAndRemoveUntil(
       context,
       MaterialPageRoute(
-        builder: (context) => LoginScreen(intendedDestination: intendedDestination),
+        builder: (context) => LoginScreen(
+          intendedDestination: intendedDestination,
+          registerAsClient: registerAsClient,
+        ),
         settings: const RouteSettings(name: '/login'),
       ),
       (route) => false, // Remove all previous routes

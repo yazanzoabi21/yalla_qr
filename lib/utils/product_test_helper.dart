@@ -43,6 +43,8 @@ class ProductTestHelper {
   static Future<void> testProductCreation() async {
     try {
       debugPrint('🧪 Testing product creation...');
+
+      const testCategoryId = 'REPLACE_WITH_CATEGORY_ID'; // Provide a valid category UUID for testing
       
       // Create a test product
       final product = await ProductService.createProduct(
@@ -50,14 +52,14 @@ class ProductTestHelper {
         description: 'This is a test product created automatically',
         priceLbp: 50000,
         priceUsd: 33.33,
-        subCategoryId: 1, // Make sure this sub-category exists
+        categoryId: testCategoryId,
       );
       
       debugPrint('✅ Product created successfully: ${product.name} (ID: ${product.id})');
       
       // Test product retrieval
-      final products = await ProductService.getProductsBySubCategory(1);
-      debugPrint('✅ Retrieved ${products.length} products for sub-category 1');
+      final products = await ProductService.getProductsByCategory(testCategoryId);
+      debugPrint('✅ Retrieved ${products.length} products for category $testCategoryId');
       
     } catch (e) {
       debugPrint('❌ Product creation test failed: $e');
@@ -65,7 +67,7 @@ class ProductTestHelper {
   }
 
   /// Test full workflow: capture image + create product
-  static Future<void> testFullWorkflow(BuildContext context, int subCategoryId) async {
+  static Future<void> testFullWorkflow(BuildContext context, String categoryId) async {
     try {
       debugPrint('🧪 Testing full workflow...');
       
@@ -89,7 +91,7 @@ class ProductTestHelper {
         priceLbp: 75000,
         priceUsd: 50.0,
         imageUrl: imageUrl,
-        subCategoryId: subCategoryId,
+        categoryId: categoryId,
       );
       
       debugPrint('✅ Full workflow completed successfully!');

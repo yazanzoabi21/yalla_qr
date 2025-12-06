@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/index.dart';
+import 'visitor_tracking_service.dart';
 
 class QRCodeService {
   final SupabaseClient _client;
@@ -93,16 +95,39 @@ class QRCodeService {
   /// Get QR code by code string
   Future<QRCodeModel?> getQRCodeByCode(String code) async {
     try {
+      debugPrint('🔍 [QRCodeService.getQRCodeByCode] Searching for code: $code');
+      
       final response = await _client
           .from('qr_codes')
           .select()
           .eq('code', code)
           .maybeSingle();
 
-      if (response == null) return null;
+      if (response == null) {
+        debugPrint('❌ [QRCodeService.getQRCodeByCode] No QR code found for: $code');
+        
+        // Check if there are ANY QR codes in the database
+        final allQRCodes = await _client
+            .from('qr_codes')
+            .select('code')
+            .limit(5);
+        
+        debugPrint('📊 [QRCodeService.getQRCodeByCode] Sample QR codes in database:');
+        if (allQRCodes.isEmpty) {
+          debugPrint('   ⚠️ Database has NO QR codes!');
+        } else {
+          for (var qr in allQRCodes) {
+            debugPrint('   - ${qr['code']}');
+          }
+        }
+        
+        return null;
+      }
 
+      debugPrint('✅ [QRCodeService.getQRCodeByCode] Found QR code: ${response['id']}');
       return QRCodeModel.fromJson(response);
     } catch (e) {
+      debugPrint('❌ [QRCodeService.getQRCodeByCode] Error: $e');
       throw Exception('Failed to get QR code: $e');
     }
   }
@@ -178,6 +203,38 @@ class QRCodeService {
 
       // Increment scan count
       await incrementScanCount(qrCodeId);
+
+      // Track visitor (get org_id from the QR code)
+      try {
+        debugPrint('🔍 [QRCodeService] Starting visitor tracking for QR code: $qrCodeId');
+        
+        final qrCodeData = await _client
+            .from('qr_codes')
+            .select('account_id')
+            .eq('id', qrCodeId)
+            .single();
+        
+        debugPrint('🔍 [QRCodeService] QR code data retrieved: $qrCodeData');
+        
+        final orgId = qrCodeData['account_id'] as String?;
+        if (orgId == null) {
+          debugPrint('❌ [QRCodeService] No account_id found for QR code: $qrCodeId');
+          return response;
+        }
+        
+        debugPrint('🔍 [QRCodeService] Calling VisitorTrackingService with qrCodeId=$qrCodeId, orgId=$orgId');
+        
+        await VisitorTrackingService.trackVisitor(
+          qrCodeId: qrCodeId,
+          orgId: orgId,
+        );
+        
+        debugPrint('✅ [QRCodeService] Visitor tracking completed successfully');
+      } catch (visitorError) {
+        // Don't fail the scan if visitor tracking fails
+        debugPrint('❌ [QRCodeService] Failed to track visitor: $visitorError');
+        debugPrint('❌ [QRCodeService] Error stack trace: ${StackTrace.current}');
+      }
 
       return ScanLog.fromJson(response);
     } catch (e) {

@@ -4,10 +4,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/search_result.dart';
 import '../../models/product.dart';
 import '../../models/category.dart';
-import '../../models/sub_category.dart';
 import '../../services/search_service.dart';
 import '../../services/auth_service.dart';
-import '../../services/sub_category_service.dart';
+import '../../services/category_service.dart';
 import '../../utils/navigation_helper.dart';
 import '../../exceptions/category_not_registered_exception.dart';
 import '../meals/meal_detail_screen.dart';
@@ -136,38 +135,35 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
       case SearchResultType.category:
         // Navigate to category screen
         final category = result.data as Category;
-        _navigateToCategoryScreen(category);
-        break;
-        
-      case SearchResultType.subCategory:
-        // Navigate to sub-category detail (meal detail screen)
-        final subCategory = result.data as SubCategory;
-        await _navigateToSubCategoryDetail(subCategory);
+        // Check if this is a child category (navigate to detail) or parent category (navigate to category screen)
+        if (category.isChild) {
+          await _navigateToCategoryDetail(category);
+        } else {
+          _navigateToCategoryScreen(category);
+        }
         break;
     }
   }
 
   Future<void> _navigateToProductDetail(Product product) async {
     try {
-      // Fetch the sub-category details to get proper name, icon, and color
-      if (product.subCategory != null) {
-        final subCategory = await SubCategoryService.getSubCategoryById(product.subCategory!);
+      // Fetch the category details to get proper name and description
+      if (product.categoryId != null) {
+        final category = await CategoryService.getCategoryById(product.categoryId!);
         
-        if (subCategory == null) {
+        if (category == null) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Sub-category not found')),
+            const SnackBar(content: Text('Category not found')),
           );
           return;
         }
 
         // Create a meal map format that MealDetailScreen expects
         final mealMap = {
-          'id': subCategory.id.toString(),
-          'name': subCategory.name ?? 'Products',
-          'icon': subCategory.icon,
-          'color': subCategory.color,
-          'description': subCategory.description ?? '',
+          'id': category.id,
+          'name': category.name,
+          'description': category.description ?? '',
         };
 
         if (!mounted) return;
@@ -275,15 +271,13 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     );
   }
 
-  Future<void> _navigateToSubCategoryDetail(SubCategory subCategory) async {
+  Future<void> _navigateToCategoryDetail(Category category) async {
     try {
       // Create a meal map format that MealDetailScreen expects
       final mealMap = {
-        'id': subCategory.id.toString(),
-        'name': subCategory.name ?? 'Sub-Category',
-        'icon': subCategory.icon,
-        'color': subCategory.color,
-        'description': subCategory.description ?? '',
+        'id': category.id,
+        'name': category.name,
+        'description': category.description ?? '',
       };
 
       if (!mounted) return;
@@ -527,7 +521,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     // Group results by type
     final productResults = _results.where((r) => r.type == SearchResultType.product).toList();
     final categoryResults = _results.where((r) => r.type == SearchResultType.category).toList();
-    final subCategoryResults = _results.where((r) => r.type == SearchResultType.subCategory).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -562,13 +555,6 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         if (categoryResults.isNotEmpty) ...[
           _buildSectionHeader('Categories', categoryResults.length, Icons.category),
           ...categoryResults.map((result) => _buildResultCard(result)),
-          const SizedBox(height: 16),
-        ],
-
-        // Sub-Categories section
-        if (subCategoryResults.isNotEmpty) ...[
-          _buildSectionHeader('Sub-Categories', subCategoryResults.length, Icons.folder),
-          ...subCategoryResults.map((result) => _buildResultCard(result)),
           const SizedBox(height: 16),
         ],
 

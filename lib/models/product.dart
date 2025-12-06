@@ -9,8 +9,9 @@ class Product {
   final double? priceUsd;
   final String? imageUrl;
   final bool inStock;
+  final int quantity; // Available stock quantity
   final DateTime createdAt;
-  final int? subCategory;
+  final String? categoryId;
 
   Product({
     required this.id,
@@ -21,8 +22,9 @@ class Product {
     this.priceUsd,
     this.imageUrl,
     required this.inStock,
+    this.quantity = 0,
     required this.createdAt,
-    this.subCategory,
+    this.categoryId,
   });
 
   factory Product.fromJson(Map<String, dynamic> json) {
@@ -37,8 +39,9 @@ class Product {
       priceUsd: json['price_usd'] != null ? (json['price_usd'] as num).toDouble() : null,
       imageUrl: json['image_url'] as String?,
       inStock: json['in_stock'] as bool? ?? true,
+      quantity: json['quantity'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
-      subCategory: json['sub_category'] != null ? (json['sub_category'] as num).toInt() : null,
+      categoryId: json['category_id'] as String?,
     );
   }
 
@@ -52,8 +55,9 @@ class Product {
       'price_usd': priceUsd,
       'image_url': imageUrl,
       'in_stock': inStock,
+      'quantity': quantity,
       'created_at': createdAt.toIso8601String(),
-      'sub_category': subCategory,
+      'category_id': categoryId,
     };
   }
 

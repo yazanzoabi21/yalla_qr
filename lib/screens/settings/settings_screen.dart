@@ -24,6 +24,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _descriptionController;
   late TextEditingController _locationController;
 
+  String? _userRole;
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +49,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
+        debugPrint('⚙️ [Settings] Loading profile for user: ${user.email}');
+        
         // First get category info if categoryName is provided
         if (widget.categoryName != null) {
           final categoryResponse = await Supabase.instance.client
@@ -58,28 +62,98 @@ class _SettingsScreenState extends State<SettingsScreen> {
           setState(() {
             _categoryInfo = categoryResponse;
           });
+          
+          debugPrint('   📂 Category context: ${_categoryInfo!['name']}');
         }
 
         // Get account profile from the accounts table based on user and category
-        final query = Supabase.instance.client
-            .from('accounts')
-            .select('*, categories(*)')
-            .eq('owner_id', user.id);
+        dynamic response;
         
-        // If we have a specific category, filter by it
-        if (_categoryInfo != null) {
-          query.eq('category_id', _categoryInfo!['id']);
+        // If no category is specified (home screen), prefer ORG account
+        if (_categoryInfo == null) {
+          debugPrint('   🏠 No category specified - loading ORG account (home screen context)');
+          final orgAccounts = await Supabase.instance.client
+              .from('accounts')
+              .select('*')
+              .eq('owner_id', user.id)
+              .eq('role', 'ORG')
+              .limit(1);
+          
+          if (orgAccounts.isNotEmpty) {
+            response = orgAccounts.first;
+            debugPrint('   ✅ Found ORG account: ${response['name']}');
+          } else {
+            // Fallback to any account
+            debugPrint('   ⚠️ No ORG account found, loading any account');
+            final anyAccount = await Supabase.instance.client
+                .from('accounts')
+                .select('*')
+                .eq('owner_id', user.id)
+                .limit(1);
+            response = anyAccount.isNotEmpty ? anyAccount.first : null;
+          }
+        } else {
+          // If we have a specific category, filter by it
+          debugPrint('   🔍 Filtering by category_id: ${_categoryInfo!['id']}');
+          var query = Supabase.instance.client
+              .from('accounts')
+              .select('*')
+              .eq('owner_id', user.id)
+              .eq('category_id', _categoryInfo!['id']);
+          
+          // Try to get single account, but handle multiple accounts gracefully
+          try {
+            response = await query.maybeSingle();
+          } catch (e) {
+            // If multiple accounts exist, prefer USER role (for CLIENT pages)
+            debugPrint('   ⚠️ Multiple accounts found, filtering by USER role');
+            final multipleAccounts = await Supabase.instance.client
+                .from('accounts')
+                .select('*')
+                .eq('owner_id', user.id)
+                .eq('role', 'USER')
+                .limit(1);
+            
+            if (multipleAccounts.isNotEmpty) {
+              response = multipleAccounts.first;
+            } else {
+              // Fallback to any account
+              final anyAccount = await Supabase.instance.client
+                  .from('accounts')
+                  .select('*')
+                  .eq('owner_id', user.id)
+                  .limit(1);
+              response = anyAccount.isNotEmpty ? anyAccount.first : null;
+            }
+          }
         }
         
-        final response = await query.maybeSingle();
+        if (response != null) {
+          debugPrint('   ✅ Account found:');
+          debugPrint('      - Name: ${response['name']}');
+          debugPrint('      - Email: ${user.email}');
+          debugPrint('      - Role: ${response['role']}');
+          debugPrint('      - Category ID: ${response['category_id']}');
+        } else {
+          debugPrint('   ⚠️ No account found for this user/category combination');
+        }
         
         setState(() {
           _accountProfile = response;
+          _userRole = response?['role'] as String?;
           _populateControllers();
+          _isLoading = false;
+        });
+        
+        debugPrint('⚙️ [Settings] User role: $_userRole');
+      } else {
+        debugPrint('⚠️ [Settings] No user logged in');
+        setState(() {
           _isLoading = false;
         });
       }
     } catch (e) {
+      debugPrint('❌ [Settings] Error loading profile: $e');
       setState(() {
         _isLoading = false;
       });
@@ -188,7 +262,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with category context
+                  // Header with category context and role
                   Row(
                     children: [
                       IconButton(
@@ -202,6 +276,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      const SizedBox(width: 10),
+                      // Role Badge
+                      if (_userRole != null)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: _userRole == 'ORG' 
+                                ? Colors.purple.withValues(alpha: 0.2)
+                                : Colors.green.withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _userRole == 'ORG' ? Icons.business : Icons.person,
+                                size: 14,
+                                color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                _userRole!,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       if (_categoryInfo != null) ...[
                         const SizedBox(width: 10),
                         Container(
@@ -348,8 +456,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                   const SizedBox(height: 20),
 
-                  // QR Code Section (if account exists)
-                  if (_accountProfile != null) ...[
+                  // QR Code Section (only for ORG accounts)
+                  if (_accountProfile != null && _userRole == 'ORG') ...[
                     Card(
                       elevation: 4,
                       child: Padding(

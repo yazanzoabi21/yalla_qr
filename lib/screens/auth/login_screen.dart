@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
 import '../../services/auth_service.dart';
 import '../../exceptions/category_not_registered_exception.dart';
@@ -9,8 +10,13 @@ import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   final String? intendedDestination; // The screen to navigate to after login
+  final bool registerAsClient; // If true, register as USER (client), otherwise as ORG
 
-  const LoginScreen({super.key, this.intendedDestination});
+  const LoginScreen({
+    super.key, 
+    this.intendedDestination, 
+    this.registerAsClient = false,
+  });
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -30,6 +36,13 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
+    
+    // Debug: Log what type of registration this is
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    debugPrint('🔐 [LoginScreen.initState] Screen initialized');
+    debugPrint('   📋 widget.registerAsClient = ${widget.registerAsClient}');
+    debugPrint('   📁 widget.intendedDestination = ${widget.intendedDestination}');
+    debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Add listeners to clear errors when user types
     _emailController.addListener(() {
@@ -109,7 +122,7 @@ class _LoginScreenState extends State<LoginScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.grey),
             onPressed: () {
-              NavigationHelper.navigateToHome(context);
+              Navigator.pop(context); // Just go back instead of navigating to home
             },
           ),
         ),
@@ -449,6 +462,7 @@ class _LoginScreenState extends State<LoginScreen> {
                                     builder: (context) => SignupScreen(
                                       intendedDestination:
                                           widget.intendedDestination,
+                                      registerAsClient: widget.registerAsClient,
                                     ),
                                   ),
                                 );
@@ -556,6 +570,36 @@ class _LoginScreenState extends State<LoginScreen> {
           
           await SecureStorageService.saveSessionJson(sessionJson);
           
+          // Determine login context based on user's actual role in database
+          debugPrint('🔍 Checking user role for login context...');
+          final accountsResponse = await Supabase.instance.client
+              .from('accounts')
+              .select('role')
+              .eq('owner_id', session.user.id);
+          
+          String loginContext = 'ORG'; // Default to ORG
+          
+          if (accountsResponse.isNotEmpty) {
+            // Check what roles this user has
+            final hasOrgRole = accountsResponse.any((acc) => acc['role'] == 'ORG');
+            final hasUserRole = accountsResponse.any((acc) => acc['role'] == 'USER');
+            
+            debugPrint('   👤 Has ORG role: $hasOrgRole');
+            debugPrint('   👤 Has USER role: $hasUserRole');
+            
+            // If user has ONLY USER role (no ORG), set context to CLIENT
+            if (hasUserRole && !hasOrgRole) {
+              loginContext = 'CLIENT';
+            } else if (hasOrgRole) {
+              loginContext = 'ORG';
+            }
+          }
+          
+          // Save login context to SharedPreferences
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setString('login_context', loginContext);
+          debugPrint('🔖 Login context saved: $loginContext (based on actual role)');
+          
           // Double-check the session was saved
           final savedSession = await SecureStorageService.getSessionJson();
           if (savedSession != null) {
@@ -587,13 +631,22 @@ class _LoginScreenState extends State<LoginScreen> {
         // Small delay to show the success message
         await Future.delayed(const Duration(milliseconds: 800));
 
-        // Navigate based on intended destination
-        if (!mounted) return; // Ensure the widget is still mounted
-        if (widget.intendedDestination != null) {
+        // Navigate based on actual login context (role from database)
+        if (!mounted) return;
+        
+        // Get the saved login context
+        final prefs = await SharedPreferences.getInstance();
+        final loginContext = prefs.getString('login_context');
+        
+        if (loginContext == 'CLIENT') {
+          // Navigate to CLIENT page
+          Navigator.pushReplacementNamed(context, '/client');
+        } else if (widget.intendedDestination != null) {
           // Navigate directly to the category screen after login
           NavigationHelper.navigateToCategory(context, widget.intendedDestination!);
         } else {
-          NavigationHelper.navigateToHome(context);
+          // Navigate to ORG home screen
+          Navigator.pushReplacementNamed(context, '/home');
         }
       } on CategoryNotRegisteredException catch (e) {
         if (!mounted) return;
@@ -707,6 +760,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   MaterialPageRoute(
                     builder: (context) => SignupScreen(
                       intendedDestination: widget.intendedDestination,
+                      registerAsClient: widget.registerAsClient,
                     ),
                   ),
                 );

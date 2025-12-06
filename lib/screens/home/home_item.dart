@@ -40,7 +40,7 @@ class _HomeItemState extends State<HomeItem> {
 
         ScaffoldMessenger.of(
           localContext,
-        ).showSnackBar(SnackBar(content: Text('Saved: ${widget.title}')));
+        );
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 300),

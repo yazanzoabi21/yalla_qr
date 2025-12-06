@@ -127,30 +127,131 @@ class QRCodeCard extends StatelessWidget {
 
   Future<void> _shareQr(BuildContext context) async {
     try {
+      // Show loading indicator
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 16),
+              Text('Preparing QR code...'),
+            ],
+          ),
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Generate QR code with white background
       final painter = QrPainter(
         data: qrCode.code,
         version: QrVersions.auto,
         gapless: true,
         errorCorrectionLevel: QrErrorCorrectLevel.H,
+        eyeStyle: QrEyeStyle(
+          eyeShape: QrEyeShape.square,
+          color: Colors.blue.shade900,
+        ),
+        dataModuleStyle: const QrDataModuleStyle(
+          dataModuleShape: QrDataModuleShape.square,
+          color: Colors.black87,
+        ),
       );
-      final ByteData? pngBytes = await painter.toImageData(
+
+      final ByteData? rawPng = await painter.toImageData(
         1024,
         format: ui.ImageByteFormat.png,
       );
-      final bytes = pngBytes?.buffer.asUint8List();
 
-      if (bytes != null) {
-        await Printing.sharePdf(
-          bytes: bytes,
-          filename: 'qr_code_${qrCode.code}.png',
+      if (rawPng != null) {
+        // Add white background and padding
+        final codec = await ui.instantiateImageCodec(
+          rawPng.buffer.asUint8List(),
         );
+        final frame = await codec.getNextFrame();
+        final ui.Image qrImage = frame.image;
+
+        const int padding = 64; // quiet zone around QR
+        final int finalSize = qrImage.width + padding * 2;
+
+        final recorder = ui.PictureRecorder();
+        final canvas = Canvas(recorder);
+
+        // Fill white background
+        final paint = Paint()..color = const Color(0xFFFFFFFF);
+        canvas.drawRect(
+          Rect.fromLTWH(0, 0, finalSize.toDouble(), finalSize.toDouble()),
+          paint,
+        );
+
+        // Draw QR code centered with padding
+        final srcRect = Rect.fromLTWH(
+          0,
+          0,
+          qrImage.width.toDouble(),
+          qrImage.height.toDouble(),
+        );
+        final dstRect = Rect.fromLTWH(
+          padding.toDouble(),
+          padding.toDouble(),
+          qrImage.width.toDouble(),
+          qrImage.height.toDouble(),
+        );
+        canvas.drawImageRect(qrImage, srcRect, dstRect, Paint());
+
+        final picture = recorder.endRecording();
+        final ui.Image finalImage = await picture.toImage(
+          finalSize,
+          finalSize,
+        );
+        final ByteData? finalBytes = await finalImage.toByteData(
+          format: ui.ImageByteFormat.png,
+        );
+
+        if (finalBytes != null) {
+          final bytes = finalBytes.buffer.asUint8List();
+          // Share as PNG image
+          await Printing.sharePdf(
+            bytes: bytes,
+            filename: 'qr_code_${qrCode.code}.png',
+          );
+
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.check_circle, color: Colors.white),
+                    SizedBox(width: 12),
+                    Text('QR code ready to share'),
+                  ],
+                ),
+                backgroundColor: Color(0xFF10B981),
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
       }
     } catch (e) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to share QR: $e'),
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Expanded(child: Text('Failed to share: ${e.toString()}')),
+            ],
+          ),
           backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
         ),
       );
     }
