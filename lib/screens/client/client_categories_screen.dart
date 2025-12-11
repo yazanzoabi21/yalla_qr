@@ -4,14 +4,17 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/navbar.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/scan_prompt_overlay.dart';
+import '../../widgets/floating_cart_icon.dart';
+import '../../widgets/client_filter_dialog.dart';
 import '../../services/qr_scanner_service.dart';
 import '../../services/qr_code_service.dart';
+import '../../services/cart_service.dart';
 import '../../models/organization_visitor.dart';
 import '../../models/account.dart';
 import '../../models/category.dart';
 import '../../services/category_service.dart';
 import '../auth/login_screen.dart';
-import 'organization_products_screen.dart';
+import 'organization_categories_screen.dart';
 
 class ClientCategoriesScreen extends StatefulWidget {
   const ClientCategoriesScreen({super.key});
@@ -24,13 +27,25 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
   bool _showScanPrompt = true;
   List<OrganizationVisitor> _scanHistory = [];
   Map<String, Account> _orgAccounts = {}; // Cache for organization accounts
-  Map<String, List<Category>> _accountCategories = {}; // Cache for account categories (account_id -> list of categories)
+  Map<String, List<Category>> _accountCategories =
+      {}; // Cache for account categories (account_id -> list of categories)
   bool _isLoadingHistory = false;
+  final CartService _cartService = CartService();
+
+  // Filter state
+  Set<String> _selectedOrganizationIds = {};
+  Set<String> _selectedCategoryIds = {};
+  String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
+    _initializeCart();
     _initialize();
+  }
+
+  Future<void> _initializeCart() async {
+    await _cartService.initialize();
   }
 
   Future<void> _initialize() async {
@@ -38,27 +53,33 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     final prefs = await SharedPreferences.getInstance();
     final loginContext = prefs.getString('login_context'); // 'ORG' or 'CLIENT'
     final existingUser = Supabase.instance.client.auth.currentUser;
-    
+
     if (existingUser != null) {
-      debugPrint('🔄 [ClientPage] Found existing session: ${existingUser.email}');
+      debugPrint(
+        '🔄 [ClientPage] Found existing session: ${existingUser.email}',
+      );
       debugPrint('🔄 [ClientPage] Login context: $loginContext');
-      
+
       // If user logged in from ORG context, sign them out
       if (loginContext == 'ORG') {
-        debugPrint('🔄 [ClientPage] User logged in from ORG context - signing out');
+        debugPrint(
+          '🔄 [ClientPage] User logged in from ORG context - signing out',
+        );
         await Supabase.instance.client.auth.signOut();
         await prefs.remove('login_context');
         await prefs.remove('last_scanned_qr');
-        
+
         if (mounted) {
           setState(() {
             _scanHistory = [];
             _showScanPrompt = true;
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('Please login with a CLIENT account to scan QR codes'),
+              content: Text(
+                'Please login with a CLIENT account to scan QR codes',
+              ),
               backgroundColor: Colors.orange,
               duration: Duration(seconds: 3),
             ),
@@ -82,40 +103,48 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       if (user != null) {
         debugPrint('🔍 [ClientPage] Checking user role...');
         debugPrint('   📧 Current auth user: ${user.email}');
-        
+
         // Check user's role in accounts table - need to handle multiple accounts
         final accountsResponse = await Supabase.instance.client
             .from('accounts')
             .select('role')
             .eq('owner_id', user.id);
-        
+
         if (accountsResponse.isNotEmpty) {
           // Check if ANY account is ORG role
-          final hasOrgAccount = accountsResponse.any((acc) => acc['role'] == 'ORG');
-          final hasUserAccount = accountsResponse.any((acc) => acc['role'] == 'USER');
-          
+          final hasOrgAccount = accountsResponse.any(
+            (acc) => acc['role'] == 'ORG',
+          );
+          final hasUserAccount = accountsResponse.any(
+            (acc) => acc['role'] == 'USER',
+          );
+
           debugPrint('   👤 Found ${accountsResponse.length} account(s)');
           debugPrint('   👤 Has ORG account: $hasOrgAccount');
           debugPrint('   👤 Has USER account: $hasUserAccount');
-          
+
           // If user has ONLY ORG accounts (no USER), sign them out
           if (hasOrgAccount && !hasUserAccount) {
-            debugPrint('   ⚠️ ORG-only user detected on CLIENT page - signing out');
+            debugPrint(
+              '   ⚠️ ORG-only user detected on CLIENT page - signing out',
+            );
             await Supabase.instance.client.auth.signOut();
-            
+
             // Clear any saved scan data
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('last_scanned_qr');
-            
+
             if (mounted) {
               setState(() {
                 _scanHistory = [];
                 _showScanPrompt = true;
               });
-              
+
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
-                  content: Text('Please login with a CLIENT account to scan QR codes'),
+                  content: Text(
+                    'Please login with a CLIENT account to scan QR codes',
+                  ),
                   backgroundColor: Colors.orange,
                   duration: Duration(seconds: 3),
                 ),
@@ -158,18 +187,22 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
         _isLoadingHistory = true;
       });
 
-      debugPrint('📊 [ClientPage] Loading scan history for user: ${user.email}');
-      
+      debugPrint(
+        '📊 [ClientPage] Loading scan history for user: ${user.email}',
+      );
+
       // Get user's account ID
       final accountResponse = await Supabase.instance.client
           .from('accounts')
           .select('id, role')
           .eq('owner_id', user.id)
-          .eq('role', 'USER')  // Filter for USER role only
+          .eq('role', 'USER') // Filter for USER role only
           .maybeSingle();
-      
+
       if (accountResponse == null) {
-        debugPrint('⚠️ [ClientPage] No USER account found for user ${user.email}');
+        debugPrint(
+          '⚠️ [ClientPage] No USER account found for user ${user.email}',
+        );
         setState(() {
           _isLoadingHistory = false;
         });
@@ -178,8 +211,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
 
       final accountId = accountResponse['id'] as String;
       debugPrint('   👤 Account ID: $accountId');
-      debugPrint('   🔍 Querying organization_visitors where user_id = $accountId');
-      
+      debugPrint(
+        '   🔍 Querying organization_visitors where user_id = $accountId',
+      );
+
       // Get visitor records for this user (organizations they've visited)
       final visitHistory = await Supabase.instance.client
           .from('organization_visitors')
@@ -195,7 +230,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
           .toList();
 
       debugPrint('✅ [ClientPage] Loaded ${history.length} scan records');
-      
+
       if (history.isNotEmpty) {
         debugPrint('   📝 First record:');
         debugPrint('      - Organization ID: ${history[0].orgId}');
@@ -206,7 +241,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       // Fetch organization details for each scan
       final orgAccounts = <String, Account>{};
       final accountCategories = <String, List<Category>>{};
-      
+
       for (var visit in history) {
         try {
           // Fetch account details
@@ -215,10 +250,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
               .select()
               .eq('id', visit.orgId)
               .single();
-          
+
           final account = Account.fromJson(accountData);
           orgAccounts[visit.orgId] = account;
-          
+
           // Fetch categories for this account via account_categories junction table
           try {
             final categoryRelations = await Supabase.instance.client
@@ -226,33 +261,46 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                 .select('category_id')
                 .eq('account_id', visit.orgId)
                 .eq('is_hidden', false);
-            
+
             final categoryIds = (categoryRelations as List)
                 .map((item) => item['category_id'] as String)
                 .toList();
-            
-            // Fetch the actual category details
+
+            // Fetch the actual category details - ONLY PARENT CATEGORIES
             final categoriesList = <Category>[];
             for (var categoryId in categoryIds) {
-              final category = await CategoryService.getCategoryById(categoryId);
-              if (category != null) {
+              final category = await CategoryService.getCategoryById(
+                categoryId,
+              );
+              // Filter to only include parent categories (parent_id is null)
+              if (category != null && category.parentId == null) {
                 categoriesList.add(category);
               }
             }
-            
+
             if (categoriesList.isNotEmpty) {
               accountCategories[visit.orgId] = categoriesList;
             }
           } catch (e) {
-            debugPrint('Failed to fetch categories for account ${visit.orgId}: $e');
+            debugPrint(
+              'Failed to fetch categories for account ${visit.orgId}: $e',
+            );
           }
         } catch (e) {
           debugPrint('Failed to fetch account for ${visit.orgId}: $e');
         }
       }
 
+      // Deduplicate history by organization ID - keep only the most recent visit per org
+      final uniqueVisits = <String, OrganizationVisitor>{};
+      for (var visit in history) {
+        if (!uniqueVisits.containsKey(visit.orgId)) {
+          uniqueVisits[visit.orgId] = visit;
+        }
+      }
+
       setState(() {
-        _scanHistory = history;
+        _scanHistory = uniqueVisits.values.toList();
         _orgAccounts = orgAccounts;
         _accountCategories = accountCategories;
         _isLoadingHistory = false;
@@ -281,13 +329,15 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
   Future<void> _handleScan() async {
     // Check if user is logged in
     final user = Supabase.instance.client.auth.currentUser;
-    
+
     if (user == null) {
       // User is not logged in, show login screen for CLIENT registration
       if (!mounted) return;
-      
-      debugPrint('👤 Opening login for CLIENT registration (registerAsClient: true)');
-      
+
+      debugPrint(
+        '👤 Opening login for CLIENT registration (registerAsClient: true)',
+      );
+
       await Navigator.push(
         context,
         MaterialPageRoute(
@@ -296,52 +346,60 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
           ),
         ),
       );
-      
+
       // After login, check if user is now logged in
       final newUser = Supabase.instance.client.auth.currentUser;
       if (newUser == null) {
         // User cancelled login or login failed
         return;
       }
-      
+
       // User is now logged in, continue with scan
       if (!mounted) return;
     }
-    
+
     // User is logged in, proceed with scan
     final result = await QRScannerService.scanQRCode(context);
     if (result != null) {
       setState(() {
         _showScanPrompt = false;
       });
-      
+
       // Save the scanned result
       await _saveScan(result);
-      
+
       // Log the scan to scan_logs table
-      debugPrint('\n════════════════════════════════════════════════════════════');
+      debugPrint(
+        '\n════════════════════════════════════════════════════════════',
+      );
       debugPrint('🎯 [ClientCategories] Starting scan logging process');
       debugPrint('   📋 Scanned QR Code: $result');
-      
+
       try {
         final qrCodeService = QRCodeService(Supabase.instance.client);
-        debugPrint('   🔍 [ClientCategories] Looking up QR code in database...');
-        
+        debugPrint(
+          '   🔍 [ClientCategories] Looking up QR code in database...',
+        );
+
         final qrCode = await qrCodeService.getQRCodeByCode(result);
-        
+
         if (qrCode != null) {
           debugPrint('   ✅ [ClientCategories] QR code found!');
           debugPrint('      - QR Code ID: ${qrCode.id}');
           debugPrint('      - Account ID: ${qrCode.accountId}');
           debugPrint('      - Code: ${qrCode.code}');
-          
+
           // Check if user already has this organization in their scan history
           final orgId = qrCode.accountId;
-          final alreadyScanned = _scanHistory.any((visit) => visit.orgId == orgId);
-          
+          final alreadyScanned = _scanHistory.any(
+            (visit) => visit.orgId == orgId,
+          );
+
           if (alreadyScanned) {
-            debugPrint('   ℹ️ [ClientCategories] Organization already in scan history');
-            
+            debugPrint(
+              '   ℹ️ [ClientCategories] Organization already in scan history',
+            );
+
             // Show toast that they already have this scan
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -368,16 +426,16 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
               );
             }
           }
-          
+
           debugPrint('   📝 [ClientCategories] Logging scan...');
-          
-          await qrCodeService.logScan(
-            qrCodeId: qrCode.id,
-          );
-          
+
+          await qrCodeService.logScan(qrCodeId: qrCode.id);
+
           debugPrint('   ✅ [ClientCategories] Scan logged successfully');
-          debugPrint('   📊 This scan should trigger visitor tracking in QRCodeService.logScan()');
-          
+          debugPrint(
+            '   📊 This scan should trigger visitor tracking in QRCodeService.logScan()',
+          );
+
           // Show success message only for new scans
           if (mounted && !alreadyScanned) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -404,17 +462,21 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
             );
           }
         } else {
-          debugPrint('   ⚠️ [ClientCategories] QR code not found in database: $result');
+          debugPrint(
+            '   ⚠️ [ClientCategories] QR code not found in database: $result',
+          );
         }
       } catch (e, stackTrace) {
         debugPrint('   ❌ [ClientCategories] Failed to log scan!');
         debugPrint('      Error: $e');
         debugPrint('      Stack: $stackTrace');
       }
-      
+
       debugPrint('   ✅ [ClientCategories] Scan process completed');
-      debugPrint('════════════════════════════════════════════════════════════\n');
-      
+      debugPrint(
+        '════════════════════════════════════════════════════════════\n',
+      );
+
       // Reload scan history after successful scan
       await _loadScanHistory();
     }
@@ -424,6 +486,77 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     setState(() {
       _showScanPrompt = false;
     });
+  }
+
+  /// Show filter dialog
+  Future<void> _showFilterDialog() async {
+    // Get all unique categories from all organizations
+    final allCategories = <String, Category>{};
+    for (var categories in _accountCategories.values) {
+      for (var category in categories) {
+        allCategories[category.id] = category;
+      }
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) => ClientFilterDialog(
+        organizations: _orgAccounts.values.toList(),
+        allCategories: allCategories.values.toList(),
+        selectedOrganizationIds: _selectedOrganizationIds,
+        selectedCategoryIds: _selectedCategoryIds,
+        onApplyFilters: (orgIds, categoryIds) {
+          setState(() {
+            _selectedOrganizationIds = orgIds;
+            _selectedCategoryIds = categoryIds;
+          });
+        },
+      ),
+    );
+  }
+
+  /// Get filtered scan history based on selected filters and search query
+  List<OrganizationVisitor> get _filteredScanHistory {
+    var filtered = _scanHistory;
+
+    // Filter by organization
+    if (_selectedOrganizationIds.isNotEmpty) {
+      filtered = filtered.where((visit) {
+        return _selectedOrganizationIds.contains(visit.orgId);
+      }).toList();
+    }
+
+    // Filter by category
+    if (_selectedCategoryIds.isNotEmpty) {
+      filtered = filtered.where((visit) {
+        final orgCategories = _accountCategories[visit.orgId] ?? [];
+        // Check if organization has any of the selected categories
+        return orgCategories.any(
+          (cat) => _selectedCategoryIds.contains(cat.id),
+        );
+      }).toList();
+    }
+
+    // Filter by search query
+    if (_searchQuery.isNotEmpty) {
+      final query = _searchQuery.toLowerCase();
+      filtered = filtered.where((visit) {
+        final account = _orgAccounts[visit.orgId];
+        if (account == null) return false;
+
+        return account.name.toLowerCase().contains(query) ||
+            (account.description?.toLowerCase().contains(query) ?? false);
+      }).toList();
+    }
+
+    return filtered;
+  }
+
+  /// Check if any filters are active
+  bool get _hasActiveFilters {
+    return _selectedOrganizationIds.isNotEmpty ||
+        _selectedCategoryIds.isNotEmpty ||
+        _searchQuery.isNotEmpty;
   }
 
   Future<void> _viewOrganizationProducts(String organizationId) async {
@@ -437,20 +570,24 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
 
       final account = Account.fromJson(accountData);
 
+      // Get the categories for this organization (already cached)
+      final categories = _accountCategories[organizationId] ?? [];
+
       if (!mounted) return;
 
-      // Navigate to organization products screen
+      // Navigate to organization categories screen (showing category cards)
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => OrganizationProductsScreen(
+          builder: (context) => OrganizationCategoriesScreen(
             account: account,
+            categories: categories,
           ),
         ),
       );
     } catch (e) {
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to load organization: ${e.toString()}'),
@@ -472,7 +609,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
           .eq('owner_id', user.id)
           .eq('role', 'USER')
           .maybeSingle();
-      
+
       if (accountResponse == null) return;
 
       final accountId = accountResponse['id'] as String;
@@ -504,7 +641,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       }
     } catch (e) {
       if (!mounted) return;
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Failed to unenroll: ${e.toString()}'),
@@ -514,7 +651,11 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     }
   }
 
-  void _showUnenrollMenu(BuildContext context, OrganizationVisitor visit, Color categoryColor) {
+  void _showUnenrollMenu(
+    BuildContext context,
+    OrganizationVisitor visit,
+    Color categoryColor,
+  ) {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -548,17 +689,11 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                       color: Colors.red.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
-                      Icons.exit_to_app,
-                      color: Colors.red,
-                    ),
+                    child: const Icon(Icons.exit_to_app, color: Colors.red),
                   ),
                   title: const Text(
                     'Unenroll',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
                   ),
                   subtitle: const Text(
                     'Remove this organization from your list',
@@ -612,11 +747,20 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final filteredHistory = _filteredScanHistory;
+
     return Scaffold(
       backgroundColor: const Color(0xFFEFF0F3),
       appBar: Navbar(
         showScanButton: true,
         onScanPressed: _handleScan,
+        isClientHomePage: _scanHistory.isNotEmpty,
+        onSearchChanged: (query) {
+          setState(() {
+            _searchQuery = query;
+          });
+        },
+        searchHint: 'Search organizations...',
       ),
       body: Stack(
         children: [
@@ -624,28 +768,173 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
           _isLoadingHistory
               ? const Center(child: CircularProgressIndicator())
               : _scanHistory.isEmpty
-                  ? EmptyStateWidget(
-                      message: 'No Scans Yet',
-                      icon: Icons.qr_code_2,
-                      subtitle: 'Scan a QR code to get started',
-                    )
-                  : RefreshIndicator(
-                      onRefresh: _loadScanHistory,
-                      child: ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _scanHistory.length,
-                        itemBuilder: (context, index) {
-                          final visit = _scanHistory[index];
-                          return _buildScanHistoryCard(visit);
-                        },
+              ? EmptyStateWidget(
+                  message: 'No Scans Yet',
+                  icon: Icons.qr_code_2,
+                  subtitle: 'Scan a QR code to get started',
+                )
+              : Column(
+                  children: [
+                    // Filter status bar
+                    if (_hasActiveFilters)
+                      Container(
+                        margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.blue.shade200),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.filter_list,
+                              color: Colors.blue.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${filteredHistory.length} of ${_scanHistory.length} organizations',
+                                    style: TextStyle(
+                                      color: Colors.blue.shade700,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  if (_searchQuery.isNotEmpty ||
+                                      _selectedOrganizationIds.isNotEmpty ||
+                                      _selectedCategoryIds.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 4,
+                                      children: [
+                                        if (_searchQuery.isNotEmpty)
+                                          Chip(
+                                            label: Text(
+                                              'Search: \"$_searchQuery\"',
+                                            ),
+                                            labelStyle: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.blue.shade700,
+                                            ),
+                                            backgroundColor: Colors.white,
+                                            padding: EdgeInsets.zero,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                        if (_selectedOrganizationIds.isNotEmpty)
+                                          Chip(
+                                            label: Text(
+                                              '${_selectedOrganizationIds.length} org${_selectedOrganizationIds.length != 1 ? 's' : ''}',
+                                            ),
+                                            labelStyle: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.blue.shade700,
+                                            ),
+                                            backgroundColor: Colors.white,
+                                            padding: EdgeInsets.zero,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                        if (_selectedCategoryIds.isNotEmpty)
+                                          Chip(
+                                            label: Text(
+                                              '${_selectedCategoryIds.length} category${_selectedCategoryIds.length != 1 ? 's' : ''}',
+                                            ),
+                                            labelStyle: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.blue.shade700,
+                                            ),
+                                            backgroundColor: Colors.white,
+                                            padding: EdgeInsets.zero,
+                                            materialTapTargetSize:
+                                                MaterialTapTargetSize
+                                                    .shrinkWrap,
+                                            visualDensity:
+                                                VisualDensity.compact,
+                                          ),
+                                      ],
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            TextButton.icon(
+                              onPressed: () {
+                                setState(() {
+                                  _selectedOrganizationIds.clear();
+                                  _selectedCategoryIds.clear();
+                                  _searchQuery = '';
+                                });
+                              },
+                              icon: const Icon(Icons.clear, size: 18),
+                              label: const Text('Clear'),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.blue.shade700,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
+
+                    // List of organizations
+                    Expanded(
+                      child: filteredHistory.isEmpty
+                          ? EmptyStateWidget(
+                              message: 'No Results',
+                              icon: Icons.search_off,
+                              subtitle: 'Try adjusting your filters',
+                            )
+                          : RefreshIndicator(
+                              onRefresh: _loadScanHistory,
+                              child: ListView.builder(
+                                padding: EdgeInsets.only(
+                                  left: 16,
+                                  right: 16,
+                                  bottom: 16,
+                                  top: _hasActiveFilters ? 0 : 16,
+                                ),
+                                itemCount: filteredHistory.length,
+                                itemBuilder: (context, index) {
+                                  final visit = filteredHistory[index];
+                                  return _buildScanHistoryCard(visit);
+                                },
+                              ),
+                            ),
                     ),
-          
+                  ],
+                ),
+
           // Scan prompt overlay - only show when there's no scan history
           if (_scanHistory.isEmpty && !_isLoadingHistory)
-            ScanPromptOverlay(
-              onScan: _handleScan,
-              onSkip: _handleSkip,
+            ScanPromptOverlay(onScan: _handleScan, onSkip: _handleSkip),
+
+          // Floating Cart Icon - show combined count for all organizations
+          if (_scanHistory.isNotEmpty && !_isLoadingHistory)
+            FloatingCartIcon(
+              organizationId: _scanHistory.first.orgId,
+              organizationName:
+                  _orgAccounts[_scanHistory.first.orgId]?.name ??
+                  'Organization',
+              showAllOrganizations:
+                  true, // Show combined count from all organizations
             ),
         ],
       ),
@@ -656,7 +945,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     final now = DateTime.now();
     final lastScanned = visit.lastScannedAt;
     final difference = now.difference(lastScanned);
-    
+
     String timeAgo;
     if (difference.inMinutes < 1) {
       timeAgo = 'Just now';
@@ -673,22 +962,17 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     // Get organization account and categories
     final account = _orgAccounts[visit.orgId];
     final categories = _accountCategories[visit.orgId] ?? [];
-    final category = categories.isNotEmpty ? categories.first : null; // Use first category as primary
-    
-    // Get category-specific color and icon
-    final categoryColor = category?.color ?? Colors.blue;
-    final categoryIcon = category?.icon ?? Icons.business;
-    final categoryName = category?.name ?? 'Business';
+
+    // Generate a unique color based on the organization ID
+    final categoryColor = _generateColorFromId(visit.orgId);
+    final categoryIcon = Icons.store;
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 3,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(
-          color: categoryColor.withValues(alpha: 0.3),
-          width: 2,
-        ),
+        side: BorderSide(color: categoryColor.withValues(alpha: 0.4), width: 2),
       ),
       child: InkWell(
         onTap: () => _viewOrganizationProducts(visit.orgId),
@@ -700,8 +984,8 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white,
-                categoryColor.withValues(alpha: 0.05),
+                categoryColor.withValues(alpha: 0.15),
+                categoryColor.withValues(alpha: 0.08),
               ],
             ),
           ),
@@ -731,20 +1015,16 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                           width: 2,
                         ),
                       ),
-                      child: Icon(
-                        categoryIcon,
-                        color: categoryColor,
-                        size: 32,
-                      ),
+                      child: Icon(categoryIcon, color: categoryColor, size: 32),
                     ),
                     const SizedBox(width: 16),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Category as large title
+                          // Organization name as main title
                           Text(
-                            categoryName,
+                            account?.name ?? 'Organization',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
@@ -755,20 +1035,20 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                             overflow: TextOverflow.ellipsis,
                           ),
                           const SizedBox(height: 4),
-                          // Organization name as a smaller subtitle (if available)
-                          if (account?.name != null && account!.name!.isNotEmpty) ...[
-                            Text(
-                              account.name!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey.shade600,
-                                fontWeight: FontWeight.w600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                          // Category count subtitle
+                          Text(
+                            categories.isEmpty
+                                ? 'No categories'
+                                : '${categories.length} ${categories.length == 1 ? 'category' : 'categories'} available',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade600,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(height: 6),
-                          ],
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 6),
                         ],
                       ),
                     ),
@@ -809,7 +1089,8 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                           color: categoryColor,
                           size: 24,
                         ),
-                        onPressed: () => _showUnenrollMenu(context, visit, categoryColor),
+                        onPressed: () =>
+                            _showUnenrollMenu(context, visit, categoryColor),
                         tooltip: 'Options',
                         style: IconButton.styleFrom(
                           backgroundColor: categoryColor.withValues(alpha: 0.1),
@@ -821,9 +1102,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                     ),
                   ],
                 ),
-                
+
                 // Description if available
-                if (account?.description != null && account!.description!.isNotEmpty) ...[
+                if (account?.description != null &&
+                    account!.description!.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     account.description!,
@@ -837,9 +1119,64 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ],
-                
+
                 const SizedBox(height: 16),
-                
+
+                // Categories Display
+                if (categories.isNotEmpty) ...[
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: categories.take(5).map((category) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: category.color.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: category.color.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              category.icon,
+                              size: 16,
+                              color: category.color,
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              category.name,
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: category.color,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  if (categories.length > 5) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      '+${categories.length - 5} more',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey.shade600,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 8),
+                ],
+
                 // Stats Row
                 // Container(
                 //   padding: const EdgeInsets.all(12),
@@ -874,9 +1211,9 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                 //     ],
                 //   ),
                 // ),
-                
+
                 // const SizedBox(height: 12),
-                
+
                 // Tap to view indicator
                 Center(
                   child: Row(
@@ -908,7 +1245,12 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     );
   }
 
-  Widget _buildStatItem(IconData icon, String label, String value, Color color) {
+  Widget _buildStatItem(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
     return Column(
       children: [
         Icon(icon, size: 18, color: color),
@@ -932,5 +1274,43 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
         ),
       ],
     );
+  }
+
+  /// Generate a unique color based on organization ID
+  Color _generateColorFromId(String orgId) {
+    // Use multiple hash approaches for better distribution
+    int hash = 0;
+    for (int i = 0; i < orgId.length; i++) {
+      hash = ((hash << 5) - hash) + orgId.codeUnitAt(i);
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+
+    // Expanded list of distinct, vibrant colors for better variety
+    final colors = [
+      const Color(0xFF1E88E5), // Bright Blue
+      const Color(0xFFE53935), // Bright Red
+      const Color(0xFFFB8C00), // Bright Orange
+      const Color(0xFF8E24AA), // Bright Purple
+      const Color(0xFF00ACC1), // Bright Cyan
+      const Color(0xFF43A047), // Bright Green
+      const Color(0xFFD81B60), // Bright Pink
+      const Color(0xFF3949AB), // Bright Indigo
+      const Color(0xFFF4511E), // Deep Orange
+      const Color(0xFF00897B), // Teal
+      const Color(0xFF5E35B1), // Deep Purple
+      const Color(0xFFFFB300), // Amber
+      const Color(0xFFD32F2F), // Deep Red
+      const Color(0xFF1976D2), // Strong Blue
+      const Color(0xFF388E3C), // Strong Green
+      const Color(0xFFC2185B), // Strong Pink
+      const Color(0xFF7B1FA2), // Strong Purple
+      const Color(0xFF0288D1), // Strong Cyan
+      const Color(0xFFF57C00), // Strong Orange
+      const Color(0xFF689F38), // Light Green
+    ];
+
+    // Use modulo with absolute value to get a consistent color index
+    final colorIndex = hash.abs() % colors.length;
+    return colors[colorIndex];
   }
 }

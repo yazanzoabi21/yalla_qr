@@ -4,7 +4,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/search/search_results_screen.dart';
+import '../screens/client/product_detail_screen.dart';
 import '../services/auth_service.dart';
+import '../models/product.dart';
 import 'dart:async';
 import '../utils/navigation_helper.dart';
 import '../services/secure_storage_service.dart';
@@ -17,6 +19,12 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final VoidCallback? onScanPressed;
   final bool showBackButton;
   final bool showMenuButton; // New parameter to control menu visibility
+  final String? organizationAccountId; // For client search mode
+  final String? organizationName; // For client product detail
+  final Color? accentColor; // For client product detail
+  final bool isClientHomePage; // For client home page search mode
+  final Function(String)? onSearchChanged; // Callback for search text changes
+  final String? searchHint; // Custom search hint text
 
   const Navbar({
     super.key,
@@ -27,6 +35,12 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
     this.onScanPressed,
     this.showBackButton = false,
     this.showMenuButton = true, // Default to true (show menu)
+    this.organizationAccountId,
+    this.organizationName,
+    this.accentColor,
+    this.isClientHomePage = false,
+    this.onSearchChanged,
+    this.searchHint,
   });
 
   @override
@@ -42,6 +56,12 @@ class _NavbarState extends State<Navbar> {
   late final StreamSubscription<AuthState> _authSubscription;
   final TextEditingController _searchController = TextEditingController();
 
+  // Client search state
+  List<Product> _productHints = [];
+  bool _showHints = false;
+  bool _isLoadingHints = false;
+  Timer? _hintDebounceTimer;
+
   @override
   void initState() {
     super.initState();
@@ -49,7 +69,9 @@ class _NavbarState extends State<Navbar> {
     _checkAuthenticationStatus();
 
     // Listen to auth state changes with proper subscription management
-    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+    _authSubscription = Supabase.instance.client.auth.onAuthStateChange.listen((
+      data,
+    ) {
       if (mounted) {
         setState(() {
           _isAuthenticated = data.session != null;
@@ -62,6 +84,7 @@ class _NavbarState extends State<Navbar> {
   void dispose() {
     _authSubscription.cancel();
     _searchController.dispose();
+    _hintDebounceTimer?.cancel();
     super.dispose();
   }
 
@@ -71,129 +94,441 @@ class _NavbarState extends State<Navbar> {
     });
   }
 
+  /// Load product hints for client search
+  Future<void> _loadProductHints(String query) async {
+    if (query.isEmpty || widget.organizationAccountId == null) {
+      setState(() {
+        _productHints = [];
+        _showHints = false;
+      });
+      return;
+    }
+
+    setState(() => _isLoadingHints = true);
+
+    try {
+      final response = await Supabase.instance.client
+          .from('products')
+          .select()
+          .eq('account_id', widget.organizationAccountId!)
+          .or('name.ilike.%$query%,description.ilike.%$query%')
+          .limit(5);
+
+      final products = (response as List)
+          .map((json) => Product.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      if (mounted) {
+        setState(() {
+          _productHints = products;
+          _showHints = products.isNotEmpty;
+          _isLoadingHints = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading product hints: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingHints = false;
+          _showHints = false;
+        });
+      }
+    }
+  }
+
+  /// Handle search text changes with debounce
+  void _onSearchTextChanged(String text) {
+    _hintDebounceTimer?.cancel();
+
+    if (text.isEmpty) {
+      setState(() {
+        _showHints = false;
+        _productHints = [];
+      });
+      return;
+    }
+
+    _hintDebounceTimer = Timer(const Duration(milliseconds: 300), () {
+      _loadProductHints(text.trim());
+    });
+  }
+
+  /// Handle client home page search (organizations)
+  void _onClientHomeSearchChanged(String text) {
+    if (widget.onSearchChanged != null) {
+      widget.onSearchChanged!(text);
+    }
+  }
+
+  /// Clear the search field
+  void _clearSearch() {
+    _searchController.clear();
+    setState(() {
+      _showHints = false;
+      _productHints = [];
+    });
+    if (widget.onSearchChanged != null) {
+      widget.onSearchChanged!('');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final bool isClientMode = widget.organizationAccountId != null;
+    final bool isClientHomePage = widget.isClientHomePage;
+
     return AppBar(
       backgroundColor: Colors.white,
       elevation: 0,
       automaticallyImplyLeading: false,
-      title: Container(
-        decoration: BoxDecoration(
-          color: Colors.grey[200],
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 8),
-        child: Row(
-          children: [
-            if (widget.showBackButton)
-              IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.grey),
-                onPressed: () {
-                  Navigator.pop(context);
-                },
-              ),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                textAlignVertical: TextAlignVertical.center,
-                decoration: const InputDecoration(
-                  hintText: 'Search',
-                  hintStyle: TextStyle(color: Colors.grey),
-                  border: InputBorder.none,
-                  prefixIcon: Icon(Icons.search, color: Colors.grey),
-                  contentPadding: EdgeInsets.symmetric(vertical: 0),
-                ),
-                onTap: () async {
-                  // Navigate to search screen when tapping the search field
-                  final isHomeScreen = widget.categoryId == null;
-                  
-                  final result = await Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SearchResultsScreen(
-                        initialQuery: _searchController.text,
-                        categoryId: widget.categoryId,
-                        categoriesOnly: isHomeScreen, // Only show categories on home screen
-                      ),
-                    ),
-                  );
-                  
-                  // If data was changed, trigger the callback
-                  if (result == true && widget.onSearchReturn != null) {
-                    widget.onSearchReturn!();
-                  }
-                },
-                readOnly: true, // Make it read-only so it only acts as a button
-              ),
+      toolbarHeight: kToolbarHeight + 10,
+      title: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(12),
             ),
-            if (widget.showScanButton && widget.onScanPressed != null)
-              IconButton(
-                icon: const Icon(Icons.qr_code_scanner, color: Colors.grey),
-                onPressed: widget.onScanPressed,
-                tooltip: 'Scan QR Code',
-              ),
-            if (widget.showMenuButton)
-              PopupMenuButton<String>(
-              icon: const Icon(Icons.menu, color: Colors.grey),
-              onSelected: (String value) {
-                _handleMenuSelection(context, value);
-              },
-              itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                const PopupMenuItem<String>(
-                  value: 'contact',
-                  child: ListTile(
-                    leading: Icon(Icons.contact_support),
-                    title: Text('Contact'),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            child: Row(
+              children: [
+                if (widget.showBackButton)
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.grey),
+                    onPressed: () {
+                      Navigator.pop(context);
+                    },
                   ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'feedback',
-                  child: ListTile(
-                    leading: Icon(Icons.feedback),
-                    title: Text('Feedback'),
-                  ),
-                ),
-                const PopupMenuItem<String>(
-                  value: 'about',
-                  child: ListTile(
-                    leading: Icon(Icons.info),
-                    title: Text('About'),
-                  ),
-                ),
-                if (_isAuthenticated) ...[
-                  const PopupMenuItem<String>(
-                    value: 'settings',
-                    child: ListTile(
-                      leading: Icon(Icons.settings),
-                      title: Text('Settings'),
-                    ),
-                  ),
-                ],
-                if (_isAuthenticated) ...[
-                  const PopupMenuDivider(),
-                    const PopupMenuItem<String>(
-                    value: 'logout',
-                    child: ListTile(
-                      leading: Icon(Icons.logout, color: Colors.red),
-                      title: Text(
-                      'Logout',
-                      style: TextStyle(color: Colors.red),
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    textAlignVertical: TextAlignVertical.center,
+                    readOnly: !isClientMode && !isClientHomePage,
+                    onChanged: isClientMode
+                        ? _onSearchTextChanged
+                        : (isClientHomePage
+                              ? _onClientHomeSearchChanged
+                              : null),
+                    decoration: InputDecoration(
+                      hintText:
+                          widget.searchHint ??
+                          (isClientHomePage
+                              ? 'Search organizations...'
+                              : (isClientMode
+                                    ? 'Search products...'
+                                    : 'Search')),
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      border: InputBorder.none,
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                      suffixIcon: _buildSearchSuffixIcon(
+                        isClientMode || isClientHomePage,
                       ),
                     ),
+                    onTap: !isClientMode && !isClientHomePage
+                        ? () async {
+                            final isHomeScreen = widget.categoryId == null;
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => SearchResultsScreen(
+                                  initialQuery: _searchController.text,
+                                  categoryId: widget.categoryId,
+                                  categoriesOnly: isHomeScreen,
+                                ),
+                              ),
+                            );
+                            if (result == true &&
+                                widget.onSearchReturn != null) {
+                              widget.onSearchReturn!();
+                            }
+                          }
+                        : null,
+                    onSubmitted: isClientMode
+                        ? (value) {
+                            if (value.trim().isNotEmpty) {
+                              setState(() => _showHints = false);
+                              _navigateToClientSearch(value.trim());
+                            }
+                          }
+                        : null,
                   ),
-                ] else if (widget.showLoginButton) ...[
-                  const PopupMenuDivider(),
-                  const PopupMenuItem<String>(
-                    value: 'login',
-                    child: ListTile(
-                      leading: Icon(Icons.login),
-                      title: Text('Login'),
-                    ),
+                ),
+                if (widget.showScanButton && widget.onScanPressed != null)
+                  IconButton(
+                    icon: const Icon(Icons.qr_code_scanner, color: Colors.grey),
+                    onPressed: widget.onScanPressed,
+                    tooltip: 'Scan QR Code',
                   ),
-                ],
+                if (widget.showMenuButton)
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.menu, color: Colors.grey),
+                    onSelected: (String value) {
+                      _handleMenuSelection(context, value);
+                    },
+                    itemBuilder: (BuildContext context) =>
+                        <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'contact',
+                            child: ListTile(
+                              leading: Icon(Icons.contact_support),
+                              title: Text('Contact'),
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'feedback',
+                            child: ListTile(
+                              leading: Icon(Icons.feedback),
+                              title: Text('Feedback'),
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'about',
+                            child: ListTile(
+                              leading: Icon(Icons.info),
+                              title: Text('About'),
+                            ),
+                          ),
+                          if (_isAuthenticated) ...[
+                            const PopupMenuItem<String>(
+                              value: 'settings',
+                              child: ListTile(
+                                leading: Icon(Icons.settings),
+                                title: Text('Settings'),
+                              ),
+                            ),
+                          ],
+                          if (_isAuthenticated) ...[
+                            const PopupMenuDivider(),
+                            const PopupMenuItem<String>(
+                              value: 'logout',
+                              child: ListTile(
+                                leading: Icon(Icons.logout, color: Colors.red),
+                                title: Text(
+                                  'Logout',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ),
+                          ] else if (widget.showLoginButton) ...[
+                            const PopupMenuDivider(),
+                            const PopupMenuItem<String>(
+                              value: 'login',
+                              child: ListTile(
+                                leading: Icon(Icons.login),
+                                title: Text('Login'),
+                              ),
+                            ),
+                          ],
+                        ],
+                  ),
               ],
             ),
+          ),
+          // Product hints dropdown for client mode
+          if (_showHints && _productHints.isNotEmpty)
+            Positioned(
+              top: 52,
+              left: 0,
+              right: 0,
+              child: Material(
+                elevation: 8,
+                borderRadius: BorderRadius.circular(12),
+                shadowColor: Colors.black26,
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade200),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: ListView.separated(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      shrinkWrap: true,
+                      itemCount: _productHints.length,
+                      separatorBuilder: (context, index) => Divider(
+                        height: 1,
+                        color: Colors.grey.shade100,
+                        indent: 60,
+                      ),
+                      itemBuilder: (context, index) {
+                        return _buildProductHintTile(_productHints[index]);
+                      },
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget? _buildSearchSuffixIcon(bool isClientMode) {
+    if (_isLoadingHints && _searchController.text.isNotEmpty && isClientMode) {
+      return const Padding(
+        padding: EdgeInsets.all(12),
+        child: SizedBox(
+          width: 20,
+          height: 20,
+          child: CircularProgressIndicator(strokeWidth: 2),
+        ),
+      );
+    }
+    if (_searchController.text.isNotEmpty && isClientMode) {
+      return IconButton(
+        icon: Icon(Icons.close, color: Colors.grey[600], size: 20),
+        onPressed: _clearSearch,
+      );
+    }
+    return null;
+  }
+
+  Widget _buildProductHintTile(Product product) {
+    final isInStock = product.isAvailable;
+
+    return InkWell(
+      onTap: () {
+        setState(() => _showHints = false);
+        _navigateToProductDetail(product);
+      },
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: product.imageUrl != null
+                    ? Image.network(
+                        product.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) {
+                          return Center(
+                            child: Icon(
+                              Icons.shopping_bag_outlined,
+                              color: Colors.grey[400],
+                              size: 22,
+                            ),
+                          );
+                        },
+                      )
+                    : Center(
+                        child: Icon(
+                          Icons.shopping_bag_outlined,
+                          color: Colors.grey[400],
+                          size: 22,
+                        ),
+                      ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    product.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: Colors.black87,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  if (product.priceLbp != null || product.priceUsd != null)
+                    Text(
+                      product.formattedPrice,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey[700],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: isInStock
+                    ? const Color(0xFF00B86F).withOpacity(0.12)
+                    : Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    isInStock ? Icons.check_circle : Icons.cancel,
+                    size: 12,
+                    color: isInStock ? const Color(0xFF00B86F) : Colors.red,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isInStock ? 'In Stock' : 'Out',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isInStock ? const Color(0xFF00B86F) : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _navigateToClientSearch(String query) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => SearchResultsScreen(
+          initialQuery: query,
+          organizationAccountId: widget.organizationAccountId,
+          organizationName: widget.organizationName,
+          accentColor: widget.accentColor,
+        ),
+      ),
+    );
+  }
+
+  void _navigateToProductDetail(Product product) {
+    if (widget.organizationAccountId == null) return;
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ProductDetailScreen(
+          product: product,
+          organizationId: widget.organizationAccountId!,
+          organizationName: widget.organizationName ?? 'Organization',
+          accentColor: widget.accentColor ?? Colors.blue,
         ),
       ),
     );
@@ -217,7 +552,8 @@ class _NavbarState extends State<Navbar> {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => SettingsScreen(categoryName: currentCategory),
+              builder: (context) =>
+                  SettingsScreen(categoryName: currentCategory),
             ),
           );
         } else {
@@ -297,36 +633,36 @@ class _NavbarState extends State<Navbar> {
 
         try {
           debugPrint('🚪 Logging out user...');
-          
+
           // Use the enhanced logout with complete session clearing
           await _authService.signOut();
           // Clear session flag from secure storage
           await SecureStorageService.clearSession();
-          
+
           // Clear login context from SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.remove('login_context');
           await prefs.remove('last_scanned_qr');
-          
+
           debugPrint('✅ Session cleared from storage');
-          
+
           // Verify logout was successful
           final sessionAfterLogout = _authService.getCurrentSession();
           if (sessionAfterLogout != null) {
             debugPrint('⚠️ Session still exists, forcing auth reset');
             await _authService.forceAuthReset();
           }
-          
+
           // Force update the authentication status
           setState(() {
             _isAuthenticated = false;
           });
-          
+
           // Close loading dialog
           if (context.mounted) {
             Navigator.of(context, rootNavigator: true).pop();
           }
-          
+
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -350,20 +686,20 @@ class _NavbarState extends State<Navbar> {
           if (context.mounted) {
             Navigator.of(context, rootNavigator: true).pop();
           }
-          
+
           // Try force reset as a last resort
           try {
             await _authService.forceAuthReset();
-            
+
             // Clear login context even in error case
             final prefs = await SharedPreferences.getInstance();
             await prefs.remove('login_context');
             await prefs.remove('last_scanned_qr');
-            
+
             setState(() {
               _isAuthenticated = false;
             });
-            
+
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
@@ -372,11 +708,15 @@ class _NavbarState extends State<Navbar> {
                   duration: Duration(seconds: 2),
                 ),
               );
-              
+
               // Navigate to Welcome screen
               if (!mounted) return;
               if (context.mounted) {
-                Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                Navigator.pushNamedAndRemoveUntil(
+                  context,
+                  '/',
+                  (route) => false,
+                );
               }
             }
           } catch (forceError) {
@@ -399,7 +739,7 @@ class _NavbarState extends State<Navbar> {
     final route = ModalRoute.of(context);
     if (route?.settings.name != null) {
       final routeName = route!.settings.name!;
-      
+
       // Extract category from route name
       switch (routeName) {
         case '/meals':
@@ -419,7 +759,7 @@ class _NavbarState extends State<Navbar> {
           break;
       }
     }
-    
+
     return null; // Unknown category, will go to home
   }
 }

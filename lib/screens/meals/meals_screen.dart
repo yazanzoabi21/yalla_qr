@@ -509,14 +509,17 @@ class _MealsScreenState extends State<MealsScreen> {
                   delegate: SliverChildBuilderDelegate(
                     (context, index) {
                       final childCategory = childCategories[index];
-                      return GestureDetector(
-                        onTap: () => _navigateToMealDetail(childCategory),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(24),
+                      final isHidden = childCategory.isHidden;
+                      return Opacity(
+                        opacity: isHidden ? 0.4 : 1.0,
+                        child: GestureDetector(
+                          onTap: isHidden ? null : () => _navigateToMealDetail(childCategory),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 200),
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withValues(alpha: 0.05),
@@ -694,10 +697,11 @@ class _MealsScreenState extends State<MealsScreen> {
                             ),
                           ),
                         ],
+                          ),
+                        ),
                       ),
-                    ),
-                  );
-                    },
+                    );
+                  },
                     childCount: childCategories.length,
                   ),
                 ),

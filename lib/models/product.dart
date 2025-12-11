@@ -74,9 +74,12 @@ class Product {
     }
   }
 
-  // Helper method for stock status
-  String get stockStatus => inStock ? 'In Stock' : 'Out of Stock';
+  // Helper method for stock status - considers both inStock flag and quantity
+  bool get isAvailable => inStock && quantity > 0;
+  
+  // Helper method for stock status text
+  String get stockStatus => isAvailable ? 'In Stock' : 'Out of Stock';
   
   // Helper method for stock status color
-  Color get stockColor => inStock ? Colors.green : Colors.red;
+  Color get stockColor => isAvailable ? Colors.green : Colors.red;
 }

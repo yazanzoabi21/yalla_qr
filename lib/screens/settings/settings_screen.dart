@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/navbar.dart';
 import '../../widgets/qr_code_widget.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class SettingsScreen extends StatefulWidget {
   final String? categoryName;
@@ -25,6 +27,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late TextEditingController _locationController;
 
   String? _userRole;
+  File? _selectedImage;
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isUploadingImage = false;
 
   @override
   void initState() {
@@ -172,6 +177,234 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _descriptionController.text = _accountProfile!['description'] ?? '';
       _locationController.text = _accountProfile!['location_address'] ?? '';
     }
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+        await _uploadProfileImage();
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to pick image: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _uploadProfileImage() async {
+    if (_selectedImage == null || _accountProfile == null) return;
+    
+    setState(() {
+      _isUploadingImage = true;
+    });
+    
+    try {
+      final supabase = Supabase.instance.client;
+      
+      // Validate file size (max 5MB)
+      final fileSize = await _selectedImage!.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        throw Exception('Image size must be less than 5MB');
+      }
+      
+      // Generate unique filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final accountId = _accountProfile!['id'].toString().replaceAll('-', '_');
+      final fileName = 'profile_${accountId}_$timestamp.jpg';
+      
+      debugPrint('📤 Uploading profile image: $fileName');
+      
+      // Delete old image if exists
+      final oldLogoUrl = _accountProfile!['logo_url'];
+      if (oldLogoUrl != null && oldLogoUrl.isNotEmpty) {
+        await _deleteImageFromStorage(oldLogoUrl);
+      }
+      
+      // Upload the new image
+      await supabase.storage
+          .from('profile-images')
+          .upload(
+            fileName,
+            _selectedImage!,
+            fileOptions: const FileOptions(
+              cacheControl: '3600',
+              upsert: false,
+            ),
+          );
+      
+      // Get the public URL
+      final imageUrl = supabase.storage
+          .from('profile-images')
+          .getPublicUrl(fileName);
+      
+      // Update account with new logo URL
+      await supabase
+          .from('accounts')
+          .update({
+            'logo_url': imageUrl,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', _accountProfile!['id']);
+      
+      debugPrint('✅ Profile image uploaded successfully');
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile image updated successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+      // Reload profile
+      await _loadUserProfile();
+    } catch (e) {
+      debugPrint('❌ Error uploading profile image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isUploadingImage = false;
+        _selectedImage = null;
+      });
+    }
+  }
+
+  Future<void> _deleteImageFromStorage(String imageUrl) async {
+    try {
+      final uri = Uri.parse(imageUrl);
+      final filename = uri.pathSegments.last;
+      
+      await Supabase.instance.client.storage
+          .from('profile-images')
+          .remove([filename]);
+      
+      debugPrint('🗑️ Deleted old profile image: $filename');
+    } catch (e) {
+      debugPrint('⚠️ Error deleting old image: $e');
+    }
+  }
+
+  Future<void> _deleteProfileImage() async {
+    if (_accountProfile?['logo_url'] == null) return;
+    
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Profile Image'),
+        content: const Text('Are you sure you want to delete your profile image?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    
+    if (confirmed != true) return;
+    
+    setState(() {
+      _isUploadingImage = true;
+    });
+    
+    try {
+      // Delete from storage
+      await _deleteImageFromStorage(_accountProfile!['logo_url']);
+      
+      // Update account to remove logo URL
+      await Supabase.instance.client
+          .from('accounts')
+          .update({
+            'logo_url': null,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', _accountProfile!['id']);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Profile image deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+      
+      // Reload profile
+      await _loadUserProfile();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isUploadingImage = false;
+      });
+    }
+  }
+
+  void _viewProfileImage() {
+    if (_accountProfile?['logo_url'] == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.network(
+                    _accountProfile!['logo_url'],
+                    fit: BoxFit.contain,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _saveProfile() async {
@@ -363,16 +596,123 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                           const SizedBox(height: 16),
 
-                          // Profile Avatar with category-specific styling
+                          // Profile Image with edit functionality
                           Center(
-                            child: CircleAvatar(
-                              radius: 50,
-                              backgroundColor: _getCategoryColor().withValues(alpha: 0.2),
-                              child: Icon(
-                                _getCategoryIcon(),
-                                size: 60,
-                                color: _getCategoryColor(),
-                              ),
+                            child: Stack(
+                              children: [
+                                GestureDetector(
+                                  onTap: _accountProfile?['logo_url'] != null
+                                      ? _viewProfileImage
+                                      : null,
+                                  child: Container(
+                                    width: 120,
+                                    height: 120,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: _getCategoryColor(),
+                                        width: 3,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.grey.withValues(alpha: 0.3),
+                                          blurRadius: 10,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: _isUploadingImage
+                                        ? const Center(
+                                            child: CircularProgressIndicator(),
+                                          )
+                                        : _accountProfile?['logo_url'] != null
+                                            ? ClipOval(
+                                                child: Image.network(
+                                                  _accountProfile!['logo_url'],
+                                                  fit: BoxFit.cover,
+                                                  width: 120,
+                                                  height: 120,
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    return Container(
+                                                      color: _getCategoryColor().withValues(alpha: 0.2),
+                                                      child: Icon(
+                                                        _getCategoryIcon(),
+                                                        size: 60,
+                                                        color: _getCategoryColor(),
+                                                      ),
+                                                    );
+                                                  },
+                                                ),
+                                              )
+                                            : Container(
+                                                decoration: BoxDecoration(
+                                                  shape: BoxShape.circle,
+                                                  color: _getCategoryColor().withValues(alpha: 0.2),
+                                                ),
+                                                child: Icon(
+                                                  _getCategoryIcon(),
+                                                  size: 60,
+                                                  color: _getCategoryColor(),
+                                                ),
+                                              ),
+                                  ),
+                                ),
+                                // Edit button (pen icon)
+                                Positioned(
+                                  top: 0,
+                                  right: 0,
+                                  child: GestureDetector(
+                                    onTap: _pickImage,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: _getCategoryColor(),
+                                        shape: BoxShape.circle,
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.black.withValues(alpha: 0.2),
+                                            blurRadius: 4,
+                                            offset: const Offset(0, 2),
+                                          ),
+                                        ],
+                                      ),
+                                      child: const Icon(
+                                        Icons.edit,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                // Delete button (only show if image exists)
+                                if (_accountProfile?['logo_url'] != null)
+                                  Positioned(
+                                    bottom: 0,
+                                    right: 0,
+                                    child: GestureDetector(
+                                      onTap: _deleteProfileImage,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(8),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withValues(alpha: 0.2),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: const Icon(
+                                          Icons.delete,
+                                          color: Colors.white,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           const SizedBox(height: 20),

@@ -19,6 +19,7 @@ class AuthService {
     String? locationAddress,
     String? categoryName, // Add category name parameter
     String? role, // Optional role (e.g. 'ADMIN') - should be used carefully
+    String? logoUrl, // Profile image URL
   }) async {
     debugPrint('🔐 [AuthService.signUpUser] Starting registration');
     debugPrint('   📧 Email: $email');
@@ -26,14 +27,15 @@ class AuthService {
     debugPrint('   📁 Category: $categoryName');
     debugPrint('   🎭 Role: ${role ?? "USER (default)"}');
     
-    final AuthResponse response = await _client.auth.signUp(
-      email: email,
-      password: password,
-    );
+    try {
+      final AuthResponse response = await _client.auth.signUp(
+        email: email,
+        password: password,
+      );
 
-    if (response.user == null) {
-      throw Exception('Failed to create user account - no user returned');
-    }
+      if (response.user == null) {
+        throw Exception('Failed to create user account - no user returned');
+      }
 
     final String userId = response.user!.id;
     if (userId.isEmpty) {
@@ -66,7 +68,6 @@ class AuthService {
       'email': email.trim(),
       'name': name.trim(),
       'phone': phone != null && phone.trim().isNotEmpty ? phone.trim() : null,
-      'category_id': categoryId, // Associate with category
       'description': description != null && description.trim().isNotEmpty
           ? description.trim()
           : null,
@@ -76,52 +77,36 @@ class AuthService {
           : null,
       'location_lat': null,
       'location_lng': null,
-      'logo_url': null,
+      'logo_url': logoUrl,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
       'role': role != null && role.trim().isNotEmpty ? role.trim().toUpperCase() : 'USER', // Default to USER if not specified
     };
 
-    debugPrint('📝 [AuthService] Account data prepared:');
+    debugPrint('� [AuthService] Account data prepared:');
     debugPrint('   - owner_id: $userId');
     debugPrint('   - category_id: $categoryId');
     debugPrint('   - role: ${accountData['role']}');
 
-    // Check if account already exists for this user AND category
-    // If category is specified, check for that specific category
-    // If no category, check for accounts without category
-    final accountQuery = _client
+    // Check if account already exists for this user
+    final existingAccount = await _client
         .from('accounts')
         .select('id')
-        .eq('owner_id', userId);
-    
-    if (categoryId != null) {
-      accountQuery.eq('category_id', categoryId);
-    } else {
-      accountQuery.is_('category_id', null);
-    }
-    
-    final existingAccount = await accountQuery.maybeSingle();
+        .eq('owner_id', userId)
+        .maybeSingle();
 
     String accountId;
     if (existingAccount != null) {
-      // Update existing account for this category
-        final updateQuery = _client
+      // Update existing account
+      await _client
           .from('accounts')
           .update(accountData)
           .eq('owner_id', userId);
       
-      if (categoryId != null) {
-        updateQuery.eq('category_id', categoryId);
-      } else {
-        updateQuery.is_('category_id', null);
-      }
-      
-      await updateQuery;
       accountId = existingAccount['id'] as String;
     } else {
-      // Insert new account for this category
-        final newAccount = await _client
+      // Insert new account
+      final newAccount = await _client
           .from('accounts')
           .insert(accountData)
           .select('id')
@@ -137,8 +122,9 @@ class AuthService {
       }
     }
 
-    // Link account to category in the join table when a category is provided
+    // Link account to category in the join table
     if (categoryId != null) {
+      // Specific category provided - link just that one
       try {
         await _client
             .from('account_categories')
@@ -150,10 +136,61 @@ class AuthService {
               },
               onConflict: 'account_id,category_id',
             );
+        debugPrint('✅ [AuthService] Linked account to category: $categoryName');
       } catch (e) {
         debugPrint('⚠️ [AuthService] Failed to link account to category: $e');
         // Do not fail signup on linkage error
       }
+    } else if (role == 'ORG') {
+      // ORG account with no specific category - link all parent categories
+      try {
+        debugPrint('🔗 [AuthService] Linking ORG account to all parent categories...');
+        
+        // Get all parent categories (categories with no parent_id)
+        final parentCategories = await _client
+            .from('categories')
+            .select('id')
+            .is_('parent_id', null);
+        
+        if (parentCategories.isNotEmpty) {
+          // Create account_categories entries for all parent categories
+          final categoriesToLink = (parentCategories as List).map((cat) => {
+            'account_id': accountId,
+            'category_id': cat['id'],
+            'is_hidden': false,
+          }).toList();
+          
+          await _client
+              .from('account_categories')
+              .upsert(
+                categoriesToLink,
+                onConflict: 'account_id,category_id',
+              );
+          
+          debugPrint('✅ [AuthService] Linked ORG account to ${parentCategories.length} parent categories');
+        } else {
+          debugPrint('⚠️ [AuthService] No parent categories found to link');
+        }
+      } catch (e) {
+        debugPrint('⚠️ [AuthService] Failed to link ORG account to categories: $e');
+        // Do not fail signup on linkage error
+      }
+    }
+    } catch (e) {
+      String errorString = e.toString().toLowerCase();
+      
+      if (errorString.contains('user already registered') || 
+          errorString.contains('email already registered') ||
+          errorString.contains('already registered')) {
+        throw Exception('This email is already registered. Please try signing in instead.');
+      } else if (errorString.contains('invalid email')) {
+        throw Exception('Please enter a valid email address.');
+      } else if (errorString.contains('password')) {
+        throw Exception('Password does not meet requirements.');
+      }
+      
+      // Re-throw the original exception if not matched
+      rethrow;
     }
   }
 

@@ -5,15 +5,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:yalla_qr/services/auth_service.dart';
 import 'package:phone_numbers_parser/phone_numbers_parser.dart';
 import '../../utils/navigation_helper.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class SignupScreen extends StatefulWidget {
   final String? intendedDestination; // The screen to navigate to after signup
-  final bool registerAsClient; // If true, register as USER (client), otherwise as ORG
-  final bool showAccountTypeToggle; // Show toggle to switch between USER and ORG
+  final bool
+  registerAsClient; // If true, register as USER (client), otherwise as ORG
+  final bool
+  showAccountTypeToggle; // Show toggle to switch between USER and ORG
 
   const SignupScreen({
-    super.key, 
-    this.intendedDestination, 
+    super.key,
+    this.intendedDestination,
     this.registerAsClient = false,
     this.showAccountTypeToggle = false,
   });
@@ -48,7 +52,9 @@ class _SignupScreenState extends State<SignupScreen> {
   String? _phoneErrorText;
   String? _descriptionErrorText;
   String? _locationAddressErrorText;
-  bool _isOrgAccount = false; // Toggle state: false = User, true = Org
+  String _selectedRole = 'USER'; // Role: 'USER', 'ORG', or 'DELIVERY'
+  File? _selectedImage; // Selected profile image
+  final ImagePicker _imagePicker = ImagePicker();
 
   // List of countries with ISO codes and flags
   final List<Map<String, String>> _countries = [
@@ -69,12 +75,14 @@ class _SignupScreenState extends State<SignupScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // Debug: Log what type of registration this is
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     debugPrint('📝 [SignupScreen.initState] Screen initialized');
     debugPrint('   📋 widget.registerAsClient = ${widget.registerAsClient}');
-    debugPrint('   📁 widget.intendedDestination = ${widget.intendedDestination}');
+    debugPrint(
+      '   📁 widget.intendedDestination = ${widget.intendedDestination}',
+    );
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
   }
 
@@ -197,6 +205,113 @@ class _SignupScreenState extends State<SignupScreen> {
     return null;
   }
 
+  Future<void> _pickImage() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
+      }
+    }
+  }
+
+  Future<String?> _uploadProfileImage() async {
+    if (_selectedImage == null) return null;
+
+    try {
+      final supabase = Supabase.instance.client;
+
+      // Validate file size (max 5MB)
+      final fileSize = await _selectedImage!.length();
+      if (fileSize > 5 * 1024 * 1024) {
+        throw Exception('Image size must be less than 5MB');
+      }
+
+      // Generate unique filename with user email or timestamp
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final email = _emailController.text.replaceAll(
+        RegExp(r'[^a-zA-Z0-9]'),
+        '_',
+      );
+      final fileName = 'profile_${email}_$timestamp.jpg';
+
+      debugPrint(
+        '📤 Uploading profile image: $fileName (${(fileSize / 1024).toStringAsFixed(2)} KB)',
+      );
+
+      // Check if bucket exists
+      try {
+        final buckets = await supabase.storage.listBuckets();
+        final bucketExists = buckets.any(
+          (bucket) => bucket.name == 'profile-images',
+        );
+
+        if (!bucketExists) {
+          debugPrint('📦 Creating profile-images bucket...');
+          await supabase.storage.createBucket(
+            'profile-images',
+            const BucketOptions(public: true),
+          );
+        }
+      } catch (e) {
+        debugPrint('⚠️ Bucket check warning: $e');
+        // Continue anyway - bucket likely exists
+      }
+
+      // Upload the image
+      await supabase.storage
+          .from('profile-images')
+          .upload(
+            fileName,
+            _selectedImage!,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          );
+
+      // Get the public URL
+      final imageUrl = supabase.storage
+          .from('profile-images')
+          .getPublicUrl(fileName);
+
+      debugPrint('✅ Profile image uploaded successfully: $imageUrl');
+      return imageUrl;
+    } catch (e) {
+      debugPrint('❌ Error uploading profile image: $e');
+
+      String errorMessage = 'Failed to upload profile image';
+      if (e.toString().contains('size')) {
+        errorMessage = 'Image is too large (max 5MB)';
+      } else if (e.toString().contains('already exists')) {
+        errorMessage = 'Image already exists, please try again';
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+
+      return null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -214,7 +329,9 @@ class _SignupScreenState extends State<SignupScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.grey),
             onPressed: () {
-              Navigator.pop(context); // Just go back instead of creating new login
+              Navigator.pop(
+                context,
+              ); // Just go back instead of creating new login
             },
           ),
         ),
@@ -230,30 +347,30 @@ class _SignupScreenState extends State<SignupScreen> {
                 Center(
                   child: Column(
                     children: [
-                      Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.green, Colors.green.shade300],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(50),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withValues(alpha: 0.3),
-                              blurRadius: 15,
-                              offset: const Offset(0, 8),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.person_add,
-                          size: 40,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
+                      // Container(
+                      //   padding: const EdgeInsets.all(20),
+                      //   decoration: BoxDecoration(
+                      //     gradient: LinearGradient(
+                      //       colors: [Colors.green, Colors.green.shade300],
+                      //       begin: Alignment.topLeft,
+                      //       end: Alignment.bottomRight,
+                      //     ),
+                      //     borderRadius: BorderRadius.circular(50),
+                      //     boxShadow: [
+                      //       BoxShadow(
+                      //         color: Colors.green.withValues(alpha: 0.3),
+                      //         blurRadius: 15,
+                      //         offset: const Offset(0, 8),
+                      //       ),
+                      //     ],
+                      //   ),
+                      //   child: const Icon(
+                      //     Icons.person_add,
+                      //     size: 40,
+                      //     color: Colors.white,
+                      //   ),
+                      // ),
+                      // const SizedBox(height: 24),
                       const Text(
                         'Create Account',
                         style: TextStyle(
@@ -264,9 +381,60 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                       const SizedBox(height: 8),
                       const Text(
-                        'Sign up to get started with your meals journey',
+                        'Sign up to get started with your journey',
                         style: TextStyle(fontSize: 16, color: Colors.grey),
                         textAlign: TextAlign.center,
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Profile Image Picker
+                      GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          width: 120,
+                          height: 120,
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade200,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.green, width: 3),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.grey.withValues(alpha: 0.3),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: _selectedImage != null
+                              ? ClipOval(
+                                  child: Image.file(
+                                    _selectedImage!,
+                                    fit: BoxFit.cover,
+                                    width: 120,
+                                    height: 120,
+                                  ),
+                                )
+                              : Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(
+                                      Icons.add_a_photo,
+                                      size: 40,
+                                      color: Colors.green,
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Add Photo',
+                                      style: TextStyle(
+                                        color: Colors.grey.shade700,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                        ),
                       ),
                     ],
                   ),
@@ -291,17 +459,18 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     child: Row(
                       children: [
+                        // User option
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
                               setState(() {
-                                _isOrgAccount = false;
+                                _selectedRole = 'USER';
                               });
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               decoration: BoxDecoration(
-                                color: !_isOrgAccount
+                                color: _selectedRole == 'USER'
                                     ? Colors.green
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
@@ -311,20 +480,20 @@ class _SignupScreenState extends State<SignupScreen> {
                                 children: [
                                   Icon(
                                     Icons.person,
-                                    color: !_isOrgAccount
+                                    color: _selectedRole == 'USER'
                                         ? Colors.white
                                         : Colors.grey,
                                     size: 20,
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 4),
                                   Text(
                                     'User',
                                     style: TextStyle(
-                                      color: !_isOrgAccount
+                                      color: _selectedRole == 'USER'
                                           ? Colors.white
                                           : Colors.grey,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ],
@@ -332,17 +501,18 @@ class _SignupScreenState extends State<SignupScreen> {
                             ),
                           ),
                         ),
+                        // Organization option
                         Expanded(
                           child: GestureDetector(
                             onTap: () {
                               setState(() {
-                                _isOrgAccount = true;
+                                _selectedRole = 'ORG';
                               });
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               decoration: BoxDecoration(
-                                color: _isOrgAccount
+                                color: _selectedRole == 'ORG'
                                     ? Colors.purple
                                     : Colors.transparent,
                                 borderRadius: BorderRadius.circular(12),
@@ -352,20 +522,62 @@ class _SignupScreenState extends State<SignupScreen> {
                                 children: [
                                   Icon(
                                     Icons.business,
-                                    color: _isOrgAccount
+                                    color: _selectedRole == 'ORG'
                                         ? Colors.white
                                         : Colors.grey,
                                     size: 20,
                                   ),
-                                  const SizedBox(width: 8),
+                                  const SizedBox(width: 4),
                                   Text(
                                     'Organization',
                                     style: TextStyle(
-                                      color: _isOrgAccount
+                                      color: _selectedRole == 'ORG'
                                           ? Colors.white
                                           : Colors.grey,
                                       fontWeight: FontWeight.bold,
-                                      fontSize: 16,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Delivery option
+                        Expanded(
+                          child: GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                _selectedRole = 'DELIVERY';
+                              });
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              decoration: BoxDecoration(
+                                color: _selectedRole == 'DELIVERY'
+                                    ? Colors.orange
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    Icons.delivery_dining,
+                                    color: _selectedRole == 'DELIVERY'
+                                        ? Colors.white
+                                        : Colors.grey,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Delivery',
+                                    style: TextStyle(
+                                      color: _selectedRole == 'DELIVERY'
+                                          ? Colors.white
+                                          : Colors.grey,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
                                     ),
                                   ),
                                 ],
@@ -1184,27 +1396,49 @@ class _SignupScreenState extends State<SignupScreen> {
 
       try {
         final authService = AuthService(Supabase.instance.client);
-        
+
+        // Upload profile image if selected
+        String? logoUrl;
+        if (_selectedImage != null) {
+          logoUrl = await _uploadProfileImage();
+          if (logoUrl == null) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Warning: Failed to upload profile image. Continuing with registration...',
+                  ),
+                ),
+              );
+            }
+          }
+        }
+
         // Debug: Log the registration type
         // Determine role based on toggle (if shown) or registerAsClient parameter
         String role;
         if (widget.showAccountTypeToggle) {
-          role = _isOrgAccount ? 'ORG' : 'USER';
+          role = _selectedRole;
         } else {
           role = widget.registerAsClient ? 'USER' : 'ORG';
         }
-        
+
         debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
         debugPrint('🎯 [SignupScreen] BEFORE calling signUpUser:');
-        debugPrint('   📋 widget.registerAsClient = ${widget.registerAsClient}');
-        debugPrint('   📋 widget.showAccountTypeToggle = ${widget.showAccountTypeToggle}');
-        debugPrint('   📋 _isOrgAccount = $_isOrgAccount');
+        debugPrint(
+          '   📋 widget.registerAsClient = ${widget.registerAsClient}',
+        );
+        debugPrint(
+          '   📋 widget.showAccountTypeToggle = ${widget.showAccountTypeToggle}',
+        );
+        debugPrint('   📋 _selectedRole = $_selectedRole');
         debugPrint('   🎭 Calculated role = $role');
         debugPrint('   📧 Email = ${_emailController.text}');
         debugPrint('   👤 Name = ${_nameController.text}');
         debugPrint('   📁 Category = ${widget.intendedDestination}');
+        debugPrint('   🖼️  Logo URL = $logoUrl');
         debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        
+
         await authService.signUpUser(
           email: _emailController.text,
           password: _passwordController.text,
@@ -1214,6 +1448,7 @@ class _SignupScreenState extends State<SignupScreen> {
           locationAddress: _locationAddressController.text,
           categoryName: widget.intendedDestination, // Associate with category
           role: role, // USER for clients, ORG for organizations
+          logoUrl: logoUrl, // Profile image URL
         );
 
         if (!mounted) return;
@@ -1234,7 +1469,14 @@ class _SignupScreenState extends State<SignupScreen> {
 
         // Save login context to SharedPreferences
         final prefs = await SharedPreferences.getInstance();
-        final loginContext = role == 'ORG' ? 'ORG' : 'CLIENT';
+        String loginContext;
+        if (role == 'ORG') {
+          loginContext = 'ORG';
+        } else if (role == 'DELIVERY') {
+          loginContext = 'DELIVERY';
+        } else {
+          loginContext = 'CLIENT';
+        }
         await prefs.setString('login_context', loginContext);
         debugPrint('🔖 Signup: Login context saved: $loginContext');
 
@@ -1255,12 +1497,15 @@ class _SignupScreenState extends State<SignupScreen> {
 
         // Navigate based on account type and context
         if (!mounted) return;
-        
+
         if (widget.showAccountTypeToggle) {
           // New flow: navigate based on toggle selection
-          if (_isOrgAccount) {
+          if (_selectedRole == 'ORG') {
             // Navigate to ORG home screen
             Navigator.pushReplacementNamed(context, '/home');
+          } else if (_selectedRole == 'DELIVERY') {
+            // Navigate to DELIVERY page
+            Navigator.pushReplacementNamed(context, '/delivery');
           } else {
             // Navigate to CLIENT page
             Navigator.pushReplacementNamed(context, '/client');
@@ -1283,10 +1528,13 @@ class _SignupScreenState extends State<SignupScreen> {
         });
 
         String errorMessage = 'Error creating account: ${error.toString()}';
+        bool showSignInAction = false;
+
         if (error.toString().contains('already registered') ||
             error.toString().contains('User already registered')) {
           errorMessage =
               'This email is already registered. Please try signing in instead.';
+          showSignInAction = true;
         } else if (error.toString().contains('Invalid email') ||
             error.toString().contains('invalid_email')) {
           errorMessage = 'Please enter a valid email address.';
@@ -1304,7 +1552,16 @@ class _SignupScreenState extends State<SignupScreen> {
             SnackBar(
               content: Text(errorMessage),
               backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
+              duration: Duration(seconds: showSignInAction ? 6 : 3),
+              action: showSignInAction
+                  ? SnackBarAction(
+                      label: 'Sign In',
+                      textColor: Colors.white,
+                      onPressed: () {
+                        Navigator.pop(context);
+                      },
+                    )
+                  : null,
             ),
           );
         }

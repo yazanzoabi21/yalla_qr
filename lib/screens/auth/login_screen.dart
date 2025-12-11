@@ -10,11 +10,12 @@ import 'dart:convert';
 
 class LoginScreen extends StatefulWidget {
   final String? intendedDestination; // The screen to navigate to after login
-  final bool registerAsClient; // If true, register as USER (client), otherwise as ORG
+  final bool
+  registerAsClient; // If true, register as USER (client), otherwise as ORG
 
   const LoginScreen({
-    super.key, 
-    this.intendedDestination, 
+    super.key,
+    this.intendedDestination,
     this.registerAsClient = false,
   });
 
@@ -36,12 +37,14 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void initState() {
     super.initState();
-    
+
     // Debug: Log what type of registration this is
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
     debugPrint('🔐 [LoginScreen.initState] Screen initialized');
     debugPrint('   📋 widget.registerAsClient = ${widget.registerAsClient}');
-    debugPrint('   📁 widget.intendedDestination = ${widget.intendedDestination}');
+    debugPrint(
+      '   📁 widget.intendedDestination = ${widget.intendedDestination}',
+    );
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
     // Add listeners to clear errors when user types
@@ -122,7 +125,9 @@ class _LoginScreenState extends State<LoginScreen> {
           leading: IconButton(
             icon: const Icon(Icons.arrow_back, color: Colors.grey),
             onPressed: () {
-              Navigator.pop(context); // Just go back instead of navigating to home
+              Navigator.pop(
+                context,
+              ); // Just go back instead of navigating to home
             },
           ),
         ),
@@ -459,10 +464,8 @@ class _LoginScreenState extends State<LoginScreen> {
                                 Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (context) => SignupScreen(
-                                      intendedDestination:
-                                          widget.intendedDestination,
-                                      registerAsClient: widget.registerAsClient,
+                                    builder: (context) => const SignupScreen(
+                                      showAccountTypeToggle: true,
                                     ),
                                   ),
                                 );
@@ -556,7 +559,8 @@ class _LoginScreenState extends State<LoginScreen> {
         await authService.signInUserForCategory(
           email: _emailController.text.trim(),
           password: _passwordController.text,
-          categoryName: widget.intendedDestination, // Don't default to 'general'
+          categoryName:
+              widget.intendedDestination, // Don't default to 'general'
         );
 
         if (!mounted) return;
@@ -567,39 +571,51 @@ class _LoginScreenState extends State<LoginScreen> {
           debugPrint('💾 Saving session for user: ${session.user.email}');
           final sessionJson = jsonEncode(session.toJson());
           debugPrint('📝 Session JSON length: ${sessionJson.length}');
-          
+
           await SecureStorageService.saveSessionJson(sessionJson);
-          
+
           // Determine login context based on user's actual role in database
           debugPrint('🔍 Checking user role for login context...');
           final accountsResponse = await Supabase.instance.client
               .from('accounts')
               .select('role')
               .eq('owner_id', session.user.id);
-          
+
           String loginContext = 'ORG'; // Default to ORG
-          
+
           if (accountsResponse.isNotEmpty) {
             // Check what roles this user has
-            final hasOrgRole = accountsResponse.any((acc) => acc['role'] == 'ORG');
-            final hasUserRole = accountsResponse.any((acc) => acc['role'] == 'USER');
-            
+            final hasOrgRole = accountsResponse.any(
+              (acc) => acc['role'] == 'ORG',
+            );
+            final hasUserRole = accountsResponse.any(
+              (acc) => acc['role'] == 'USER',
+            );
+            final hasDeliveryRole = accountsResponse.any(
+              (acc) => acc['role'] == 'DELIVERY',
+            );
+
             debugPrint('   👤 Has ORG role: $hasOrgRole');
             debugPrint('   👤 Has USER role: $hasUserRole');
-            
-            // If user has ONLY USER role (no ORG), set context to CLIENT
-            if (hasUserRole && !hasOrgRole) {
+            debugPrint('   👤 Has DELIVERY role: $hasDeliveryRole');
+
+            // Set login context based on role priority
+            if (hasDeliveryRole && !hasOrgRole && !hasUserRole) {
+              loginContext = 'DELIVERY';
+            } else if (hasUserRole && !hasOrgRole) {
               loginContext = 'CLIENT';
             } else if (hasOrgRole) {
               loginContext = 'ORG';
             }
           }
-          
+
           // Save login context to SharedPreferences
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('login_context', loginContext);
-          debugPrint('🔖 Login context saved: $loginContext (based on actual role)');
-          
+          debugPrint(
+            '🔖 Login context saved: $loginContext (based on actual role)',
+          );
+
           // Double-check the session was saved
           final savedSession = await SecureStorageService.getSessionJson();
           if (savedSession != null) {
@@ -633,17 +649,23 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // Navigate based on actual login context (role from database)
         if (!mounted) return;
-        
+
         // Get the saved login context
         final prefs = await SharedPreferences.getInstance();
         final loginContext = prefs.getString('login_context');
-        
+
         if (loginContext == 'CLIENT') {
           // Navigate to CLIENT page
           Navigator.pushReplacementNamed(context, '/client');
+        } else if (loginContext == 'DELIVERY') {
+          // Navigate to DELIVERY page
+          Navigator.pushReplacementNamed(context, '/delivery');
         } else if (widget.intendedDestination != null) {
           // Navigate directly to the category screen after login
-          NavigationHelper.navigateToCategory(context, widget.intendedDestination!);
+          NavigationHelper.navigateToCategory(
+            context,
+            widget.intendedDestination!,
+          );
         } else {
           // Navigate to ORG home screen
           Navigator.pushReplacementNamed(context, '/home');
@@ -667,7 +689,7 @@ class _LoginScreenState extends State<LoginScreen> {
         // Show error message
         String errorMessage = 'Login failed';
         bool showResendVerification = false;
-        
+
         if (e.toString().contains('Invalid email or password') ||
             e.toString().contains('invalid_credentials')) {
           errorMessage = 'Invalid email or password';
@@ -837,13 +859,17 @@ class _LoginScreenState extends State<LoginScreen> {
               onPressed: () async {
                 try {
                   final authService = AuthService(Supabase.instance.client);
-                  await authService.resendEmailVerification(_emailController.text.trim());
-                  
+                  await authService.resendEmailVerification(
+                    _emailController.text.trim(),
+                  );
+
                   if (context.mounted) {
                     Navigator.of(context).pop(); // Close dialog
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Verification email sent! Please check your inbox.'),
+                        content: Text(
+                          'Verification email sent! Please check your inbox.',
+                        ),
                         backgroundColor: Colors.green,
                       ),
                     );

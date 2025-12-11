@@ -12,17 +12,24 @@ import '../../exceptions/category_not_registered_exception.dart';
 import '../meals/meal_detail_screen.dart';
 import '../meals/meals_screen.dart';
 import '../gym/gym_screen.dart';
+import '../client/product_detail_screen.dart';
 
 class SearchResultsScreen extends StatefulWidget {
   final String initialQuery;
   final String? categoryId;
   final bool categoriesOnly;
+  final String? organizationAccountId; // For client search
+  final String? organizationName; // For product detail navigation
+  final Color? accentColor; // For product detail navigation
 
   const SearchResultsScreen({
     super.key,
     this.initialQuery = '',
     this.categoryId,
     this.categoriesOnly = false,
+    this.organizationAccountId,
+    this.organizationName,
+    this.accentColor,
   });
 
   @override
@@ -95,7 +102,13 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
     try {
       List<SearchResult> results;
       
-      if (widget.categoriesOnly) {
+      if (widget.organizationAccountId != null) {
+        // Client search within organization
+        results = await SearchService.searchOrganizationProducts(
+          query: query,
+          organizationAccountId: widget.organizationAccountId!,
+        );
+      } else if (widget.categoriesOnly) {
         // Search only categories (for home screen)
         results = await SearchService.searchCategoriesOnly(query);
       } else if (widget.categoryId != null) {
@@ -146,6 +159,46 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Future<void> _navigateToProductDetail(Product product) async {
+    // For client mode (organization search), navigate to ProductDetailScreen
+    if (widget.organizationAccountId != null) {
+      if (!mounted) return;
+      
+      // Try to get category name if product has categoryId
+      String? categoryName;
+      if (product.categoryId != null) {
+        try {
+          final categoryData = await Supabase.instance.client
+              .from('categories')
+              .select('name')
+              .eq('id', product.categoryId!)
+              .maybeSingle();
+          if (categoryData != null) {
+            categoryName = categoryData['name'] as String?;
+          }
+        } catch (e) {
+          debugPrint('Failed to fetch category name: $e');
+        }
+      }
+      
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ProductDetailScreen(
+            product: product,
+            organizationId: widget.organizationAccountId!,
+            organizationName: widget.organizationName ?? 'Organization',
+            accentColor: widget.accentColor ?? Colors.blue,
+            categoryName: categoryName,
+          ),
+        ),
+      );
+      
+      if (!mounted) return;
+      Navigator.pop(context, true);
+      return;
+    }
+    
+    // For organization owner mode, navigate to category (MealDetailScreen)
     try {
       // Fetch the category details to get proper name and description
       if (product.categoryId != null) {
@@ -164,6 +217,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           'id': category.id,
           'name': category.name,
           'description': category.description ?? '',
+          'color': category.color,
         };
 
         if (!mounted) return;

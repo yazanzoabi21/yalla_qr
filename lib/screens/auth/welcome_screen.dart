@@ -5,6 +5,7 @@ import 'login_screen.dart';
 import 'signup_screen.dart';
 import '../home/home_screen.dart';
 import '../client/client_categories_screen.dart';
+import '../delivery/delivery_home_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -49,6 +50,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const ClientCategoriesScreen()),
+        );
+      } else if (loginContext == 'DELIVERY') {
+        // Navigate to DELIVERY page
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const DeliveryHomeScreen()),
         );
       } else {
         // No context, stay on welcome screen

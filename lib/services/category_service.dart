@@ -63,18 +63,19 @@ class CategoryService {
         return [];
       }
 
-      // Get category IDs linked to this account via account_categories
+      // Get category relations with is_hidden status (fetch all, not just visible)
       final categoryRelations = await _supabase
           .from('account_categories')
-          .select('category_id')
-          .eq('account_id', accountId)
-          .eq('is_hidden', false);
+          .select('category_id, is_hidden')
+          .eq('account_id', accountId);
 
-      final categoryIds = (categoryRelations as List)
-          .map((item) => item['category_id'] as String)
-          .toList();
+      final categoryMap = Map<String, bool>.fromEntries(
+        (categoryRelations as List).map((item) => 
+          MapEntry(item['category_id'] as String, item['is_hidden'] as bool? ?? false)
+        )
+      );
 
-      if (categoryIds.isEmpty) {
+      if (categoryMap.isEmpty) {
         debugPrint('⚠️ [CategoryService] No categories linked to account');
         return [];
       }
@@ -83,7 +84,7 @@ class CategoryService {
       var query = _supabase
           .from('categories')
           .select('*')
-          .in_('id', categoryIds);
+          .in_('id', categoryMap.keys.toList());
       
       if (parentOnly) {
         query = query.filter('parent_id', 'is', null);
@@ -92,7 +93,12 @@ class CategoryService {
       final response = await query.order('name', ascending: true);
 
       return (response as List<dynamic>)
-          .map((json) => Category.fromJson(json as Map<String, dynamic>))
+          .map((json) {
+            final categoryJson = Map<String, dynamic>.from(json as Map<String, dynamic>);
+            // Add is_hidden status from the junction table
+            categoryJson['is_hidden'] = categoryMap[categoryJson['id']] ?? false;
+            return Category.fromJson(categoryJson);
+          })
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch categories for account: $e');
@@ -125,18 +131,19 @@ class CategoryService {
         return [];
       }
 
-      // Get category IDs linked to this account via account_categories
+      // Get category relations with is_hidden status (fetch all, not just visible)
       final categoryRelations = await _supabase
           .from('account_categories')
-          .select('category_id')
-          .eq('account_id', accountId)
-          .eq('is_hidden', false);
+          .select('category_id, is_hidden')
+          .eq('account_id', accountId);
 
-      final categoryIds = (categoryRelations as List)
-          .map((item) => item['category_id'] as String)
-          .toList();
+      final categoryMap = Map<String, bool>.fromEntries(
+        (categoryRelations as List).map((item) => 
+          MapEntry(item['category_id'] as String, item['is_hidden'] as bool? ?? false)
+        )
+      );
 
-      if (categoryIds.isEmpty) {
+      if (categoryMap.isEmpty) {
         debugPrint('⚠️ [CategoryService] No categories linked to account');
         return [];
       }
@@ -146,11 +153,16 @@ class CategoryService {
           .from('categories')
           .select('*')
           .eq('parent_id', parentId)
-          .in_('id', categoryIds)
+          .in_('id', categoryMap.keys.toList())
           .order('name', ascending: true);
 
       return (response as List<dynamic>)
-          .map((json) => Category.fromJson(json as Map<String, dynamic>))
+          .map((json) {
+            final categoryJson = Map<String, dynamic>.from(json as Map<String, dynamic>);
+            // Add is_hidden status from the junction table
+            categoryJson['is_hidden'] = categoryMap[categoryJson['id']] ?? false;
+            return Category.fromJson(categoryJson);
+          })
           .toList();
     } catch (e) {
       throw Exception('Failed to fetch child categories for account: $e');

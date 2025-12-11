@@ -8,6 +8,7 @@ class Category {
   final String? parentId; // New field for hierarchical categories
   final int? iconCode; // IconData codePoint from database
   final String? colorValue; // Hex color string from database
+  final bool isHidden; // Hidden status from account_categories
 
   Category({
     required this.id,
@@ -17,6 +18,7 @@ class Category {
     this.parentId,
     this.iconCode,
     this.colorValue,
+    this.isHidden = false,
   });
 
   factory Category.fromJson(Map<String, dynamic> json) {
@@ -30,6 +32,7 @@ class Category {
       parentId: json['parent_id'] as String?,
       iconCode: json['icon_code'] as int?,
       colorValue: json['color_value'] as String?,
+      isHidden: json['is_hidden'] as bool? ?? false,
     );
   }
 
@@ -42,6 +45,7 @@ class Category {
       'parent_id': parentId,
       'icon_code': iconCode,
       'color_value': colorValue,
+      'is_hidden': isHidden,
     };
   }
 

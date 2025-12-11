@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/client/client_categories_screen.dart';
+import 'screens/delivery/delivery_home_screen.dart';
+import 'services/cart_service.dart';
 import 'utils/supabase_setup.dart';
 
 Future<void> main() async {
@@ -11,10 +13,17 @@ Future<void> main() async {
   try {
     await Supabase.initialize(
       url: 'https://fhsqvuyzoptmkpapxyfl.supabase.co',
-      anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoc3F2dXl6b3B0bWtwYXB4eWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyODY5NjcsImV4cCI6MjA2Njg2Mjk2N30._ERJc5TyJr_Q-KL06FjfpR05mtPm5o12m9mqFsfugVs',
+      anonKey:
+          'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZoc3F2dXl6b3B0bWtwYXB4eWZsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTEyODY5NjcsImV4cCI6MjA2Njg2Mjk2N30._ERJc5TyJr_Q-KL06FjfpR05mtPm5o12m9mqFsfugVs',
     );
-    debugPrint('Startup currentSession user: ${Supabase.instance.client.auth.currentUser?.email}');
+    debugPrint(
+      'Startup currentSession user: ${Supabase.instance.client.auth.currentUser?.email}',
+    );
     await SupabaseSetup.initializeStorage();
+
+    // Initialize cart service
+    await CartService().initialize();
+    debugPrint('✅ Cart service initialized');
   } catch (e) {
     debugPrint('Initialization error: $e');
   }
@@ -41,6 +50,7 @@ class _MyAppState extends State<MyApp> {
       routes: {
         '/home': (context) => const HomeScreen(),
         '/client': (context) => const ClientCategoriesScreen(),
+        '/delivery': (context) => const DeliveryHomeScreen(),
       },
     );
   }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 
 class HomeItem extends StatefulWidget {
   final String title;
@@ -7,6 +6,7 @@ class HomeItem extends StatefulWidget {
   final String? imagePath;
   final String? lastClicked;
   final Function(String)? onTap;
+  final bool isHidden;
 
   const HomeItem({
     super.key,
@@ -15,6 +15,7 @@ class HomeItem extends StatefulWidget {
     this.imagePath,
     this.lastClicked,
     this.onTap,
+    this.isHidden = false,
   });
 
   @override
@@ -25,42 +26,52 @@ class _HomeItemState extends State<HomeItem> {
   @override
   Widget build(BuildContext context) {
     bool isSelected = widget.lastClicked == widget.title;
-    Color overlayColor = isSelected
-        ? Colors.green.withAlpha((0.4 * 255).round())
-        : widget.color.withAlpha((0.3 * 255).round());
+    
+    return Opacity(
+      opacity: widget.isHidden ? 0.4 : 1.0,
+      child: GestureDetector(
+        onTap: widget.isHidden ? null : () {
+          final localContext = context;
 
-    return GestureDetector(
-      onTap: () {
-        final localContext = context;
+          // Inform the parent
+          widget.onTap?.call(widget.title);
 
-        // Inform the parent
-        widget.onTap?.call(widget.title);
+          if (!localContext.mounted) return;
 
-        if (!localContext.mounted) return;
-
-        ScaffoldMessenger.of(
-          localContext,
-        );
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
-        child: ClipRRect(
+          ScaffoldMessenger.of(
+            localContext,
+          );
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
+          child: ClipRRect(
           borderRadius: BorderRadius.circular(16),
           child: Stack(
             fit: StackFit.expand,
             children: [
               _buildBackgroundImage(),
+              // Light gradient overlay for text readability
               Container(
-                decoration: BoxDecoration(color: overlayColor),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 1.0, sigmaY: 1.0),
-                  child: Container(
-                    color: Colors.black.withAlpha((0.1 * 255).round()),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.2),
+                      Colors.black.withValues(alpha: 0.5),
+                    ],
                   ),
                 ),
               ),
+              // Selected state indicator
+              if (isSelected)
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.2),
+                  ),
+                ),
               Center(
                 child: Text(
                   widget.title,
@@ -82,6 +93,7 @@ class _HomeItemState extends State<HomeItem> {
             ],
           ),
         ),
+      ),
       ),
     );
   }

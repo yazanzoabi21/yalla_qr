@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/search_result.dart';
+import '../models/product.dart';
 import 'product_service.dart';
 import 'category_service.dart';
 
@@ -53,6 +55,45 @@ class SearchService {
       return results;
     } catch (e) {
       debugPrint('❌ Error in category search: $e');
+      rethrow;
+    }
+  }
+
+  /// Search products within a specific organization (for client pages)
+  static Future<List<SearchResult>> searchOrganizationProducts({
+    required String query,
+    required String organizationAccountId,
+  }) async {
+    if (query.trim().isEmpty) {
+      return [];
+    }
+
+    debugPrint('🔍 Searching organization products for: "$query" in org: $organizationAccountId');
+    
+    try {
+      final response = await Supabase.instance.client
+          .from('products')
+          .select()
+          .eq('account_id', organizationAccountId)
+          .or('name.ilike.%$query%,description.ilike.%$query%');
+
+      final products = (response as List)
+          .map((json) => Product.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      debugPrint('✅ Found ${products.length} organization products');
+
+      return products.map((product) {
+        final score = _calculateRelevanceScore(
+          query: query,
+          title: product.name,
+          description: product.description,
+        );
+        return SearchResult.fromProduct(product, relevanceScore: score);
+      }).toList()
+        ..sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
+    } catch (e) {
+      debugPrint('❌ Error searching organization products: $e');
       rethrow;
     }
   }
