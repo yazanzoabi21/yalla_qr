@@ -922,8 +922,8 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                   ],
                 ),
 
-          // Scan prompt overlay - only show when there's no scan history
-          if (_scanHistory.isEmpty && !_isLoadingHistory)
+          // Scan prompt overlay - only show when there's no scan history and user hasn't skipped
+          if (_scanHistory.isEmpty && !_isLoadingHistory && _showScanPrompt)
             ScanPromptOverlay(onScan: _handleScan, onSkip: _handleSkip),
 
           // Floating Cart Icon - show combined count for all organizations

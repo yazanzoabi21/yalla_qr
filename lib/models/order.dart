@@ -5,11 +5,16 @@ class Order {
   final String customerId; // User ID from auth.users
   final double totalAmount;
   final String currencyCode; // 'LBP' or 'USD'
+  final double? totalAmountUsd; // Optional stored USD equivalent recorded at order creation
   final String
   status; // 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED'
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<OrderItem>? items; // Optional, populated when fetching with items
+  final String? contactName;
+  final String? deliveryAddress;
+  final String? deliveryPhone;
+  final String? notes;
 
   Order({
     required this.id,
@@ -17,10 +22,15 @@ class Order {
     required this.customerId,
     required this.totalAmount,
     required this.currencyCode,
+    this.totalAmountUsd,
     required this.status,
     required this.createdAt,
     required this.updatedAt,
     this.items,
+    this.contactName,
+    this.deliveryAddress,
+    this.deliveryPhone,
+    this.notes,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -30,6 +40,7 @@ class Order {
       customerId: json['customer_id'] as String,
       totalAmount: (json['total_amount'] as num).toDouble(),
       currencyCode: json['currency_code'] as String,
+      totalAmountUsd: json['total_amount_usd'] != null ? (json['total_amount_usd'] as num).toDouble() : null,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -38,6 +49,10 @@ class Order {
                 .map((item) => OrderItem.fromJson(item as Map<String, dynamic>))
                 .toList()
           : null,
+      contactName: json['contact_name'] as String?,
+      deliveryAddress: json['delivery_address'] as String?,
+      deliveryPhone: json['delivery_phone'] as String?,
+      notes: json['notes'] as String?,
     );
   }
 
@@ -48,9 +63,14 @@ class Order {
       'customer_id': customerId,
       'total_amount': totalAmount,
       'currency_code': currencyCode,
+      if (totalAmountUsd != null) 'total_amount_usd': totalAmountUsd,
       'status': status,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
+      if (contactName != null) 'contact_name': contactName,
+      if (deliveryAddress != null) 'delivery_address': deliveryAddress,
+      if (deliveryPhone != null) 'delivery_phone': deliveryPhone,
+      if (notes != null) 'notes': notes,
     };
   }
 
@@ -77,9 +97,9 @@ class Order {
   static String getStatusLabel(String status) {
     switch (status) {
       case 'PENDING':
-        return 'Pending';
+        return 'Preparing'; // PENDING is now displayed as Preparing
       case 'CONFIRMED':
-        return 'Confirmed';
+        return 'Ready'; // CONFIRMED is now displayed as Ready
       case 'PREPARING':
         return 'Preparing';
       case 'READY':

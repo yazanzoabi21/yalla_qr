@@ -8,6 +8,14 @@ class CurrencyService {
       .select('usd_rate')
       .eq('code', 'LBP')
       .single();
-    return currency['usd_rate'] as double;
+    final raw = currency['usd_rate'];
+    if (raw is double) return raw;
+    if (raw is int) return raw.toDouble();
+    if (raw is num) return raw.toDouble();
+    if (raw is String) {
+      final parsed = double.tryParse(raw);
+      if (parsed != null) return parsed;
+    }
+    throw Exception('Invalid usd_rate value: $raw');
   }
 }

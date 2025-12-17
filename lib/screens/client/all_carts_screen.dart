@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/cart.dart';
 import '../../services/cart_service.dart';
 import '../../services/order_service.dart';
-import '../../widgets/navbar.dart';
+// navbar import removed (unused)
 import 'cart_screen.dart';
 
 /// Screen showing all carts from all organizations
@@ -40,63 +40,119 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
       return;
     }
 
-    // Show confirmation dialog
-    final confirmed = await showDialog<bool>(
+    // Load saved account/profile info for current user to prefill form
+    Map<String, dynamic>? accountProfile;
+    try {
+      final profiles = await Supabase.instance.client
+          .from('accounts')
+          .select('*')
+          .eq('owner_id', user.id)
+          .limit(1);
+
+      if (profiles is List && profiles.isNotEmpty) {
+        accountProfile = profiles.first as Map<String, dynamic>?;
+      }
+    } catch (e) {
+      // ignore - proceed without prefill
+    }
+
+    // Show checkout form dialog
+    final result = await showDialog<Map<String, String>?>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('Confirm Order'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'You are about to place ${carts.length} order${carts.length > 1 ? 's' : ''}:',
-            ),
-            const SizedBox(height: 12),
-            ...carts.map(
-              (cart) => Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Row(
-                  children: [
-                    Icon(Icons.store, size: 18, color: Colors.grey.shade600),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        '${cart.organizationName} (${cart.totalItems} items)',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
+      barrierDismissible: false,
+      builder: (context) {
+      final nameController = TextEditingController(
+        text: accountProfile != null ? accountProfile['name'] ?? '' : '');
+      final phoneController = TextEditingController(
+        text: accountProfile != null ? accountProfile['phone'] ?? '' : '');
+      final addressController = TextEditingController(
+        text: accountProfile != null
+          ? accountProfile['location_address'] ?? ''
+          : '');
+      final notesController = TextEditingController();
+
+        bool isValid() {
+          return nameController.text.trim().isNotEmpty &&
+              phoneController.text.trim().isNotEmpty &&
+              addressController.text.trim().isNotEmpty;
+        }
+
+        return StatefulBuilder(builder: (context, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Checkout Details'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('You are about to place ${carts.length} order${carts.length > 1 ? 's' : ''}'),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Full name',
                     ),
-                  ],
-                ),
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: phoneController,
+                    decoration: const InputDecoration(
+                      labelText: 'Phone',
+                    ),
+                    keyboardType: TextInputType.phone,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: addressController,
+                    decoration: const InputDecoration(
+                      labelText: 'Delivery address',
+                    ),
+                    maxLines: 3,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: notesController,
+                    decoration: const InputDecoration(
+                      labelText: 'Additional notes (optional)',
+                    ),
+                    maxLines: 2,
+                  ),
+                ],
               ),
             ),
-            const Divider(),
-            const SizedBox(height: 8),
-            const Text(
-              'Continue with checkout?',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepOrange,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Place Order'),
-          ),
-        ],
-      ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, null),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: isValid()
+                    ? () {
+                        Navigator.pop(context, {
+                          'contact_name': nameController.text.trim(),
+                          'delivery_phone': phoneController.text.trim(),
+                          'delivery_address': addressController.text.trim(),
+                          'notes': notesController.text.trim(),
+                        });
+                      }
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepOrange,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Place Order'),
+              ),
+            ],
+          );
+        });
+      },
     );
 
-    if (confirmed != true) return;
+    if (result == null) return;
 
     setState(() {
       _isCheckingOut = true;
@@ -106,7 +162,10 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
       final orderService = OrderService();
       final cartService = CartService();
 
-      final orders = await orderService.createOrdersFromCarts(carts);
+      final orders = await orderService.createOrdersFromCarts(
+        carts,
+        customerInfo: result,
+      );
 
       if (orders.isNotEmpty) {
         // Clear all carts after successful checkout

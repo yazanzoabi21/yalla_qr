@@ -5,11 +5,14 @@ import '../screens/auth/login_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/search/search_results_screen.dart';
 import '../screens/client/product_detail_screen.dart';
+import '../screens/org/org_orders_screen.dart';
 import '../services/auth_service.dart';
 import '../models/product.dart';
 import 'dart:async';
 import '../utils/navigation_helper.dart';
 import '../services/secure_storage_service.dart';
+import '../services/order_service.dart';
+import '../utils/event_bus.dart';
 
 class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final bool showLoginButton;
@@ -52,9 +55,93 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
 
 class _NavbarState extends State<Navbar> {
   bool _isAuthenticated = false;
+  bool _isOrgUser = false;
   late final AuthService _authService;
   late final StreamSubscription<AuthState> _authSubscription;
   final TextEditingController _searchController = TextEditingController();
+
+  // Orders count + notes count for ORG accounts
+  final OrderService _orderService = OrderService();
+  String? _orgAccountId;
+  int _orgOrdersCount = 0;
+  int _orgNotesCount = 0;
+
+  // Track assignment ids we've already counted locally (used when DB lacks unread column)
+  final Set<String> _noteAssignmentIdsCounted = {};
+
+  /// Load ORG account ID and orders count
+  Future<void> _loadOrgAccountAndOrders() async {
+    try {
+      final user = Supabase.instance.client.auth.currentUser;
+      if (user == null || !_isOrgUser || !_isAuthenticated) return;
+
+      final orgAccount = await Supabase.instance.client
+          .from('accounts')
+          .select('id')
+          .eq('owner_id', user.id)
+          .eq('role', 'ORG')
+          .maybeSingle();
+
+      if (orgAccount == null) {
+        if (mounted) {
+          setState(() {
+            _orgAccountId = null;
+            _orgOrdersCount = 0;
+          });
+        }
+        return;
+      }
+
+      final accountId = orgAccount['id'] as String;
+      final orders = await _orderService.getOrganizationOrders(accountId);
+
+      // Count PENDING orders (new orders displayed as "Preparing" that haven't been assigned to delivery yet)
+      final pendingCount = orders.where((o) => o.status == 'PENDING').length;
+
+      // Count unread delivery notes for this organization
+      int notesCount = 0;
+      try {
+        final notesResp = await Supabase.instance.client
+            .from('order_delivery_assignments')
+            .select('id, order:orders!fk_order_delivery_order(account_id), delivery_notes_unread')
+            .eq('delivery_notes_unread', true);
+
+        final Set<String> idsForThisOrg = {};
+        if (notesResp != null) {
+          for (var n in (notesResp as List)) {
+            final order = n['order'] as Map<String, dynamic>?;
+            if (order != null && order['account_id'] == accountId) {
+              final id = n['id'] as String?;
+              if (id != null) idsForThisOrg.add(id);
+            }
+          }
+        }
+
+        // Use DB truth and sync our local counted ids
+        notesCount = idsForThisOrg.length;
+        _noteAssignmentIdsCounted
+          ..clear()
+          ..addAll(idsForThisOrg);
+      } on PostgrestException catch (e) {
+        // Column doesn't exist yet — don't crash; rely on local note tracking and log a hint
+        debugPrint('Error fetching unread note count (schema missing column): $e');
+        debugPrint('Hint: run SQL migration to add delivery_notes_unread column.');
+        notesCount = _noteAssignmentIdsCounted.length;
+      } catch (e) {
+        debugPrint('Error fetching unread note count: $e');
+      }
+
+      if (mounted) {
+        setState(() {
+          _orgAccountId = accountId;
+          _orgOrdersCount = pendingCount;
+          _orgNotesCount = notesCount;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading ORG orders: $e');
+    }
+  }
 
   // Client search state
   List<Product> _productHints = [];
@@ -76,15 +163,83 @@ class _NavbarState extends State<Navbar> {
         setState(() {
           _isAuthenticated = data.session != null;
         });
+        _checkOrgStatus();
+        // Refresh org orders after auth changes
+        _loadOrgAccountAndOrders();
+      }
+    });
+  
+    // Initial load in case user is already logged in
+    _loadOrgAccountAndOrders();
+
+    // Periodically refresh orders count (keeps badge up-to-date)
+    _ordersRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (mounted && _isOrgUser && _isAuthenticated) {
+        _loadOrgAccountAndOrders();
+      }
+    });
+
+    // Listen to global events (e.g., order assignment/status changes or note events)
+    EventBus.stream.listen((event) {
+      if (!mounted) return;
+
+      if (event == 'orders:updated' && _isOrgUser && _isAuthenticated) {
+        _loadOrgAccountAndOrders();
+        return;
+      }
+
+      // note events format: note:updated:<assignmentId>:<orderId> or note:deleted:<assignmentId>:<orderId>
+      if (event.startsWith('note:updated:') && _isOrgUser && _isAuthenticated) {
+        final parts = event.split(':');
+        if (parts.length >= 4) {
+          final assignmentId = parts[2];
+          // final orderId = parts[3];
+          if (!_noteAssignmentIdsCounted.contains(assignmentId)) {
+            _noteAssignmentIdsCounted.add(assignmentId);
+            setState(() {
+              _orgNotesCount = _orgNotesCount + 1;
+            });
+          }
+        }
+        return;
+      }
+
+      if (event.startsWith('note:deleted:') && _isOrgUser && _isAuthenticated) {
+        final parts = event.split(':');
+        if (parts.length >= 4) {
+          final assignmentId = parts[2];
+          if (_noteAssignmentIdsCounted.remove(assignmentId)) {
+            setState(() {
+              _orgNotesCount = _orgNotesCount > 0 ? _orgNotesCount - 1 : 0;
+            });
+          }
+        }
+        return;
       }
     });
   }
+
+  Future<void> _checkOrgStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    final loginContext = prefs.getString('login_context');
+    if (mounted) {
+      setState(() {
+        _isOrgUser = loginContext == 'ORG';
+      });
+    }
+
+    // After we know org status, attempt to load account and orders
+    _loadOrgAccountAndOrders();
+  }
+
+  Timer? _ordersRefreshTimer;
 
   @override
   void dispose() {
     _authSubscription.cancel();
     _searchController.dispose();
     _hintDebounceTimer?.cancel();
+    _ordersRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -92,6 +247,7 @@ class _NavbarState extends State<Navbar> {
     setState(() {
       _isAuthenticated = _authService.isAuthenticated();
     });
+    _checkOrgStatus();
   }
 
   /// Load product hints for client search
@@ -263,7 +419,39 @@ class _NavbarState extends State<Navbar> {
                   ),
                 if (widget.showMenuButton)
                   PopupMenuButton<String>(
-                    icon: const Icon(Icons.menu, color: Colors.grey),
+                    icon: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        const Icon(Icons.menu, color: Colors.grey),
+                        if (_orgOrdersCount > 0)
+                          Positioned(
+                            right: -2,
+                            top: -2,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 1.5),
+                              ),
+                            ),
+                          ),                        // Show red dot if there are unread delivery notes
+                        if (_orgNotesCount > 0)
+                          Positioned(
+                            right: 8,
+                            top: -2,
+                            child: Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white, width: 1.5),
+                              ),
+                            ),
+                          ),                      ],
+                    ),
                     onSelected: (String value) {
                       _handleMenuSelection(context, value);
                     },
@@ -296,6 +484,28 @@ class _NavbarState extends State<Navbar> {
                               child: ListTile(
                                 leading: Icon(Icons.settings),
                                 title: Text('Settings'),
+                              ),
+                            ),
+                          ],
+                          if (_isOrgUser && _isAuthenticated) ...[
+                            PopupMenuItem<String>(
+                              value: 'orders',
+                              child: ListTile(
+                                leading: const Icon(Icons.receipt_long),
+                                title: const Text('Orders'),
+                                trailing: _orgOrdersCount > 0
+                                    ? Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.red,
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        child: Text(
+                                          '$_orgOrdersCount',
+                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
+                                      )
+                                    : null,
                               ),
                             ),
                           ],
@@ -559,6 +769,14 @@ class _NavbarState extends State<Navbar> {
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Please login to access settings')),
+          );
+        }
+        break;
+      case 'orders':
+        if (_isOrgUser && _isAuthenticated) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => const OrgOrdersScreen()),
           );
         }
         break;

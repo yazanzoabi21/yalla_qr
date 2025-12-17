@@ -1,0 +1,63 @@
+/// Represents a delivery assignment for an order
+class OrderDeliveryAssignment {
+  final String id;
+  final String orderId;
+  final String deliveryAccountId;
+  final DateTime assignedAt;
+  final DateTime? completedAt;
+  final String? deliveryNotes; // Notes from delivery driver to ORG
+  
+  // Optional joined data
+  final String? deliveryAccountName;
+  final String? deliveryAccountPhone;
+
+  OrderDeliveryAssignment({
+    required this.id,
+    required this.orderId,
+    required this.deliveryAccountId,
+    required this.assignedAt,
+    this.completedAt,
+    this.deliveryNotes,
+    this.deliveryAccountName,
+    this.deliveryAccountPhone,
+  });
+
+  factory OrderDeliveryAssignment.fromJson(Map<String, dynamic> json) {
+    // Handle nested account data if present
+    String? deliveryName;
+    String? deliveryPhone;
+    
+    if (json['delivery_account'] != null) {
+      final account = json['delivery_account'] as Map<String, dynamic>;
+      deliveryName = account['name'] as String?;
+      deliveryPhone = account['phone'] as String?;
+    }
+    
+    return OrderDeliveryAssignment(
+      id: json['id'] as String,
+      orderId: json['order_id'] as String,
+      deliveryAccountId: json['delivery_account_id'] as String,
+      assignedAt: DateTime.parse(json['assigned_at'] as String),
+      completedAt: json['completed_at'] != null 
+          ? DateTime.parse(json['completed_at'] as String)
+          : null,
+      deliveryNotes: json['delivery_notes'] as String?,
+      deliveryAccountName: deliveryName,
+      deliveryAccountPhone: deliveryPhone,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'order_id': orderId,
+      'delivery_account_id': deliveryAccountId,
+      'assigned_at': assignedAt.toIso8601String(),
+      'completed_at': completedAt?.toIso8601String(),
+      'delivery_notes': deliveryNotes,
+    };
+  }
+
+  /// Check if this assignment is completed
+  bool get isCompleted => completedAt != null;
+}
