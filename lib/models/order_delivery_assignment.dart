@@ -6,6 +6,7 @@ class OrderDeliveryAssignment {
   final DateTime assignedAt;
   final DateTime? completedAt;
   final String? deliveryNotes; // Notes from delivery driver to ORG
+  final bool? deliveryNotesUnread; // Whether ORG has read the note
   
   // Optional joined data
   final String? deliveryAccountName;
@@ -18,6 +19,7 @@ class OrderDeliveryAssignment {
     required this.assignedAt,
     this.completedAt,
     this.deliveryNotes,
+    this.deliveryNotesUnread,
     this.deliveryAccountName,
     this.deliveryAccountPhone,
   });
@@ -42,6 +44,7 @@ class OrderDeliveryAssignment {
           ? DateTime.parse(json['completed_at'] as String)
           : null,
       deliveryNotes: json['delivery_notes'] as String?,
+      deliveryNotesUnread: json['delivery_notes_unread'] as bool?,
       deliveryAccountName: deliveryName,
       deliveryAccountPhone: deliveryPhone,
     );
@@ -55,6 +58,7 @@ class OrderDeliveryAssignment {
       'assigned_at': assignedAt.toIso8601String(),
       'completed_at': completedAt?.toIso8601String(),
       'delivery_notes': deliveryNotes,
+      'delivery_notes_unread': deliveryNotesUnread,
     };
   }
 

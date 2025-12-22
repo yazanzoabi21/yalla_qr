@@ -493,8 +493,11 @@ class _NavbarState extends State<Navbar> {
                               child: ListTile(
                                 leading: const Icon(Icons.receipt_long),
                                 title: const Text('Orders'),
-                                trailing: _orgOrdersCount > 0
-                                    ? Container(
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (_orgOrdersCount > 0)
+                                      Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
                                           color: Colors.red,
@@ -504,8 +507,22 @@ class _NavbarState extends State<Navbar> {
                                           '$_orgOrdersCount',
                                           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
                                         ),
-                                      )
-                                    : null,
+                                      ),
+                                    if (_orgNotesCount > 0)
+                                      Padding(
+                                        padding: const EdgeInsets.only(left: 8),
+                                        child: Container(
+                                          width: 10,
+                                          height: 10,
+                                          decoration: BoxDecoration(
+                                            color: Colors.red,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(color: Colors.white, width: 1.5),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
                             ),
                           ],

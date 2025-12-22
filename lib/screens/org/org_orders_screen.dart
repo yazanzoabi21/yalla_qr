@@ -27,12 +27,61 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   // Keep track of assignment ids we've already marked as read so we don't call update repeatedly
   final Set<String> _seenNoteAssignments = {};
 
-  final List<String> _filters = ['ALL', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED'];
+  final List<String> _filters = [
+    'ALL',
+    'PREPARING',
+    'READY',
+    'DELIVERED',
+    'CANCELLED',
+  ];
 
   @override
   void initState() {
     super.initState();
     _loadData();
+  }
+
+  Future<void> _markOrgNoteAsRead(
+    String assignmentId,
+    Map<String, dynamic>? assignment,
+  ) async {
+    try {
+      await Supabase.instance.client
+          .from('order_delivery_assignments')
+          .update({'delivery_notes_unread': false})
+          .eq('id', assignmentId);
+
+      // Update local assignment map so UI updates immediately
+      if (assignment != null) {
+        assignment['delivery_notes_unread'] = false;
+      }
+
+      // Ensure seen set includes this assignment
+      _seenNoteAssignments.add(assignmentId);
+
+      if (mounted) {
+        setState(() {});
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Note marked as read'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+
+      // Update navbar/unread counts
+      EventBus.emit('orders:updated');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to mark as read: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   // Ensure that nested select fields returned from Supabase are treated
@@ -61,9 +110,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
 
         if (orgAccount != null) {
           _orgAccountId = orgAccount['id'] as String;
-          
+
           // Load orders with delivery info
-          final orders = await _orderService.getOrganizationOrdersWithDelivery(_orgAccountId!);
+          final orders = await _orderService.getOrganizationOrdersWithDelivery(
+            _orgAccountId!,
+          );
           // Load LBP->USD rate if available
           try {
             _usdRate = await CurrencyService.getUsdRate();
@@ -83,7 +134,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               } catch (_) {}
             }
           }
-          
+
           // Load delivery accounts
           final deliveryAccounts = await _orderService.getDeliveryAccounts();
 
@@ -127,7 +178,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       debugPrint('Error loading data: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading orders: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Error loading orders: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {
@@ -141,11 +195,15 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     if (_selectedFilter == 'ALL') return _orders;
     // PREPARING filter should show PENDING orders (new orders displayed as "Preparing")
     if (_selectedFilter == 'PREPARING') {
-      return _orders.where((o) => o['status'] == 'PENDING' || o['status'] == 'PREPARING').toList();
+      return _orders
+          .where((o) => o['status'] == 'PENDING' || o['status'] == 'PREPARING')
+          .toList();
     }
     // READY filter should show CONFIRMED orders (assigned orders displayed as "Ready")
     if (_selectedFilter == 'READY') {
-      return _orders.where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED').toList();
+      return _orders
+          .where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED')
+          .toList();
     }
     return _orders.where((o) => o['status'] == _selectedFilter).toList();
   }
@@ -154,11 +212,15 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     if (filter == 'ALL') return _orders.length;
     // PREPARING filter should count PENDING orders
     if (filter == 'PREPARING') {
-      return _orders.where((o) => o['status'] == 'PENDING' || o['status'] == 'PREPARING').length;
+      return _orders
+          .where((o) => o['status'] == 'PENDING' || o['status'] == 'PREPARING')
+          .length;
     }
     // READY filter should count CONFIRMED orders
     if (filter == 'READY') {
-      return _orders.where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED').length;
+      return _orders
+          .where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED')
+          .length;
     }
     return _orders.where((o) => o['status'] == filter).length;
   }
@@ -243,9 +305,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     final orderId = order['id'] as String;
     final existingAssignment = _ensureList(order['order_delivery_assignments']);
     String? currentDeliveryId;
-    
+
     if (existingAssignment != null && existingAssignment.isNotEmpty) {
-      currentDeliveryId = existingAssignment.first['delivery_account_id'] as String?;
+      currentDeliveryId =
+          existingAssignment.first['delivery_account_id'] as String?;
     }
 
     String? selectedDeliveryId = currentDeliveryId;
@@ -254,7 +317,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(Icons.delivery_dining, color: Colors.blue.shade600),
@@ -303,10 +368,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       value: null,
                       child: Text('-- No Assignment --'),
                     ),
-                    ..._deliveryAccounts.map((d) => DropdownMenuItem<String>(
-                      value: d['id'] as String,
-                      child: Text(d['name'] as String? ?? 'Unknown'),
-                    )),
+                    ..._deliveryAccounts.map(
+                      (d) => DropdownMenuItem<String>(
+                        value: d['id'] as String,
+                        child: Text(d['name'] as String? ?? 'Unknown'),
+                      ),
+                    ),
                   ],
                   onChanged: (value) {
                     setDialogState(() => selectedDeliveryId = value);
@@ -322,24 +389,33 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
-                
+
                 final currentStatus = order['status'] as String? ?? '';
 
                 if (selectedDeliveryId == null && currentDeliveryId != null) {
                   // Remove assignment and revert status to PREPARING (unless final)
-                  final removed = await _orderService.removeDeliveryAssignment(orderId);
+                  final removed = await _orderService.removeDeliveryAssignment(
+                    orderId,
+                  );
                   if (removed) {
                     var statusUpdated = true;
-                    if (currentStatus != 'DELIVERED' && currentStatus != 'CANCELLED') {
-                      statusUpdated = await _orderService.updateOrderStatus(orderId, 'PREPARING');
+                    if (currentStatus != 'DELIVERED' &&
+                        currentStatus != 'CANCELLED') {
+                      statusUpdated = await _orderService.updateOrderStatus(
+                        orderId,
+                        'PREPARING',
+                      );
                     }
 
                     // Update local UI immediately
                     if (mounted) {
                       final idx = _orders.indexWhere((o) => o['id'] == orderId);
                       if (idx >= 0) {
-                        _orders[idx]['order_delivery_assignments'] = <dynamic>[];
-                        if (statusUpdated && currentStatus != 'DELIVERED' && currentStatus != 'CANCELLED') {
+                        _orders[idx]['order_delivery_assignments'] =
+                            <dynamic>[];
+                        if (statusUpdated &&
+                            currentStatus != 'DELIVERED' &&
+                            currentStatus != 'CANCELLED') {
                           _orders[idx]['status'] = 'PREPARING';
                         }
                         setState(() {});
@@ -349,11 +425,16 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       }
 
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Delivery assignment removed. Order reverted to Preparing.')),
+                        const SnackBar(
+                          content: Text(
+                            'Delivery assignment removed. Order reverted to Preparing.',
+                          ),
+                        ),
                       );
                     }
                   }
-                } else if (selectedDeliveryId != null && selectedDeliveryId != currentDeliveryId) {
+                } else if (selectedDeliveryId != null &&
+                    selectedDeliveryId != currentDeliveryId) {
                   // Remove old assignment if exists
                   if (currentDeliveryId != null) {
                     await _orderService.removeDeliveryAssignment(orderId);
@@ -373,15 +454,18 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                         'id': assignment.id,
                         'delivery_account_id': assignment.deliveryAccountId,
                         'assigned_at': assignment.assignedAt.toIso8601String(),
-                        'completed_at': assignment.completedAt?.toIso8601String(),
+                        'completed_at': assignment.completedAt
+                            ?.toIso8601String(),
                         'delivery_account': {
                           'id': assignment.deliveryAccountId,
                           'name': assignment.deliveryAccountName,
                           'phone': assignment.deliveryAccountPhone,
-                        }
+                        },
                       };
 
-                      _orders[idx]['order_delivery_assignments'] = [assignmentJson];
+                      _orders[idx]['order_delivery_assignments'] = [
+                        assignmentJson,
+                      ];
                       _orders[idx]['status'] = 'READY';
 
                       // Update status in database
@@ -393,15 +477,19 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       EventBus.emit('orders:updated');
 
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Delivery assigned successfully. Order is READY.')),
+                        const SnackBar(
+                          content: Text(
+                            'Delivery assigned successfully. Order is READY.',
+                          ),
+                        ),
                       );
                     }
                   }
                 }
-                
+
                 // Reload data and notify navbar of count change
                 await _loadData();
-                
+
                 // Trigger navbar refresh by navigating back and forth (if needed)
                 // Or use a callback mechanism if implemented
               },
@@ -420,7 +508,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   Future<void> _showUpdateStatusDialog(Map<String, dynamic> order) async {
     final orderId = order['id'] as String;
     final currentStatus = order['status'] as String;
-    
+
     final statuses = ['PREPARING', 'READY', 'DELIVERED', 'CANCELLED'];
     String selectedStatus = currentStatus;
 
@@ -428,7 +516,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(Icons.edit, color: Colors.blue.shade600),
@@ -438,23 +528,27 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
-            children: statuses.map((status) => RadioListTile<String>(
-              value: status,
-              groupValue: selectedStatus,
-              onChanged: (value) {
-                setDialogState(() => selectedStatus = value!);
-              },
-              title: Text(Order.getStatusLabel(status)),
-              activeColor: _getStatusColor(status),
-              secondary: Container(
-                width: 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: _getStatusColor(status),
-                  shape: BoxShape.circle,
-                ),
-              ),
-            )).toList(),
+            children: statuses
+                .map(
+                  (status) => RadioListTile<String>(
+                    value: status,
+                    groupValue: selectedStatus,
+                    onChanged: (value) {
+                      setDialogState(() => selectedStatus = value!);
+                    },
+                    title: Text(Order.getStatusLabel(status)),
+                    activeColor: _getStatusColor(status),
+                    secondary: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: _getStatusColor(status),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(),
           ),
           actions: [
             TextButton(
@@ -465,7 +559,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               onPressed: () async {
                 Navigator.pop(context);
                 if (selectedStatus != currentStatus) {
-                  final success = await _orderService.updateOrderStatus(orderId, selectedStatus);
+                  final success = await _orderService.updateOrderStatus(
+                    orderId,
+                    selectedStatus,
+                  );
                   if (success && mounted) {
                     // Update local state immediately
                     final idx = _orders.indexWhere((o) => o['id'] == orderId);
@@ -490,13 +587,16 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   }
 
   /// Quick action to advance order status
-  Future<void> _quickAdvanceStatus(Map<String, dynamic> order, String newStatus) async {
+  Future<void> _quickAdvanceStatus(
+    Map<String, dynamic> order,
+    String newStatus,
+  ) async {
     final orderId = order['id'] as String;
     final currentStatus = order['status'] as String;
 
     try {
       final success = await _orderService.updateOrderStatus(orderId, newStatus);
-      
+
       if (success && mounted) {
         // Update local state immediately
         final idx = _orders.indexWhere((o) => o['id'] == orderId);
@@ -536,7 +636,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   /// TODO: Implement push notification with Firebase/OneSignal
   Future<void> _notifyDeliveryDriver(Map<String, dynamic> order) async {
     final assignments = _ensureList(order['order_delivery_assignments']);
-    
+
     if (assignments.isEmpty) {
       debugPrint('No delivery driver assigned to notify');
       return;
@@ -544,7 +644,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
 
     final assignment = assignments.first;
     final deliveryAccountId = assignment['delivery_account_id'] as String?;
-    
+
     if (deliveryAccountId == null) {
       debugPrint('No delivery account ID found');
       return;
@@ -558,9 +658,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       //   title: 'Order Ready for Pickup',
       //   body: 'Order #${(order['id'] as String).substring(0, 8)} is ready',
       // );
-      
-      debugPrint('Notification sent to driver: $deliveryAccountId (placeholder)');
-      
+
+      debugPrint(
+        'Notification sent to driver: $deliveryAccountId (placeholder)',
+      );
+
       // For now, just log it
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -577,7 +679,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   }
 
   /// Show dialog to edit delivery note (ORG view)
-  Future<void> _showEditDeliveryNoteDialog(Map<String, dynamic> order, String? assignmentId) async {
+  Future<void> _showEditDeliveryNoteDialog(
+    Map<String, dynamic> order,
+    String? assignmentId,
+  ) async {
     if (assignmentId == null) return;
 
     final assignments = _ensureList(order['order_delivery_assignments']);
@@ -586,7 +691,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       currentNote = assignments.first['delivery_notes'] as String?;
     }
 
-    final TextEditingController noteController = TextEditingController(text: currentNote ?? '');
+    final TextEditingController noteController = TextEditingController(
+      text: currentNote ?? '',
+    );
 
     final note = await showDialog<String>(
       context: context,
@@ -644,13 +751,18 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             .update({
               'delivery_notes': note,
               'delivery_notes_by': _orgAccountId,
-              'delivery_notes_updated_at': DateTime.now().toUtc().toIso8601String(),
+              'delivery_notes_updated_at': DateTime.now()
+                  .toUtc()
+                  .toIso8601String(),
             })
             .eq('id', assignmentId);
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Note updated'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Note updated'),
+              backgroundColor: Colors.green,
+            ),
           );
 
           // Refresh data
@@ -662,7 +774,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to update note: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Failed to update note: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -684,7 +799,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             Text('Cancel Order'),
           ],
         ),
-        content: Text('Are you sure you want to cancel order #${orderId.substring(0, 8)}?'),
+        content: Text(
+          'Are you sure you want to cancel order #${orderId.substring(0, 8)}?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -714,7 +831,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           }
 
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Order successfully cancelled'), backgroundColor: Colors.green),
+            const SnackBar(
+              content: Text('Order successfully cancelled'),
+              backgroundColor: Colors.green,
+            ),
           );
 
           // Refresh from server to ensure consistency
@@ -724,13 +844,19 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           EventBus.emit('orders:updated');
         } else if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Failed to cancel order'), backgroundColor: Colors.red),
+            const SnackBar(
+              content: Text('Failed to cancel order'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to cancel order: $e'), backgroundColor: Colors.red),
+            SnackBar(
+              content: Text('Failed to cancel order: $e'),
+              backgroundColor: Colors.red,
+            ),
           );
         }
       }
@@ -773,8 +899,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               child: Row(
                 children: _filters.map((filter) {
                   final count = _countForFilter(filter);
-                  final labelText = filter == 'ALL' ? 'All' : Order.getStatusLabel(filter);
-                  final badgeColor = filter == 'ALL' ? Colors.blue : _getStatusColor(filter);
+                  final labelText = filter == 'ALL'
+                      ? 'All'
+                      : Order.getStatusLabel(filter);
+                  final badgeColor = filter == 'ALL'
+                      ? Colors.blue
+                      : _getStatusColor(filter);
 
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -804,7 +934,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                               decoration: BoxDecoration(
                                 color: badgeColor,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 2),
+                                border: Border.all(
+                                  color: Colors.white,
+                                  width: 2,
+                                ),
                                 boxShadow: [
                                   BoxShadow(
                                     color: Colors.black.withOpacity(0.12),
@@ -832,21 +965,22 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               ),
             ),
           ),
-          
+
           // Orders list
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _filteredOrders.isEmpty
-                    ? _buildEmptyState()
-                    : RefreshIndicator(
-                        onRefresh: _loadData,
-                        child: ListView.builder(
-                          padding: const EdgeInsets.all(16),
-                          itemCount: _filteredOrders.length,
-                          itemBuilder: (context, index) => _buildOrderCard(_filteredOrders[index]),
-                        ),
-                      ),
+                ? _buildEmptyState()
+                : RefreshIndicator(
+                    onRefresh: _loadData,
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(16),
+                      itemCount: _filteredOrders.length,
+                      itemBuilder: (context, index) =>
+                          _buildOrderCard(_filteredOrders[index]),
+                    ),
+                  ),
           ),
         ],
       ),
@@ -861,7 +995,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           Icon(Icons.receipt_long, size: 80, color: Colors.grey.shade300),
           const SizedBox(height: 16),
           Text(
-            _selectedFilter == 'ALL' ? 'No orders yet' : 'No ${Order.getStatusLabel(_selectedFilter).toLowerCase()} orders',
+            _selectedFilter == 'ALL'
+                ? 'No orders yet'
+                : 'No ${Order.getStatusLabel(_selectedFilter).toLowerCase()} orders',
             style: TextStyle(fontSize: 18, color: Colors.grey.shade600),
           ),
         ],
@@ -877,11 +1013,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     final createdAt = DateTime.parse(order['created_at'] as String);
     final items = _ensureList(order['order_items']);
     final assignments = _ensureList(order['order_delivery_assignments']);
-    
+
     // Calculate time in status
     final timeInStatus = _getTimeInStatus(createdAt);
     final isWaitingTooLong = _isWaitingTooLong(status, timeInStatus);
-    
+
     // Get delivery info if assigned
     Map<String, dynamic>? deliveryInfo;
     if (assignments.isNotEmpty) {
@@ -891,12 +1027,16 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       }
     }
 
+    final bool hasUnreadNote =
+        assignments.isNotEmpty &&
+        (assignments.first['delivery_notes_unread'] == true);
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: isWaitingTooLong ? 4 : 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: isWaitingTooLong
+        side: (isWaitingTooLong || hasUnreadNote)
             ? BorderSide(color: Colors.red.shade300, width: 2)
             : BorderSide.none,
       ),
@@ -907,7 +1047,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: isWaitingTooLong
+              color: (isWaitingTooLong || hasUnreadNote)
                   ? Colors.red.shade50
                   : _getStatusColor(status).withValues(alpha: 0.1),
               borderRadius: const BorderRadius.only(
@@ -928,7 +1068,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                     ),
                   ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: _getStatusColor(status),
                     borderRadius: BorderRadius.circular(20),
@@ -945,9 +1088,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 const SizedBox(width: 8),
                 // Time in status badge
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
-                    color: isWaitingTooLong
+                    color: (isWaitingTooLong || hasUnreadNote)
                         ? Colors.red.shade100
                         : Colors.grey.shade200,
                     borderRadius: BorderRadius.circular(12),
@@ -997,7 +1143,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               ],
             ),
           ),
-          
+
           // Content
           Padding(
             padding: const EdgeInsets.all(16),
@@ -1007,16 +1153,23 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 // Order details - Time
                 Row(
                   children: [
-                    Icon(Icons.access_time, size: 16, color: Colors.grey.shade600),
+                    Icon(
+                      Icons.access_time,
+                      size: 16,
+                      color: Colors.grey.shade600,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       _formatDateTime(createdAt),
-                      style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 13,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
-                
+
                 // Item count and price in cards
                 Row(
                   children: [
@@ -1034,7 +1187,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                           children: [
                             Row(
                               children: [
-                                Icon(Icons.shopping_bag_outlined, size: 16, color: Colors.grey.shade600),
+                                Icon(
+                                  Icons.shopping_bag_outlined,
+                                  size: 16,
+                                  color: Colors.grey.shade600,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Items',
@@ -1067,7 +1224,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Colors.deepOrange.shade400, Colors.deepOrange.shade600],
+                            colors: [
+                              Colors.deepOrange.shade400,
+                              Colors.deepOrange.shade600,
+                            ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -1085,7 +1245,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                           children: [
                             Row(
                               children: [
-                                const Icon(Icons.payments, size: 16, color: Colors.white70),
+                                const Icon(
+                                  Icons.payments,
+                                  size: 16,
+                                  color: Colors.white70,
+                                ),
                                 const SizedBox(width: 6),
                                 Text(
                                   'Total Amount',
@@ -1115,14 +1279,17 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                                   } else if (_usdRate != null) {
                                     usd = totalAmount / _usdRate!;
                                   }
-                                  if (usd == null) return const SizedBox.shrink();
+                                  if (usd == null)
+                                    return const SizedBox.shrink();
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 4),
                                     child: Text(
                                       '\u2248 \$${usd.toStringAsFixed(2)}',
                                       style: TextStyle(
                                         fontSize: 14,
-                                        color: Colors.white.withValues(alpha: 0.8),
+                                        color: Colors.white.withValues(
+                                          alpha: 0.8,
+                                        ),
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
@@ -1138,112 +1305,140 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 const SizedBox(height: 16),
 
                 // Customer delivery / contact info
-                Builder(builder: (_) {
-                  final contactName = order['contact_name'] as String?;
-                  final deliveryAddress = order['delivery_address'] as String?;
-                  final deliveryPhone = order['delivery_phone'] as String?;
+                Builder(
+                  builder: (_) {
+                    final contactName = order['contact_name'] as String?;
+                    final deliveryAddress =
+                        order['delivery_address'] as String?;
+                    final deliveryPhone = order['delivery_phone'] as String?;
 
-                  if (contactName == null && deliveryAddress == null && deliveryPhone == null) {
-                    return const SizedBox.shrink();
-                  }
+                    if (contactName == null &&
+                        deliveryAddress == null &&
+                        deliveryPhone == null) {
+                      return const SizedBox.shrink();
+                    }
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade100),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Icon(Icons.person, size: 18, color: Colors.blue.shade700),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Customer Delivery Info',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w700,
-                                    fontSize: 14,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (contactName != null || deliveryPhone != null || deliveryAddress != null) ...[
-                              const SizedBox(height: 12),
-                              const Divider(height: 1),
-                              const SizedBox(height: 12),
-                            ],
-                            if (contactName != null)
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.shade50,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.blue.shade100),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
                               Row(
                                 children: [
-                                  Icon(Icons.account_circle, size: 16, color: Colors.grey.shade600),
+                                  Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: Colors.blue.shade700,
+                                  ),
                                   const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      contactName,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 15,
-                                      ),
+                                  Text(
+                                    'Customer Delivery Info',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                      color: Colors.blue.shade700,
                                     ),
                                   ),
                                 ],
                               ),
-                            if (deliveryPhone != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Row(
+                              if (contactName != null ||
+                                  deliveryPhone != null ||
+                                  deliveryAddress != null) ...[
+                                const SizedBox(height: 12),
+                                const Divider(height: 1),
+                                const SizedBox(height: 12),
+                              ],
+                              if (contactName != null)
+                                Row(
                                   children: [
-                                    Icon(Icons.phone, size: 16, color: Colors.grey.shade600),
-                                    const SizedBox(width: 8),
-                                    Text(
-                                      deliveryPhone,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 14,
-                                      ),
+                                    Icon(
+                                      Icons.account_circle,
+                                      size: 16,
+                                      color: Colors.grey.shade600,
                                     ),
-                                  ],
-                                ),
-                              ),
-                            if (deliveryAddress != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Icon(Icons.location_on, size: 16, color: Colors.grey.shade600),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        deliveryAddress,
-                                        style: TextStyle(
-                                          color: Colors.grey.shade700,
-                                          fontSize: 14,
+                                        contactName,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 15,
                                         ),
                                       ),
                                     ),
                                   ],
                                 ),
-                              ),
-                          ],
+                              if (deliveryPhone != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        Icons.phone,
+                                        size: 16,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        deliveryPhone,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              if (deliveryAddress != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(
+                                        Icons.location_on,
+                                        size: 16,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          deliveryAddress,
+                                          style: TextStyle(
+                                            color: Colors.grey.shade700,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-                  );
-                }),
-                
+                        const SizedBox(height: 16),
+                      ],
+                    );
+                  },
+                ),
+
                 // Delivery Assignment Section
                 Row(
                   children: [
-                    Icon(Icons.delivery_dining, size: 20, color: deliveryInfo != null ? Colors.green : Colors.grey),
+                    Icon(
+                      Icons.delivery_dining,
+                      size: 20,
+                      color: deliveryInfo != null ? Colors.green : Colors.grey,
+                    ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: deliveryInfo != null
@@ -1252,12 +1447,17 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                               children: [
                                 Text(
                                   'Assigned to: ${deliveryInfo['name'] ?? 'Unknown'}',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                                 if (deliveryInfo['phone'] != null)
                                   Text(
                                     deliveryInfo['phone'] as String,
-                                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                                    style: TextStyle(
+                                      color: Colors.grey.shade600,
+                                      fontSize: 13,
+                                    ),
                                   ),
                               ],
                             )
@@ -1268,137 +1468,184 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                     ),
                     TextButton.icon(
                       onPressed: () => _showAssignDeliveryDialog(order),
-                      icon: Icon(deliveryInfo != null ? Icons.edit : Icons.add, size: 18),
-                      label: Text(deliveryInfo != null ? 'Change' : 'Assign'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: Colors.blue,
+                      icon: Icon(
+                        deliveryInfo != null ? Icons.edit : Icons.add,
+                        size: 18,
                       ),
+                      label: Text(deliveryInfo != null ? 'Change' : 'Assign'),
+                      style: TextButton.styleFrom(foregroundColor: Colors.blue),
                     ),
                   ],
                 ),
-                
+
                 // Delivery Notes Section
-                Builder(builder: (_) {
-                  String? deliveryNotes;
-                  Map<String, dynamic>? assignment;
-                  if (assignments.isNotEmpty) {
-                    assignment = assignments.first as Map<String, dynamic>?;
-                    deliveryNotes = assignment?['delivery_notes'] as String?;
-                  }
-                  
-                  if (deliveryNotes != null && deliveryNotes.isNotEmpty) {
-                    // compute meta: author and time
-                    String? authorName;
-                    DateTime? updatedAt;
-                    bool isUnread = false;
-
-                    // Safely extract fields from nullable assignment map
-                    final String? deliveryNotesBy = assignment != null && assignment['delivery_notes_by'] != null
-                        ? assignment['delivery_notes_by'] as String?
-                        : null;
-                    final String? deliveryNotesUpdatedAt = assignment != null && assignment['delivery_notes_updated_at'] != null
-                        ? assignment['delivery_notes_updated_at'] as String?
-                        : null;
-                    final bool deliveryNotesUnread = assignment != null && assignment['delivery_notes_unread'] == true;
-
-                    if (deliveryNotesBy != null) {
-                      authorName = _accountNamesById[deliveryNotesBy];
-                    }
-                    if (deliveryNotesUpdatedAt != null) {
-                      try {
-                        updatedAt = DateTime.parse(deliveryNotesUpdatedAt);
-                      } catch (_) {}
-                    }
-                    if (deliveryNotesUnread) {
-                      isUnread = true;
+                Builder(
+                  builder: (_) {
+                    String? deliveryNotes;
+                    Map<String, dynamic>? assignment;
+                    if (assignments.isNotEmpty) {
+                      assignment = assignments.first as Map<String, dynamic>?;
+                      deliveryNotes = assignment?['delivery_notes'] as String?;
                     }
 
-                    // If unread and we haven't marked this assignment as seen yet, mark as read now
-                    final String? assignmentId = assignment != null && assignment['id'] != null
-                        ? assignment['id'] as String?
-                        : null;
-                    if (isUnread && assignmentId != null && !_seenNoteAssignments.contains(assignmentId)) {
-                      // mark as read
-                      Supabase.instance.client
-                          .from('order_delivery_assignments')
-                          .update({'delivery_notes_unread': false})
-                          .eq('id', assignmentId);
-                      _seenNoteAssignments.add(assignmentId);
-                      // update local model so UI updates immediately
-                      if (assignment != null) {
-                        assignment['delivery_notes_unread'] = false;
+                    if (deliveryNotes != null && deliveryNotes.isNotEmpty) {
+                      // compute meta: author and time
+                      String? authorName;
+                      DateTime? updatedAt;
+                      bool isUnread = false;
+
+                      // Safely extract fields from nullable assignment map
+                      final String? deliveryNotesBy =
+                          assignment != null &&
+                              assignment['delivery_notes_by'] != null
+                          ? assignment['delivery_notes_by'] as String?
+                          : null;
+                      final String? deliveryNotesUpdatedAt =
+                          assignment != null &&
+                              assignment['delivery_notes_updated_at'] != null
+                          ? assignment['delivery_notes_updated_at'] as String?
+                          : null;
+                      final bool deliveryNotesUnread =
+                          assignment != null &&
+                          assignment['delivery_notes_unread'] == true;
+
+                      if (deliveryNotesBy != null) {
+                        authorName = _accountNamesById[deliveryNotesBy];
                       }
-                      // also update navbar count
-                      EventBus.emit('orders:updated');
-                    }
+                      if (deliveryNotesUpdatedAt != null) {
+                        try {
+                          updatedAt = DateTime.parse(deliveryNotesUpdatedAt);
+                        } catch (_) {}
+                      }
+                      if (deliveryNotesUnread) {
+                        isUnread = true;
+                      }
 
-                    return Column(
-                      children: [
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isUnread ? Colors.red.shade50 : Colors.orange.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isUnread ? Colors.red.shade300 : Colors.orange.shade200),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(Icons.sticky_note_2, size: 20, color: isUnread ? Colors.red.shade700 : Colors.orange.shade700),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Text(
-                                          'Delivery Note',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w700,
-                                            fontSize: 14,
-                                            color: isUnread ? Colors.red.shade700 : Colors.orange.shade700,
-                                          ),
-                                        ),
-                                        if (authorName != null || updatedAt != null) ...[
-                                          const SizedBox(width: 8),
-                                          Text('·', style: TextStyle(color: isUnread ? Colors.red.shade700 : Colors.orange.shade700)),
-                                        ],
-                                        if (authorName != null)
-                                          Padding(
-                                            padding: const EdgeInsets.only(left: 8),
-                                            child: Text(authorName, style: TextStyle(color: Colors.grey.shade700, fontSize: 12)),
-                                          ),
-                                        if (updatedAt != null)
-                                          Padding(
-                                            padding: const EdgeInsets.only(left: 8),
-                                            child: Text(_formatRelative(updatedAt), style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      deliveryNotes,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade800,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                      // Assignment id (if present)
+                      final String? assignmentId =
+                          assignment != null && assignment['id'] != null
+                          ? assignment['id'] as String?
+                          : null;
+
+                      return Column(
+                        children: [
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isUnread
+                                  ? Colors.red.shade50
+                                  : Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isUnread
+                                    ? Colors.red.shade300
+                                    : Colors.orange.shade200,
                               ),
-                              const SizedBox(width: 8),
-                              // ORG should not edit notes; delivery can edit from their screen
-                            ],
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.sticky_note_2,
+                                  size: 20,
+                                  color: isUnread
+                                      ? Colors.red.shade700
+                                      : Colors.orange.shade700,
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Text(
+                                            'Delivery Note',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                              color: isUnread
+                                                  ? Colors.red.shade700
+                                                  : Colors.orange.shade700,
+                                            ),
+                                          ),
+                                          if (authorName != null ||
+                                              updatedAt != null) ...[
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              '·',
+                                              style: TextStyle(
+                                                color: isUnread
+                                                    ? Colors.red.shade700
+                                                    : Colors.orange.shade700,
+                                              ),
+                                            ),
+                                          ],
+                                          if (authorName != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 8,
+                                              ),
+                                              child: Text(
+                                                authorName,
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade700,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                          if (updatedAt != null)
+                                            Padding(
+                                              padding: const EdgeInsets.only(
+                                                left: 8,
+                                              ),
+                                              child: Text(
+                                                _formatRelative(updatedAt),
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade600,
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        deliveryNotes,
+                                        style: TextStyle(
+                                          color: Colors.grey.shade800,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                // ORG should be able to mark notes as read so they control unread badge
+                                if (isUnread && assignmentId != null)
+                                  IconButton(
+                                    onPressed: () => _markOrgNoteAsRead(
+                                      assignmentId,
+                                      assignment,
+                                    ),
+                                    icon: Icon(
+                                      Icons.check_circle_outline,
+                                      color: Colors.green.shade700,
+                                    ),
+                                    tooltip: 'Mark as read',
+                                  ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
-                    );
-                  }
-                  return const SizedBox.shrink();
-                }),
-                
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  },
+                ),
+
                 const SizedBox(height: 16),
 
                 // Action Buttons
@@ -1435,7 +1682,6 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                         ),
                       ),
                     ),
-
                   ],
                 ),
               ],
@@ -1449,7 +1695,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   String _formatDateTime(DateTime dt) {
     final now = DateTime.now();
     final diff = now.difference(dt);
-    
+
     if (diff.inMinutes < 60) {
       return '${diff.inMinutes} min ago';
     } else if (diff.inHours < 24) {
@@ -1462,7 +1708,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
 
   void _showOrderDetails(Map<String, dynamic> order) {
     final items = _ensureList(order['order_items']);
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1508,40 +1754,69 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 8),
-                  Text('Delivery Information', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+                  Text(
+                    'Delivery Information',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
                   const SizedBox(height: 8),
-                  Builder(builder: (_) {
-                    final contactName = order['contact_name'] as String?;
-                    final deliveryAddress = order['delivery_address'] as String?;
-                    final deliveryPhone = order['delivery_phone'] as String?;
-                    final assignments = _ensureList(order['order_delivery_assignments']);
-                    String deliveryAssignedTo = 'No delivery assigned';
-                    String? deliveryAssignedPhone;
-                    if (assignments.isNotEmpty) {
-                      final a = assignments.first;
-                      if (a['delivery_account'] != null) {
-                        final acc = a['delivery_account'] as Map<String, dynamic>;
-                        deliveryAssignedTo = acc['name'] as String? ?? deliveryAssignedTo;
-                        deliveryAssignedPhone = acc['phone'] as String?;
+                  Builder(
+                    builder: (_) {
+                      final contactName = order['contact_name'] as String?;
+                      final deliveryAddress =
+                          order['delivery_address'] as String?;
+                      final deliveryPhone = order['delivery_phone'] as String?;
+                      final assignments = _ensureList(
+                        order['order_delivery_assignments'],
+                      );
+                      String deliveryAssignedTo = 'No delivery assigned';
+                      String? deliveryAssignedPhone;
+                      if (assignments.isNotEmpty) {
+                        final a = assignments.first;
+                        if (a['delivery_account'] != null) {
+                          final acc =
+                              a['delivery_account'] as Map<String, dynamic>;
+                          deliveryAssignedTo =
+                              acc['name'] as String? ?? deliveryAssignedTo;
+                          deliveryAssignedPhone = acc['phone'] as String?;
+                        }
                       }
-                    }
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (contactName != null) Text(contactName, style: TextStyle(fontWeight: FontWeight.w600)),
-                        if (deliveryPhone != null) Text(deliveryPhone, style: TextStyle(color: Colors.grey.shade600)),
-                        if (deliveryAddress != null) Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(deliveryAddress, style: TextStyle(color: Colors.grey.shade600)),
-                        ),
-                        const SizedBox(height: 8),
-                        Text('Assigned Delivery: $deliveryAssignedTo', style: TextStyle(fontWeight: FontWeight.w600)),
-                        if (deliveryAssignedPhone != null) Text(deliveryAssignedPhone, style: TextStyle(color: Colors.grey.shade600)),
-                        const SizedBox(height: 12),
-                      ],
-                    );
-                  }),
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (contactName != null)
+                            Text(
+                              contactName,
+                              style: TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                          if (deliveryPhone != null)
+                            Text(
+                              deliveryPhone,
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          if (deliveryAddress != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                deliveryAddress,
+                                style: TextStyle(color: Colors.grey.shade600),
+                              ),
+                            ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Assigned Delivery: $deliveryAssignedTo',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          if (deliveryAssignedPhone != null)
+                            Text(
+                              deliveryAssignedPhone,
+                              style: TextStyle(color: Colors.grey.shade600),
+                            ),
+                          const SizedBox(height: 12),
+                        ],
+                      );
+                    },
+                  ),
                   const Divider(),
                 ],
               ),
@@ -1557,7 +1832,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                   final quantity = item['quantity'] as int;
                   final price = (item['price'] as num).toDouble();
                   final productId = item['product_id'] as String;
-                  
+
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
@@ -1574,26 +1849,41 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text(
-                            _formatPrice(price * quantity, order['currency_code'] as String),
+                            _formatPrice(
+                              price * quantity,
+                              order['currency_code'] as String,
+                            ),
                             style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           if ((order['currency_code'] as String) == 'LBP')
-                            Builder(builder: (_) {
-                              double? usd;
-                              if (order['total_amount_usd'] != null && _usdRate != null) {
-                                // If order-level USD exists, compute item USD proportionally
-                                final orderLbp = (order['total_amount'] as num).toDouble();
-                                if (orderLbp > 0) {
-                                  final itemLbp = price * quantity;
-                                  final proportion = itemLbp / orderLbp;
-                                  usd = (order['total_amount_usd'] as double) * proportion;
+                            Builder(
+                              builder: (_) {
+                                double? usd;
+                                if (order['total_amount_usd'] != null &&
+                                    _usdRate != null) {
+                                  // If order-level USD exists, compute item USD proportionally
+                                  final orderLbp =
+                                      (order['total_amount'] as num).toDouble();
+                                  if (orderLbp > 0) {
+                                    final itemLbp = price * quantity;
+                                    final proportion = itemLbp / orderLbp;
+                                    usd =
+                                        (order['total_amount_usd'] as double) *
+                                        proportion;
+                                  }
+                                } else if (_usdRate != null) {
+                                  usd = (price * quantity) / _usdRate!;
                                 }
-                              } else if (_usdRate != null) {
-                                usd = (price * quantity) / _usdRate!;
-                              }
-                              if (usd == null) return const SizedBox.shrink();
-                              return Text('\$${usd.toStringAsFixed(2)}', style: TextStyle(fontSize: 16, color: Colors.grey.shade600));
-                            }),
+                                if (usd == null) return const SizedBox.shrink();
+                                return Text(
+                                  '\$${usd.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.grey.shade600,
+                                  ),
+                                );
+                              },
+                            ),
                         ],
                       ),
                     ),

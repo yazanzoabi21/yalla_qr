@@ -37,6 +37,18 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
     _tabController.addListener(() {
  
     });
+
+    // Listen for global updates (notes/orders) so UI updates when ORG marks notes as read
+    EventBus.stream.listen((event) {
+      if (event == 'orders:updated') {
+        if (mounted) _loadData();
+      }
+
+      if (event.startsWith('note:updated:') || event.startsWith('note:deleted:')) {
+        // Refresh assignments and orders so red borders and badges reflect current DB state
+        if (mounted) _loadData();
+      }
+    });
     _loadData();
   }
 
@@ -404,10 +416,25 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
   }
 
   Widget _buildOrderCard(Order order, {required bool isPending}) {
-    return Card(
+    final assignment = _assignments[order.id];
+    // Show red border only when the delivery note is unread (ORG hasn't seen it yet)
+    final hasUnreadNote = assignment?.deliveryNotesUnread == true;
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.easeInOut,
       margin: const EdgeInsets.only(bottom: 16),
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        border: hasUnreadNote ? Border.all(color: Colors.red.shade300, width: 2) : null,
+        boxShadow: hasUnreadNote
+            ? [BoxShadow(color: Colors.red.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 3))]
+            : [],
+      ),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -716,10 +743,16 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
                                   ],
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () => _showAddNoteDialog(order),
-                                icon: Icon(Icons.edit, color: Colors.orange.shade700),
-                                tooltip: 'Edit note',
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+
+                                  IconButton(
+                                    onPressed: () => _showAddNoteDialog(order),
+                                    icon: Icon(Icons.edit, color: Colors.orange.shade700),
+                                    tooltip: 'Edit note',
+                                  ),
+                                ],
                               ),
                             ],
                           ),
@@ -778,7 +811,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
           ),
         ],
       ),
-    );
+    ));
   }
 
   String _formatDateTime(DateTime dt) {
@@ -1013,6 +1046,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen> with SingleTick
       }
     }
   }
+
 
   Future<void> _markAsDelivered(Order order) async {
     final confirmed = await showDialog<bool>(

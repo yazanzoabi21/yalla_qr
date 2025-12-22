@@ -176,7 +176,8 @@ class _HomeScreenState extends State<HomeScreen> {
       });
 
       // Fetch only parent categories (categories without parent_id) for current account
-      final fetchedCategories = await CategoryService.getParentCategoriesForAccount();
+      final fetchedCategories =
+          await CategoryService.getParentCategoriesForAccount();
 
       if (!mounted) return;
 
@@ -282,7 +283,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1E3A8A).withValues(alpha: 0.9),
+                            color: const Color(
+                              0xFF1E3A8A,
+                            ).withValues(alpha: 0.9),
                             borderRadius: BorderRadius.circular(7),
                           ),
                           child: const Icon(
@@ -653,58 +656,46 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return RefreshIndicator(
       onRefresh: loadCategories,
-      child: GridView.count(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 0.6, // Makes cards taller (width/height ratio)
-        children: _buildGridItems(),
-      ),
+      child: categories.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.category_outlined,
+                    size: 64,
+                    color: Colors.grey[400],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'No categories available',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : GridView.count(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              childAspectRatio: 0.6, // Makes cards taller (width/height ratio)
+              children: _buildGridItems(),
+            ),
     );
   }
 
   List<Widget> _buildGridItems() {
-    List<Widget> items = [];
-
-    // Add database categories first
-    for (Category category in categories) {
-      items.add(
-        HomeItem(
-          title: category.name,
-          color: category.color,
-          imagePath: category.imagePath,
-          lastClicked: lastClicked,
-          onTap: updateLastClicked,
-          isHidden: category.isHidden,
-        ),
+    // Return only database categories (fully dynamic)
+    return categories.map((category) {
+      return HomeItem(
+        title: category.name,
+        color: category.color,
+        imagePath: category.imagePath,
+        lastClicked: lastClicked,
+        onTap: updateLastClicked,
+        isHidden: category.isHidden,
       );
-    }
-
-    // Fill remaining slots with "Coming Soon" cards to maintain the 2x4 grid
-    final totalSlots = 8;
-    final remainingSlots = totalSlots - categories.length;
-
-    final List<Color> comingSoonColors = [
-      Colors.indigo,
-      Colors.amber,
-      Colors.pink,
-      Colors.lime,
-      Colors.cyan,
-      Colors.brown,
-    ];
-
-    for (int i = 0; i < remainingSlots && i < comingSoonColors.length; i++) {
-      items.add(
-        HomeItem(
-          title: 'Coming Soon',
-          color: comingSoonColors[i],
-          lastClicked: lastClicked,
-          onTap: updateLastClicked,
-        ),
-      );
-    }
-
-    return items;
+    }).toList();
   }
 }
 
