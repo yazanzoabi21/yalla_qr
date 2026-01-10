@@ -4,6 +4,7 @@ import '../../services/product_service.dart';
 import '../../services/cart_service.dart';
 import '../../widgets/navbar.dart';
 import '../../widgets/floating_cart_icon.dart';
+import '../../widgets/floating_tracking_button.dart';
 import 'product_detail_screen.dart';
 
 /// Screen to display products for a specific subcategory of an organization
@@ -134,6 +135,8 @@ class _OrganizationCategoryProductsScreenState
               ),
             ],
           ),
+          // Floating Tracking Button (above cart)
+          const FloatingTrackingButton(),
           // Floating Cart Icon
           FloatingCartIcon(
             organizationId: widget.accountId,

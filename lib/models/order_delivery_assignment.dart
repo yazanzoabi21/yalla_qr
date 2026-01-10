@@ -35,11 +35,19 @@ class OrderDeliveryAssignment {
       deliveryPhone = account['phone'] as String?;
     }
     
+    // Safely parse required fields with fallbacks
+    final id = json['id'] as String? ?? '';
+    final orderId = json['order_id'] as String? ?? '';
+    final deliveryAccountId = json['delivery_account_id'] as String? ?? '';
+    final assignedAtStr = json['assigned_at'] as String?;
+    
     return OrderDeliveryAssignment(
-      id: json['id'] as String,
-      orderId: json['order_id'] as String,
-      deliveryAccountId: json['delivery_account_id'] as String,
-      assignedAt: DateTime.parse(json['assigned_at'] as String),
+      id: id,
+      orderId: orderId,
+      deliveryAccountId: deliveryAccountId,
+      assignedAt: assignedAtStr != null 
+          ? DateTime.parse(assignedAtStr)
+          : DateTime.now(),
       completedAt: json['completed_at'] != null 
           ? DateTime.parse(json['completed_at'] as String)
           : null,

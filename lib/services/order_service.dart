@@ -461,4 +461,131 @@ class OrderService {
       return [];
     }
   }
+
+  /// Get active orders for current user (customer) that have delivery tracking
+  /// Returns orders that are CONFIRMED or IN_TRANSIT with delivery assignments
+  Future<List<Map<String, dynamic>>> getCustomerActiveDeliveryOrders() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        return [];
+      }
+
+      // Get orders that are in delivery status (not PENDING, CANCELLED, or DELIVERED)
+      final response = await _supabase
+          .from('orders')
+          .select('''
+            *,
+            order_items(*),
+            order_delivery_assignments(
+              id,
+              delivery_account_id,
+              assigned_at,
+              completed_at,
+              delivery_account:accounts!fk_order_delivery_account(id, name, phone)
+            )
+          ''')
+          .eq('customer_id', user.id)
+          .in_('status', ['CONFIRMED', 'READY', 'IN_TRANSIT'])
+          .order('created_at', ascending: false);
+
+      // Filter to only orders that have delivery assignments
+      final ordersWithDelivery = (response as List)
+          .cast<Map<String, dynamic>>()
+          .where((order) {
+            final assignmentsData = order['order_delivery_assignments'];
+            List<dynamic>? assignments;
+            if (assignmentsData is List) {
+              assignments = assignmentsData;
+            } else if (assignmentsData is Map) {
+              assignments = [assignmentsData];
+            }
+            return assignments != null && assignments.isNotEmpty;
+          })
+          .toList();
+
+      debugPrint('📦 [OrderService] Found ${ordersWithDelivery.length} active delivery orders for customer');
+      return ordersWithDelivery;
+    } catch (e) {
+      debugPrint('❌ [OrderService] Error fetching customer active deliveries: $e');
+      return [];
+    }
+  }
+
+  /// Get pending orders for current user (customer) that don't have delivery assignments yet
+  /// Also checks if the organization has delivery service available
+  /// Returns a map with 'orders' and 'orgsWithoutDelivery' lists
+  Future<Map<String, dynamic>> getCustomerPendingOrdersStatus() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) {
+        return {'orders': [], 'orgsWithoutDelivery': []};
+      }
+
+      // Get customer's pending/confirmed orders that don't have delivery assignments
+      final response = await _supabase
+          .from('orders')
+          .select('''
+            *,
+            order_delivery_assignments(id)
+          ''')
+          .eq('customer_id', user.id)
+          .in_('status', ['PENDING', 'CONFIRMED', 'READY'])
+          .order('created_at', ascending: false);
+
+      final pendingOrders = (response as List).cast<Map<String, dynamic>>();
+      
+      // Get orders without delivery assignments
+      final ordersWithoutDelivery = pendingOrders.where((order) {
+        final assignmentsData = order['order_delivery_assignments'];
+        List<dynamic>? assignments;
+        if (assignmentsData is List) {
+          assignments = assignmentsData;
+        } else if (assignmentsData is Map) {
+          assignments = [assignmentsData];
+        }
+        return assignments == null || assignments.isEmpty;
+      }).toList();
+
+      // Check if any organization doesn't have delivery accounts
+      // Get all delivery accounts
+      final deliveryAccounts = await getDeliveryAccounts();
+      final hasDeliveryService = deliveryAccounts.isNotEmpty;
+
+      // Find orgs that don't have any delivery assigned to their orders
+      final orgsWithoutDelivery = <String>[];
+      if (!hasDeliveryService && ordersWithoutDelivery.isNotEmpty) {
+        // Get org names for these orders
+        final accountIds = ordersWithoutDelivery
+            .map((o) => o['account_id'] as String?)
+            .where((id) => id != null)
+            .toSet()
+            .toList();
+        
+        if (accountIds.isNotEmpty) {
+          final accountsResponse = await _supabase
+              .from('accounts')
+              .select('id, name')
+              .in_('id', accountIds);
+          
+          final accounts = (accountsResponse as List).cast<Map<String, dynamic>>();
+          orgsWithoutDelivery.addAll(
+            accounts.map((a) => a['name'] as String? ?? 'Unknown').toList(),
+          );
+        }
+      }
+
+      debugPrint('📦 [OrderService] Found ${ordersWithoutDelivery.length} pending orders without delivery');
+      debugPrint('📦 [OrderService] Orgs without delivery service: $orgsWithoutDelivery');
+
+      return {
+        'orders': ordersWithoutDelivery,
+        'orgsWithoutDelivery': orgsWithoutDelivery,
+        'hasDeliveryService': hasDeliveryService,
+      };
+    } catch (e) {
+      debugPrint('❌ [OrderService] Error fetching pending orders status: $e');
+      return {'orders': [], 'orgsWithoutDelivery': [], 'hasDeliveryService': true};
+    }
+  }
 }

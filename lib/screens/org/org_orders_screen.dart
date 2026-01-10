@@ -4,6 +4,7 @@ import '../../models/order.dart';
 import '../../services/order_service.dart';
 import '../../utils/event_bus.dart';
 import '../../services/currency_service.dart';
+import 'order_detail_screen.dart';
 
 /// Screen for ORG to manage orders and assign delivery
 class OrgOrdersScreen extends StatefulWidget {
@@ -1707,6 +1708,17 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   }
 
   void _showOrderDetails(Map<String, dynamic> order) {
+    // Navigate to the detailed order screen with delivery tracking
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => OrderDetailScreen(order: order),
+      ),
+    );
+  }
+
+  // Legacy method kept as reference - use _showOrderDetails instead
+  void _showOrderDetailsBottomSheet(Map<String, dynamic> order) {
     final items = _ensureList(order['order_items']);
 
     showModalBottomSheet(

@@ -4,6 +4,7 @@ import '../../models/category.dart';
 import '../../services/cart_service.dart';
 import '../../widgets/navbar.dart';
 import '../../widgets/floating_cart_icon.dart';
+import '../../widgets/floating_tracking_button.dart';
 import 'organization_products_screen.dart';
 
 class OrganizationCategoriesScreen extends StatefulWidget {
@@ -133,6 +134,8 @@ class _OrganizationCategoriesScreenState extends State<OrganizationCategoriesScr
             ),
           ],
         ),
+            // Floating Tracking Button (above cart)
+            const FloatingTrackingButton(),
             // Floating Cart Icon
             FloatingCartIcon(
               organizationId: widget.account.id,

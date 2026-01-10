@@ -5,6 +5,7 @@ import '../../widgets/navbar.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../widgets/scan_prompt_overlay.dart';
 import '../../widgets/floating_cart_icon.dart';
+import '../../widgets/floating_tracking_button.dart';
 import '../../widgets/client_filter_dialog.dart';
 import '../../services/qr_scanner_service.dart';
 import '../../services/qr_code_service.dart';
@@ -925,6 +926,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
           // Scan prompt overlay - only show when there's no scan history and user hasn't skipped
           if (_scanHistory.isEmpty && !_isLoadingHistory && _showScanPrompt)
             ScanPromptOverlay(onScan: _handleScan, onSkip: _handleSkip),
+
+          // Floating Tracking Button - show delivery tracking status (above cart)
+          if (_scanHistory.isNotEmpty && !_isLoadingHistory)
+            const FloatingTrackingButton(),
 
           // Floating Cart Icon - show combined count for all organizations
           if (_scanHistory.isNotEmpty && !_isLoadingHistory)

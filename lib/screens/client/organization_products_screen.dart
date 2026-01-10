@@ -7,6 +7,7 @@ import '../../services/category_service.dart';
 import '../../services/product_service.dart';
 import '../../services/cart_service.dart';
 import '../../widgets/floating_cart_icon.dart';
+import '../../widgets/floating_tracking_button.dart';
 import 'organization_category_products_screen.dart';
 import 'product_detail_screen.dart';
 
@@ -211,6 +212,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
               padding: const EdgeInsets.all(20.0),
               child: _buildBody(),
             ),
+            const FloatingTrackingButton(),
             FloatingCartIcon(
               organizationId: widget.account.id,
               organizationName: widget.account.name ?? 'Organization',
