@@ -368,10 +368,10 @@ class OrderService {
 
       final orderIds = filtered.map((a) => a['order_id'] as String).toSet().toList();
 
-      // Then fetch those orders with their items
+      // Then fetch those orders with their items and product details
       final ordersResponse = await _supabase
           .from('orders')
-          .select('*, order_items(*)')
+          .select('*, order_items(*, products(*))')
           .in_('id', orderIds)
           .order('created_at', ascending: false);
 
@@ -413,7 +413,7 @@ class OrderService {
           .from('orders')
           .select('''
             *,
-            order_items(*),
+            order_items(*, products(*)),
             order_delivery_assignments(
               id,
               delivery_account_id,
@@ -438,7 +438,7 @@ class OrderService {
             .from('orders')
             .select('''
               *,
-              order_items(*),
+              order_items(*, products(*)),
               order_delivery_assignments(
                 id,
                 delivery_account_id,
@@ -476,7 +476,7 @@ class OrderService {
           .from('orders')
           .select('''
             *,
-            order_items(*),
+            order_items(*, products(*)),
             order_delivery_assignments(
               id,
               delivery_account_id,

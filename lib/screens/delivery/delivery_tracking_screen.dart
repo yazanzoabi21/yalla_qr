@@ -41,6 +41,7 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
     super.initState();
     _loadAssignmentData();
     if (widget.isDriver) {
+      // Automatically initialize tracking for delivery driver
       _initializeTracking();
     }
   }
@@ -98,12 +99,12 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
         return;
       }
 
-      // Start location tracking
+      // Automatically start location tracking for delivery driver
       await _locationService.startLocationTracking(
         assignmentId: widget.assignmentId,
         onLocationUpdate: (position) {
           debugPrint(
-            'Location updated: ${position.latitude}, ${position.longitude}',
+            '📍 Location updated: ${position.latitude}, ${position.longitude}',
           );
         },
       );
@@ -112,12 +113,24 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
         setState(() {
           isTrackingActive = true;
         });
+        
+        // Show success message briefly
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Location tracking started automatically'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
-      debugPrint('Error initializing tracking: $e');
+      debugPrint('❌ Error initializing tracking: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
+          SnackBar(
+            content: Text('Error starting location tracking: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -280,17 +293,28 @@ class _DeliveryTrackingScreenState extends State<DeliveryTrackingScreen> {
   Widget _buildDriverActionButtons() {
     return Column(
       children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: isTrackingActive ? null : _initializeTracking,
-            icon: const Icon(Icons.location_on),
-            label: const Text('Start Location Sharing'),
-            style: ElevatedButton.styleFrom(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+        // Location tracking status info (no manual start button needed)
+        if (!isTrackingActive)
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orange.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.orange),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.orange),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Location tracking will start automatically when permissions are granted',
+                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                  ),
+                ),
+              ],
             ),
           ),
-        ),
         const SizedBox(height: 8),
         SizedBox(
           width: double.infinity,

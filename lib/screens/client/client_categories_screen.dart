@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../widgets/navbar.dart';
@@ -32,6 +33,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       {}; // Cache for account categories (account_id -> list of categories)
   bool _isLoadingHistory = false;
   final CartService _cartService = CartService();
+  DateTime? _lastBackPress; // Track last back button press for double-tap exit
 
   // Filter state
   Set<String> _selectedOrganizationIds = {};
@@ -750,9 +752,33 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
   Widget build(BuildContext context) {
     final filteredHistory = _filteredScanHistory;
 
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFF0F3),
-      appBar: Navbar(
+    return PopScope(
+      canPop: false, // Prevent default back navigation
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          final now = DateTime.now();
+          if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+            // First press or timeout - show snackbar
+            _lastBackPress = now;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Press back again to exit'),
+                backgroundColor: Colors.grey.shade700,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+            );
+          } else {
+            // Second press within 2 seconds - exit app (minimize to background)
+            SystemNavigator.pop();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFEFF0F3),
+        appBar: Navbar(
         showScanButton: true,
         onScanPressed: _handleScan,
         isClientHomePage: _scanHistory.isNotEmpty,
@@ -942,6 +968,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                   true, // Show combined count from all organizations
             ),
         ],
+      ),
       ),
     );
   }
@@ -1319,3 +1346,4 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     return colors[colorIndex];
   }
 }
+

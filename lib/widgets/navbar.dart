@@ -6,6 +6,9 @@ import '../screens/settings/settings_screen.dart';
 import '../screens/search/search_results_screen.dart';
 import '../screens/client/product_detail_screen.dart';
 import '../screens/org/org_orders_screen.dart';
+import '../screens/info/contact_screen.dart';
+import '../screens/info/feedback_screen.dart';
+import '../screens/info/about_screen.dart';
 import '../services/auth_service.dart';
 import '../models/product.dart';
 import 'dart:async';
@@ -332,6 +335,7 @@ class _NavbarState extends State<Navbar> {
   Widget build(BuildContext context) {
     final bool isClientMode = widget.organizationAccountId != null;
     final bool isClientHomePage = widget.isClientHomePage;
+    final bool hasInlineSearch = widget.onSearchChanged != null;
 
     return AppBar(
       backgroundColor: Colors.white,
@@ -360,12 +364,12 @@ class _NavbarState extends State<Navbar> {
                   child: TextField(
                     controller: _searchController,
                     textAlignVertical: TextAlignVertical.center,
-                    readOnly: !isClientMode && !isClientHomePage,
+                    readOnly: !isClientMode && !isClientHomePage && !hasInlineSearch,
                     onChanged: isClientMode
                         ? _onSearchTextChanged
                         : (isClientHomePage
                               ? _onClientHomeSearchChanged
-                              : null),
+                              : (hasInlineSearch ? widget.onSearchChanged : null)),
                     decoration: InputDecoration(
                       hintText:
                           widget.searchHint ??
@@ -379,10 +383,10 @@ class _NavbarState extends State<Navbar> {
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
                       suffixIcon: _buildSearchSuffixIcon(
-                        isClientMode || isClientHomePage,
+                        isClientMode || isClientHomePage || hasInlineSearch,
                       ),
                     ),
-                    onTap: !isClientMode && !isClientHomePage
+                    onTap: !isClientMode && !isClientHomePage && !hasInlineSearch
                         ? () async {
                             final isHomeScreen = widget.categoryId == null;
                             final result = await Navigator.push(
@@ -478,15 +482,6 @@ class _NavbarState extends State<Navbar> {
                               title: Text('About'),
                             ),
                           ),
-                          if (_isAuthenticated) ...[
-                            const PopupMenuItem<String>(
-                              value: 'settings',
-                              child: ListTile(
-                                leading: Icon(Icons.settings),
-                                title: Text('Settings'),
-                              ),
-                            ),
-                          ],
                           if (_isOrgUser && _isAuthenticated) ...[
                             PopupMenuItem<String>(
                               value: 'orders',
@@ -526,6 +521,15 @@ class _NavbarState extends State<Navbar> {
                               ),
                             ),
                           ],
+                          if (_isAuthenticated) ...[
+                            const PopupMenuItem<String>(
+                              value: 'settings',
+                              child: ListTile(
+                                leading: Icon(Icons.settings),
+                                title: Text('Settings'),
+                              ),
+                            ),
+                          ],                          
                           if (_isAuthenticated) ...[
                             const PopupMenuDivider(),
                             const PopupMenuItem<String>(
@@ -764,14 +768,16 @@ class _NavbarState extends State<Navbar> {
   void _handleMenuSelection(BuildContext context, String value) async {
     switch (value) {
       case 'contact':
-        ScaffoldMessenger.of(
+        Navigator.push(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Contact selected')));
+          MaterialPageRoute(builder: (context) => const ContactScreen()),
+        );
         break;
       case 'feedback':
-        ScaffoldMessenger.of(
+        Navigator.push(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Feedback selected')));
+          MaterialPageRoute(builder: (context) => const FeedbackScreen()),
+        );
         break;
       case 'settings':
         if (_isAuthenticated) {
@@ -798,9 +804,10 @@ class _NavbarState extends State<Navbar> {
         }
         break;
       case 'about':
-        ScaffoldMessenger.of(
+        Navigator.push(
           context,
-        ).showSnackBar(const SnackBar(content: Text('About selected')));
+          MaterialPageRoute(builder: (context) => const AboutScreen()),
+        );
         break;
       case 'login':
         Navigator.push(

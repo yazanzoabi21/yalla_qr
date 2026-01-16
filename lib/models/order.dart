@@ -121,6 +121,7 @@ class OrderItem {
   final String productId;
   final int quantity;
   final double price;
+  final Map<String, dynamic>? product; // Product data when joined
 
   OrderItem({
     required this.id,
@@ -128,6 +129,7 @@ class OrderItem {
     required this.productId,
     required this.quantity,
     required this.price,
+    this.product,
   });
 
   factory OrderItem.fromJson(Map<String, dynamic> json) {
@@ -137,6 +139,7 @@ class OrderItem {
       productId: json['product_id'] as String,
       quantity: json['quantity'] as int,
       price: (json['price'] as num).toDouble(),
+      product: json['products'] as Map<String, dynamic>?,
     );
   }
 

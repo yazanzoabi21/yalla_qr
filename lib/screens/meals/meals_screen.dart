@@ -174,21 +174,138 @@ class _MealsScreenState extends State<MealsScreen> {
     return HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
   }
 
+  /// Show color picker dialog for custom color selection
+  Future<Color?> _showColorPicker(BuildContext context, Color currentColor) async {
+    Color selectedColor = currentColor;
+    double hue = HSVColor.fromColor(currentColor).hue;
+    double saturation = HSVColor.fromColor(currentColor).saturation;
+    double value = HSVColor.fromColor(currentColor).value;
+
+    return showDialog<Color>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            selectedColor = HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
+            
+            return AlertDialog(
+              title: const Text('Choose Custom Color'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Color preview
+                    Container(
+                      width: double.infinity,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: selectedColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300, width: 2),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Hue slider
+                    Row(
+                      children: [
+                        const Text('Hue:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Expanded(
+                          child: Slider(
+                            value: hue,
+                            min: 0,
+                            max: 360,
+                            divisions: 360,
+                            onChanged: (value) {
+                              setState(() {
+                                hue = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Saturation slider
+                    Row(
+                      children: [
+                        const Text('Saturation:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Expanded(
+                          child: Slider(
+                            value: saturation,
+                            min: 0,
+                            max: 1,
+                            divisions: 100,
+                            onChanged: (value) {
+                              setState(() {
+                                saturation = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Value/Brightness slider
+                    Row(
+                      children: [
+                        const Text('Brightness:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Expanded(
+                          child: Slider(
+                            value: value,
+                            min: 0,
+                            max: 1,
+                            divisions: 100,
+                            onChanged: (newValue) {
+                              setState(() {
+                                value = newValue;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(selectedColor),
+                  style: ElevatedButton.styleFrom(backgroundColor: selectedColor),
+                  child: const Text('Select', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: Navbar(
-        categoryId: mealsCategory?.id,
-        showMenuButton: false, // Hide menu in sub-category
-        onSearchReturn: () {
-          // Refresh product counts when returning from search
-          _loadProductCounts();
-        },
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(8),
-        child: _buildBody(),
+    return PopScope(
+      canPop: false,
+      onPopInvoked: (didPop) {
+        if (!didPop) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FA),
+        appBar: Navbar(
+          categoryId: mealsCategory?.id,
+          showMenuButton: false, // Hide menu in sub-category
+          onSearchReturn: () {
+            // Refresh product counts when returning from search
+            _loadProductCounts();
+          },
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(8),
+          child: _buildBody(),
+        ),
       ),
     );
   }
@@ -891,6 +1008,42 @@ class _MealsScreenState extends State<MealsScreen> {
                         );
                       }).toList(),
                     ),
+                    // More colors button
+                    GestureDetector(
+                      onTap: () async {
+                        final color = await _showColorPicker(context, selectedColor);
+                        if (color != null) {
+                          setDialogState(() {
+                            selectedColor = color;
+                          });
+                        }
+                      },
+                      child: Container(
+                        width: 28,
+                        height: 28,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [
+                              Colors.red,
+                              Colors.orange,
+                              Colors.yellow,
+                              Colors.green,
+                              Colors.blue,
+                              Colors.purple,
+                            ],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                        ),
+                        child: const Icon(
+                          Icons.add,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 12),
 
                     // Icon Selection
@@ -1121,26 +1274,64 @@ class _MealsScreenState extends State<MealsScreen> {
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
-                      children: colors.map((color) {
-                        return GestureDetector(
-                          onTap: () {
-                            setDialogState(() {
-                              selectedColor = color;
-                            });
+                      children: [
+                        ...colors.map((color) {
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                selectedColor = color;
+                              });
+                            },
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: color,
+                                shape: BoxShape.circle,
+                                border: selectedColor == color
+                                    ? Border.all(color: Colors.black, width: 2)
+                                    : null,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                        // More colors button
+                        GestureDetector(
+                          onTap: () async {
+                            final color = await _showColorPicker(context, selectedColor);
+                            if (color != null) {
+                              setDialogState(() {
+                                selectedColor = color;
+                              });
+                            }
                           },
                           child: Container(
                             width: 28,
                             height: 28,
                             decoration: BoxDecoration(
-                              color: color,
+                              gradient: const LinearGradient(
+                                colors: [
+                                  Colors.red,
+                                  Colors.orange,
+                                  Colors.yellow,
+                                  Colors.green,
+                                  Colors.blue,
+                                  Colors.purple,
+                                ],
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
                               shape: BoxShape.circle,
-                              border: selectedColor == color
-                                  ? Border.all(color: Colors.black, width: 2)
-                                  : null,
+                              border: Border.all(color: Colors.grey.shade400, width: 1),
+                            ),
+                            child: const Icon(
+                              Icons.add,
+                              color: Colors.white,
+                              size: 16,
                             ),
                           ),
-                        );
-                      }).toList(),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'screens/splash_screen.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/client/client_categories_screen.dart';
@@ -38,6 +39,8 @@ class MyApp extends StatefulWidget {
 }
 
 class _MyAppState extends State<MyApp> {
+  bool _showSplash = true;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -46,7 +49,15 @@ class _MyAppState extends State<MyApp> {
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const WelcomeScreen(),
+      home: _showSplash
+          ? SplashScreen(
+              onSplashComplete: () {
+                setState(() {
+                  _showSplash = false;
+                });
+              },
+            )
+          : const WelcomeScreen(),
       routes: {
         '/home': (context) => const HomeScreen(),
         '/client': (context) => const ClientCategoriesScreen(),

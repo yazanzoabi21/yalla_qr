@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:qr_flutter/qr_flutter.dart';
@@ -29,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? errorMessage;
   String? _orgAccountId; // Store ORG account ID for QR code display
   bool _showQRButton = false; // Control QR button visibility
+  DateTime? _lastBackPress; // Track last back button press for double-tap exit
 
   @override
   void initState() {
@@ -230,99 +232,126 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFEFF0F3),
-      appBar: const Navbar(),
-      body: Padding(padding: const EdgeInsets.all(12.0), child: _buildBody()),
-      floatingActionButton: _orgAccountId != null
-          ? AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: 60,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(30),
-                gradient: _showQRButton
-                    ? const LinearGradient(
-                        colors: [
-                          Color(0xFF1E3A8A), // Navy blue
-                          Color(0xFF3B82F6), // Bright blue
-                        ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                      )
-                    : null,
-                color: _showQRButton ? null : Colors.transparent,
-                boxShadow: _showQRButton
-                    ? [
-                        BoxShadow(
-                          color: const Color(0xFF1E3A8A).withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          spreadRadius: 1,
-                          offset: const Offset(0, 6),
-                        ),
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.08),
-                          blurRadius: 8,
-                          offset: const Offset(0, 3),
-                        ),
-                      ]
-                    : [],
+    return PopScope(
+      canPop: false, // Prevent default back navigation
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          final now = DateTime.now();
+          if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+            // First press or timeout - show snackbar
+            _lastBackPress = now;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Press back again to exit'),
+                backgroundColor: Colors.grey.shade700,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                margin: const EdgeInsets.all(16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
               ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _showQRCodeModal,
+            );
+          } else {
+            // Second press within 2 seconds - exit app (minimize to background)
+            SystemNavigator.pop();
+          }
+        }
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFEFF0F3),
+        appBar: const Navbar(),
+        body: Padding(padding: const EdgeInsets.all(12.0), child: _buildBody()),
+        floatingActionButton: _orgAccountId != null
+            ? AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                height: 60,
+                decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(30),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: _showQRButton ? 20 : 0,
-                      vertical: _showQRButton ? 12 : 0,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
+                  gradient: _showQRButton
+                      ? const LinearGradient(
+                          colors: [
+                            Color(0xFF1E3A8A), // Navy blue
+                            Color(0xFF3B82F6), // Bright blue
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        )
+                      : null,
+                  color: _showQRButton ? null : Colors.transparent,
+                  boxShadow: _showQRButton
+                      ? [
+                          BoxShadow(
                             color: const Color(
                               0xFF1E3A8A,
-                            ).withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(7),
+                            ).withValues(alpha: 0.4),
+                            blurRadius: 16,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 6),
                           ),
-                          child: const Icon(
-                            Icons.qr_code_2_rounded,
-                            color: Colors.white,
-                            size: 24,
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
-                        ),
-                        // Spacer and text that fade away after 3s
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          child: _showQRButton
-                              ? const SizedBox(width: 12)
-                              : const SizedBox.shrink(),
-                        ),
-                        AnimatedOpacity(
-                          opacity: _showQRButton ? 1.0 : 0.0,
-                          duration: const Duration(milliseconds: 300),
-                          child: _showQRButton
-                              ? const Text(
-                                  'QR Code',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 16,
-                                    letterSpacing: 0.3,
-                                  ),
-                                )
-                              : const SizedBox.shrink(),
-                        ),
-                      ],
+                        ]
+                      : [],
+                ),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _showQRCodeModal,
+                    borderRadius: BorderRadius.circular(30),
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: _showQRButton ? 20 : 0,
+                        vertical: _showQRButton ? 12 : 0,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: const Color(
+                                0xFF1E3A8A,
+                              ).withValues(alpha: 0.9),
+                              borderRadius: BorderRadius.circular(7),
+                            ),
+                            child: const Icon(
+                              Icons.qr_code_2_rounded,
+                              color: Colors.white,
+                              size: 24,
+                            ),
+                          ),
+                          // Spacer and text that fade away after 3s
+                          AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 300),
+                            child: _showQRButton
+                                ? const SizedBox(width: 12)
+                                : const SizedBox.shrink(),
+                          ),
+                          AnimatedOpacity(
+                            opacity: _showQRButton ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 300),
+                            child: _showQRButton
+                                ? const Text(
+                                    'QR Code',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 16,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-            )
-          : null,
+              )
+            : null,
+      ),
     );
   }
 

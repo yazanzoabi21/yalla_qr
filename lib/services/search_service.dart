@@ -274,22 +274,41 @@ class SearchService {
       
       final results = <SearchResult>[];
 
-      // Search products in category and each child category
-      final products = await ProductService.getProductsByCategory(categoryId);
+      // Search products in the parent category itself
+      final parentProducts = await ProductService.getProductsByCategory(categoryId);
       
       // Filter products that match the query
-      final matchingProducts = products.where((product) {
+      final matchingParentProducts = parentProducts.where((product) {
         return _matchesQuery(query, product.name) ||
                (product.description != null && _matchesQuery(query, product.description!));
       }).toList();
 
-      for (var product in matchingProducts) {
+      for (var product in matchingParentProducts) {
         final score = _calculateRelevanceScore(
           query: query,
           title: product.name,
           description: product.description,
         );
         results.add(SearchResult.fromProduct(product, relevanceScore: score));
+      }
+
+      // Search products in each child category
+      for (var childCategory in childCategories) {
+        final childProducts = await ProductService.getProductsByCategory(childCategory.id);
+        
+        final matchingChildProducts = childProducts.where((product) {
+          return _matchesQuery(query, product.name) ||
+                 (product.description != null && _matchesQuery(query, product.description!));
+        }).toList();
+
+        for (var product in matchingChildProducts) {
+          final score = _calculateRelevanceScore(
+            query: query,
+            title: product.name,
+            description: product.description,
+          );
+          results.add(SearchResult.fromProduct(product, relevanceScore: score));
+        }
       }
 
       // Also add matching child categories
@@ -310,7 +329,7 @@ class SearchService {
       // Sort by relevance
       results.sort((a, b) => b.relevanceScore.compareTo(a.relevanceScore));
 
-      debugPrint('✅ Found ${results.length} results in category');
+      debugPrint('✅ Found ${results.length} results in category (including ${childCategories.length} child categories)');
       return results;
     } catch (e) {
       debugPrint('❌ Error searching in category: $e');

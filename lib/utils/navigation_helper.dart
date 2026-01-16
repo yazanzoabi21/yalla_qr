@@ -3,6 +3,7 @@ import '../screens/auth/login_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/meals/meals_screen.dart';
 import '../screens/gym/gym_screen.dart';
+import '../screens/super_market/super_market_screen.dart';
 
 class NavigationHelper {
   /// Navigate to login screen with optional intended destination
@@ -54,6 +55,17 @@ class NavigationHelper {
     );
   }
 
+  /// Navigate to super market screen
+  static void navigateToSuperMarket(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const SuperMarketScreen(),
+        settings: const RouteSettings(name: '/super-market'),
+      ),
+    );
+  }
+
   /// Navigate to specific category after authentication
   static void navigateToCategory(BuildContext context, String? category) {
     switch (category?.toLowerCase()) {
@@ -62,6 +74,9 @@ class NavigationHelper {
         break;
       case 'gym':
         navigateToGym(context);
+        break;
+      case 'super market':
+        navigateToSuperMarket(context);
         break;
       default:
         navigateToHome(context);

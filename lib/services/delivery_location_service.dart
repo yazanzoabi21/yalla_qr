@@ -1,13 +1,27 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
 import '../models/delivery_status.dart';
 import 'delivery_tracking_service.dart';
 
 class DeliveryLocationService {
+  // Singleton pattern
+  static final DeliveryLocationService _instance = DeliveryLocationService._internal();
+  factory DeliveryLocationService() => _instance;
+  DeliveryLocationService._internal();
+  
   final DeliveryTrackingService _trackingService = DeliveryTrackingService();
   
   static const int _updateIntervalSeconds = 10; // Update location every 10 seconds
   static const int _distanceFilterMeters = 5; // Minimum 5 meters movement to trigger update
+
+  // Track active assignment and subscription
+  String? _currentAssignmentId;
+  StreamSubscription<Position>? _positionSubscription;
+  bool _isTracking = false;
+
+  bool get isTracking => _isTracking;
+  String? get currentAssignmentId => _currentAssignmentId;
 
   // Start tracking location for a delivery assignment
   Future<void> startLocationTracking({
@@ -15,6 +29,17 @@ class DeliveryLocationService {
     required Function(Position) onLocationUpdate,
   }) async {
     try {
+      // If already tracking the same assignment, don't restart
+      if (_isTracking && _currentAssignmentId == assignmentId) {
+        debugPrint('📍 Already tracking assignment: $assignmentId');
+        return;
+      }
+
+      // Stop previous tracking if different assignment
+      if (_isTracking && _currentAssignmentId != assignmentId) {
+        await stopLocationTracking();
+      }
+
       // Check permissions
       LocationPermission permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
@@ -40,7 +65,10 @@ class DeliveryLocationService {
         ),
       );
 
-      positionStream.listen(
+      _currentAssignmentId = assignmentId;
+      _isTracking = true;
+
+      _positionSubscription = positionStream.listen(
         (Position position) async {
           onLocationUpdate(position);
           
@@ -58,10 +86,14 @@ class DeliveryLocationService {
         },
         onError: (error) {
           debugPrint('❌ Location stream error: $error');
+          _isTracking = false;
         },
       );
+
+      debugPrint('✅ Location tracking started for assignment: $assignmentId');
     } catch (e) {
       debugPrint('❌ Error starting location tracking: $e');
+      _isTracking = false;
       rethrow;
     }
   }
@@ -88,8 +120,11 @@ class DeliveryLocationService {
   // Stop location tracking
   Future<void> stopLocationTracking() async {
     try {
-      // Geolocator will stop listening when the stream is closed
-      debugPrint('Location tracking stopped');
+      await _positionSubscription?.cancel();
+      _positionSubscription = null;
+      _currentAssignmentId = null;
+      _isTracking = false;
+      debugPrint('✅ Location tracking stopped');
     } catch (e) {
       debugPrint('❌ Error stopping location tracking: $e');
     }

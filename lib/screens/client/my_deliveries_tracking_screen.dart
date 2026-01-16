@@ -83,7 +83,38 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
         ? OrderDeliveryAssignment.fromJson(assignments.first as Map<String, dynamic>)
         : null;
 
+    // Get order image
+    final orderItems = selectedDelivery['order_items'] as List<dynamic>?;
+    String? orderImageUrl;
+    
+    // Debug the entire delivery structure
+    debugPrint('📦 [SelectedDelivery Keys]: ${selectedDelivery.keys.toList()}');
+    debugPrint('📦 [OrderItems] Type: ${orderItems.runtimeType}, Length: ${orderItems?.length}');
+    
+    if (orderItems != null && orderItems.isNotEmpty) {
+      final firstItem = orderItems.first as Map<String, dynamic>?;
+      if (firstItem != null) {
+        debugPrint('📦 [FirstItem Keys]: ${firstItem.keys.toList()}');
+        
+        // Check if products data is joined
+        if (firstItem.containsKey('products')) {
+          final products = firstItem['products'];
+          debugPrint('📦 [Products] Type: ${products.runtimeType}, Data: $products');
+          if (products is Map) {
+            orderImageUrl = products['image_url'] as String?;
+          }
+        }
+        
+        // If no products field, log the product_id
+        if (orderImageUrl == null && firstItem.containsKey('product_id')) {
+          debugPrint('⚠️ [Warning] product_id exists (${firstItem['product_id']}) but no products data joined!');
+          debugPrint('⚠️ [Warning] The query needs to include .select("*, products(*)") to get product details');
+        }
+      }
+    }
+
     debugPrint('🔍 [MyDeliveriesTrackingScreen] Order: ${order.id}, Assignment: ${assignment?.id}');
+    debugPrint('🖼️ [MyDeliveriesTrackingScreen] Order Image URL: $orderImageUrl');
 
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
@@ -103,7 +134,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Debug banner
+              // Delivery summary banner
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(12),
@@ -113,9 +144,104 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: Colors.amber),
                 ),
-                child: Text(
-                  'Deliveries: ${widget.activeDeliveries.length}\nOrder: ${order.id.substring(0, 8)}\nAssignment: ${assignment?.id?.substring(0, 8) ?? "none"}',
-                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Deliveries: ${widget.activeDeliveries.length}\nOrder: ${order.id.substring(0, 8)}\nAssignment: ${assignment?.id?.substring(0, 8) ?? "none"}',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Order image thumbnail (clickable)
+                    GestureDetector(
+                      onTap: orderImageUrl != null
+                          ? () => _showFullScreenImage(context, orderImageUrl!)
+                          : null,
+                      child: Container(
+                        width: 60,
+                        height: 60,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.amber.shade700, width: 2),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: orderImageUrl == null
+                            ? Icon(
+                                Icons.image_not_supported_outlined,
+                                color: Colors.grey.shade400,
+                                size: 24,
+                              )
+                            : ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: Stack(
+                                  children: [
+                                    // Product Image
+                                    Image.network(
+                                      orderImageUrl,
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return Center(
+                                          child: SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              value: loadingProgress.expectedTotalBytes != null
+                                                  ? loadingProgress.cumulativeBytesLoaded /
+                                                      loadingProgress.expectedTotalBytes!
+                                                  : null,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      errorBuilder: (context, error, stackTrace) {
+                                        debugPrint('🖼️ Image load error: $error');
+                                        return Icon(
+                                          Icons.broken_image_outlined,
+                                          color: Colors.grey.shade400,
+                                          size: 24,
+                                        );
+                                      },
+                                    ),
+                                    // Overlay to indicate it's tappable
+                                    Positioned(
+                                      bottom: 0,
+                                      left: 0,
+                                      right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.6),
+                                          borderRadius: const BorderRadius.only(
+                                            bottomLeft: Radius.circular(6),
+                                            bottomRight: Radius.circular(6),
+                                          ),
+                                        ),
+                                        child: const Icon(
+                                          Icons.zoom_in,
+                                          color: Colors.white,
+                                          size: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               
@@ -127,7 +253,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                 ),
                 const SizedBox(height: 8),
                 SizedBox(
-                  height: 50,
+                  height: 140,
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: widget.activeDeliveries.length,
@@ -136,6 +262,17 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                       final deliveryOrder = Order.fromJson(delivery);
                       final isSelected = index == _selectedIndex;
                       
+                      // Get first order item for image
+                      final orderItems = delivery['order_items'] as List<dynamic>?;
+                      String? imageUrl;
+                      if (orderItems != null && orderItems.isNotEmpty) {
+                        final firstItem = orderItems.first as Map<String, dynamic>?;
+                        if (firstItem != null) {
+                          final product = firstItem['products'] as Map<String, dynamic>?;
+                          imageUrl = product?['image_url'] as String?;
+                        }
+                      }
+                      
                       return GestureDetector(
                         onTap: () {
                           setState(() {
@@ -143,23 +280,155 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                           });
                         },
                         child: Container(
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          width: 160,
+                          margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
-                            color: isSelected ? Colors.green : Colors.white,
-                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(
                               color: isSelected ? Colors.green : Colors.grey.shade300,
+                              width: isSelected ? 2 : 1,
                             ),
-                          ),
-                          child: Center(
-                            child: Text(
-                              '#${deliveryOrder.id.substring(0, 7)}',
-                              style: TextStyle(
-                                color: isSelected ? Colors.white : Colors.grey.shade700,
-                                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            boxShadow: isSelected ? [
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.3),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
                               ),
-                            ),
+                            ] : null,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Order ID header
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: isSelected ? Colors.green : Colors.grey.shade100,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(11),
+                                    topRight: Radius.circular(11),
+                                  ),
+                                ),
+                                child: Text(
+                                  '#${deliveryOrder.id.substring(0, 7)}',
+                                  style: TextStyle(
+                                    color: isSelected ? Colors.white : Colors.grey.shade800,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              // Order details
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Image
+                                      Container(
+                                        width: 50,
+                                        height: 50,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: imageUrl == null
+                                            ? Icon(
+                                                Icons.shopping_bag_outlined,
+                                                color: Colors.grey.shade400,
+                                                size: 24,
+                                              )
+                                            : ClipRRect(
+                                                borderRadius: BorderRadius.circular(8),
+                                                child: Image.network(
+                                                  imageUrl,
+                                                  width: 50,
+                                                  height: 50,
+                                                  fit: BoxFit.cover,
+                                                  loadingBuilder: (context, child, loadingProgress) {
+                                                    if (loadingProgress == null) return child;
+                                                    return Center(
+                                                      child: SizedBox(
+                                                        width: 16,
+                                                        height: 16,
+                                                        child: CircularProgressIndicator(
+                                                          strokeWidth: 2,
+                                                          value: loadingProgress.expectedTotalBytes != null
+                                                              ? loadingProgress.cumulativeBytesLoaded /
+                                                                  loadingProgress.expectedTotalBytes!
+                                                              : null,
+                                                        ),
+                                                      ),
+                                                    );
+                                                  },
+                                                  errorBuilder: (context, error, stackTrace) {
+                                                    debugPrint('🖼️ Order card image error: $error');
+                                                    return Icon(
+                                                      Icons.broken_image_outlined,
+                                                      color: Colors.grey.shade400,
+                                                      size: 24,
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Details
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              deliveryOrder.currencyCode == 'LBP'
+                                                  ? '\$${(deliveryOrder.totalAmount / 89500).toStringAsFixed(2)}'
+                                                  : '\$${deliveryOrder.totalAmount.toStringAsFixed(2)}',
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 14,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              '${orderItems?.length ?? 0} item${(orderItems?.length ?? 0) != 1 ? 's' : ''}',
+                                              style: TextStyle(
+                                                color: Colors.grey.shade600,
+                                                fontSize: 11,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(
+                                                horizontal: 6,
+                                                vertical: 2,
+                                              ),
+                                              decoration: BoxDecoration(
+                                                color: _getStatusColor(deliveryOrder.status)
+                                                    .withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(4),
+                                              ),
+                                              child: Text(
+                                                deliveryOrder.status,
+                                                style: TextStyle(
+                                                  color: _getStatusColor(deliveryOrder.status),
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -174,9 +443,9 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                 _buildOrderInfoCard(order, assignment),
                 const SizedBox(height: 16),
                 
-                // Live Map
-                _buildMapCard(assignment),
-                const SizedBox(height: 16),
+                // // Live Map
+                // _buildMapCard(assignment),
+                // const SizedBox(height: 16),
                 
                 // Tracking Details
                 DeliveryTrackingWidget(
@@ -278,66 +547,58 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
     );
   }
 
-  Widget _buildMapCard(OrderDeliveryAssignment assignment) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const Icon(Icons.map, color: Colors.blue, size: 20),
-                const SizedBox(width: 8),
-                const Text(
-                  'Live Location',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.green.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: Colors.green,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Text(
-                        'LIVE',
-                        style: TextStyle(
-                          color: Colors.green,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            DeliveryMapWidget(
-              assignmentId: assignment.id,
-              height: 300,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Widget _buildMapCard(OrderDeliveryAssignment assignment) {
+  //   return Card(
+  //     child: Padding(
+  //       padding: const EdgeInsets.all(12),
+  //       child: Column(
+  //         crossAxisAlignment: CrossAxisAlignment.start,
+  //         children: [
+  //           Row(
+  //             children: [
+  //               const Icon(Icons.map, color: Colors.blue, size: 20),
+  //               const SizedBox(width: 8),
+  //               const Text(
+  //                 'Live Location',
+  //                 style: TextStyle(
+  //                   fontSize: 16,
+  //                   fontWeight: FontWeight.bold,
+  //                 ),
+  //               ),
+  //               const Spacer(),
+  //               Container(
+  //                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+  //                 decoration: BoxDecoration(
+  //                   color: Colors.green.withOpacity(0.1),
+  //                   borderRadius: BorderRadius.circular(12),
+  //                 ),
+  //                 child: Row(
+  //                   mainAxisSize: MainAxisSize.min,
+  //                   children: [
+  //                     Container(
+  //                       width: 8,
+  //                       height: 8,
+  //                       decoration: const BoxDecoration(
+  //                         color: Colors.green,
+  //                         shape: BoxShape.circle,
+  //                       ),
+  //                     ),
+  //                     const SizedBox(width: 4),
+  //                     const Text(
+  //                       'LIVE',
+  //                       style: TextStyle(
+  //                         color: Colors.green,
+  //                         fontWeight: FontWeight.bold,
+  //                         fontSize: 10,
+  //                       ),
+  //                     ),
+  //                   ],
+  //                 ),
+  //               ),
+  //             ],
+  //           ),
+  //           const SizedBox(height: 12),
+  //           DeliveryMapWidget(
 
   Widget _buildInfoRow(String label, String value) {
     return Padding(
@@ -396,6 +657,82 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
     } else {
       return '${dateTime.day}/${dateTime.month}/${dateTime.year} ${dateTime.hour}:${dateTime.minute.toString().padLeft(2, '0')}';
     }
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _FullScreenImageViewer(imageUrl: imageUrl),
+      ),
+    );
+  }
+}
+
+/// Full-screen zoomable image viewer
+class _FullScreenImageViewer extends StatelessWidget {
+  final String imageUrl;
+
+  const _FullScreenImageViewer({required this.imageUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        title: const Text('Order Image'),
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: Image.network(
+            imageUrl,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Center(
+                child: CircularProgressIndicator(
+                  value: loadingProgress.expectedTotalBytes != null
+                      ? loadingProgress.cumulativeBytesLoaded /
+                          loadingProgress.expectedTotalBytes!
+                      : null,
+                  color: Colors.white,
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.broken_image_outlined,
+                      size: 80,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Failed to load image',
+                      style: TextStyle(
+                        color: Colors.grey.shade400,
+                        fontSize: 16,
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 }
 

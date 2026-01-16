@@ -264,10 +264,18 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   String _formatDuration(Duration duration) {
     if (duration.inMinutes < 60) {
       return '${duration.inMinutes}m';
-    } else {
+    } else if (duration.inHours < 24) {
       final hours = duration.inHours;
       final minutes = duration.inMinutes % 60;
       return '${hours}h ${minutes}m';
+    } else if (duration.inDays < 7) {
+      return '${duration.inDays}d';
+    } else if (duration.inDays < 30) {
+      final weeks = (duration.inDays / 7).floor();
+      return '${weeks}w';
+    } else {
+      final months = (duration.inDays / 30).floor();
+      return '${months}mo';
     }
   }
 
@@ -882,12 +890,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Color(0xFF1A1A1A)),
-            onPressed: _loadData,
-          ),
-        ],
+        // actions: [
+        //   IconButton(
+        //     icon: const Icon(Icons.refresh, color: Color(0xFF1A1A1A)),
+        //     onPressed: _loadData,
+        //   ),
+        // ],
       ),
       body: Column(
         children: [
@@ -1174,52 +1182,67 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 // Item count and price in cards
                 Row(
                   children: [
-                    // Item count card
+                    // Item count and image card
                     Expanded(
                       child: Container(
-                        padding: const EdgeInsets.all(12),
+                        padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade50,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.grey.shade200),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.shopping_bag_outlined,
-                                  size: 16,
-                                  color: Colors.grey.shade600,
-                                ),
-                                const SizedBox(width: 6),
-                                Text(
-                                  'Items',
-                                  style: TextStyle(
-                                    color: Colors.grey.shade600,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
+                            Flexible(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.shopping_bag_outlined,
+                                        size: 14,
+                                        color: Colors.grey.shade600,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Items',
+                                        style: TextStyle(
+                                          color: Colors.grey.shade600,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              '${items.length}',
-                              style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: Color(0xFF1A1A1A),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${items.length}',
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w800,
+                                      color: Color(0xFF1A1A1A),
+                                    ),
+                                  ),
+                                ],
                               ),
+                            ),
+                            const SizedBox(width: 4),
+                            // Product image
+                            SizedBox(
+                              width: 34,
+                              height: 34,
+                              child: _buildOrderImageSmall(items),
                             ),
                           ],
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 4),
                     // Price card
-                    Expanded(
+                    Flexible(
                       flex: 2,
                       child: Container(
                         padding: const EdgeInsets.all(12),
@@ -1657,10 +1680,18 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => _showUpdateStatusDialog(order),
                         icon: const Icon(Icons.edit, size: 18),
-                        label: const Text('Update Status'),
+                        label: const Text(
+                          'Update Status',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.blue,
                           side: BorderSide(color: Colors.blue.shade200),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -1673,10 +1704,18 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       child: OutlinedButton.icon(
                         onPressed: () => _showOrderDetails(order),
                         icon: const Icon(Icons.visibility, size: 18),
-                        label: const Text('View Details'),
+                        label: const Text(
+                          'View Details',
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
                         style: OutlinedButton.styleFrom(
                           foregroundColor: Colors.grey.shade700,
                           side: BorderSide(color: Colors.grey.shade300),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 10,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -1711,9 +1750,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     // Navigate to the detailed order screen with delivery tracking
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => OrderDetailScreen(order: order),
-      ),
+      MaterialPageRoute(builder: (context) => OrderDetailScreen(order: order)),
     );
   }
 
@@ -1906,6 +1943,118 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           ],
         ),
       ),
+    );
+  }
+
+  /// Build small order image thumbnail from first item (55x55)
+  Widget _buildOrderImageSmall(List<dynamic> items) {
+    String? imageUrl;
+
+    // Get first item's product image
+    if (items.isNotEmpty) {
+      final firstItem = items.first as Map<String, dynamic>?;
+      if (firstItem != null) {
+        final products = firstItem['products'] as Map<String, dynamic>?;
+        imageUrl = products?['image_url'] as String?;
+      }
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: imageUrl == null
+          ? Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 24)
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 1.5,
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.grey.shade400,
+                    size: 24,
+                  );
+                },
+              ),
+            ),
+    );
+  }
+
+  /// Build order image thumbnail from first item
+  Widget _buildOrderImage(List<dynamic> items) {
+    String? imageUrl;
+
+    // Get first item's product image
+    if (items.isNotEmpty) {
+      final firstItem = items.first as Map<String, dynamic>?;
+      if (firstItem != null) {
+        final products = firstItem['products'] as Map<String, dynamic>?;
+        imageUrl = products?['image_url'] as String?;
+      }
+    }
+
+    return Container(
+      width: 70,
+      height: 70,
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+      ),
+      child: imageUrl == null
+          ? Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 32)
+          : ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.network(
+                imageUrl,
+                width: 70,
+                height: 70,
+                fit: BoxFit.cover,
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return Center(
+                    child: SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        value: loadingProgress.expectedTotalBytes != null
+                            ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                            : null,
+                      ),
+                    ),
+                  );
+                },
+                errorBuilder: (context, error, stackTrace) {
+                  return Icon(
+                    Icons.broken_image_outlined,
+                    color: Colors.grey.shade400,
+                    size: 32,
+                  );
+                },
+              ),
+            ),
     );
   }
 }
