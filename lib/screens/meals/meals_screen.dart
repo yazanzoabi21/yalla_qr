@@ -174,6 +174,90 @@ class _MealsScreenState extends State<MealsScreen> {
     return HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
   }
 
+  /// Show icon picker dialog for custom icon selection
+  Future<IconData?> _showIconPicker(BuildContext context, IconData currentIcon, Color selectedColor) async {
+    IconData selectedIcon = currentIcon;
+    
+    final List<IconData> allIcons = [
+      Icons.restaurant, Icons.breakfast_dining, Icons.lunch_dining,
+      Icons.dinner_dining, Icons.local_pizza, Icons.cake,
+      Icons.coffee, Icons.icecream, Icons.fastfood,
+      Icons.set_meal, Icons.restaurant_menu, Icons.egg_alt,
+      Icons.bakery_dining, Icons.rice_bowl, Icons.soup_kitchen,
+      Icons.ramen_dining, Icons.tapas, Icons.wine_bar,
+      Icons.local_bar, Icons.local_cafe, Icons.emoji_food_beverage,
+      Icons.outdoor_grill, Icons.kitchen, Icons.microwave,
+      Icons.blender, Icons.dining, Icons.brunch_dining,
+      Icons.nightlife, Icons.food_bank, Icons.local_dining,
+      Icons.bento, Icons.cookie, Icons.flatware, Icons.liquor,
+      Icons.no_food, Icons.outdoor_grill, Icons.sports_bar,
+      Icons.takeout_dining, Icons.tapas, Icons.kebab_dining,
+    ];
+
+    return showDialog<IconData>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Choose Icon'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 5,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: allIcons.length,
+                  itemBuilder: (context, index) {
+                    final icon = allIcons[index];
+                    final isSelected = selectedIcon.codePoint == icon.codePoint;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedIcon = icon;
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? selectedColor.withOpacity(0.2)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isSelected
+                              ? Border.all(color: selectedColor, width: 2)
+                              : Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Icon(
+                          icon,
+                          color: isSelected ? selectedColor : Colors.grey.shade600,
+                          size: 24,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(selectedIcon),
+                  style: ElevatedButton.styleFrom(backgroundColor: selectedColor),
+                  child: const Text('Select', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   /// Show color picker dialog for custom color selection
   Future<Color?> _showColorPicker(BuildContext context, Color currentColor) async {
     Color selectedColor = currentColor;
@@ -925,7 +1009,11 @@ class _MealsScreenState extends State<MealsScreen> {
       Icons.coffee, Icons.icecream, Icons.fastfood,
       Icons.set_meal, Icons.restaurant_menu, Icons.egg_alt,
       Icons.bakery_dining, Icons.rice_bowl, Icons.soup_kitchen,
-      Icons.phishing, Icons.tsunami, Icons.waves
+      Icons.ramen_dining, Icons.tapas, Icons.wine_bar,
+      Icons.local_bar, Icons.local_cafe, Icons.emoji_food_beverage,
+      Icons.outdoor_grill, Icons.kitchen, Icons.microwave,
+      Icons.blender, Icons.dining, Icons.brunch_dining,
+      Icons.nightlife, Icons.food_bank, Icons.local_dining,
     ];
 
     showDialog(
@@ -1009,84 +1097,129 @@ class _MealsScreenState extends State<MealsScreen> {
                       }).toList(),
                     ),
                     // More colors button
+                      GestureDetector(
+                        onTap: () async {
+                          final Color? pickedColor = await _showColorPicker(context, selectedColor);
+                          if (pickedColor != null) {
+                            setDialogState(() {
+                              selectedColor = pickedColor;
+                            });
+                          }
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.palette, size: 16, color: Colors.grey.shade700),
+                              const SizedBox(width: 6),
+                              Text(
+                                'More colors...',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: 10),
+
+                    // Icon Selection
+                    Row(
+                        children: [
+                          const Text(
+                            'Choose Icon:',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const Spacer(),
+                          // Selected icon preview
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: selectedColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: selectedColor, width: 2),
+                            ),
+                            child: Icon(
+                              selectedIcon,
+                              color: selectedColor,
+                              size: 28,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: icons.take(8).map((icon) {
+                          bool isSelected = selectedIcon.codePoint == icon.codePoint;
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                selectedIcon = icon;
+                              });
+                            },
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? selectedColor.withOpacity(0.2)
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: isSelected
+                                    ? Border.all(color: selectedColor, width: 2)
+                                    : null,
+                              ),
+                              child: Icon(
+                                icon,
+                                color: isSelected
+                                    ? selectedColor
+                                    : Colors.grey,
+                                size: 20,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    // More icons button
                     GestureDetector(
                       onTap: () async {
-                        final color = await _showColorPicker(context, selectedColor);
-                        if (color != null) {
+                        final IconData? pickedIcon = await _showIconPicker(context, selectedIcon, selectedColor);
+                        if (pickedIcon != null) {
                           setDialogState(() {
-                            selectedColor = color;
+                            selectedIcon = pickedIcon;
                           });
                         }
                       },
                       child: Container(
-                        width: 28,
-                        height: 28,
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            colors: [
-                              Colors.red,
-                              Colors.orange,
-                              Colors.yellow,
-                              Colors.green,
-                              Colors.blue,
-                              Colors.purple,
-                            ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.grey.shade400, width: 1),
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
                         ),
-                        child: const Icon(
-                          Icons.add,
-                          color: Colors.white,
-                          size: 16,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.apps, size: 16, color: Colors.grey.shade700),
+                            const SizedBox(width: 6),
+                            Text(
+                              'More icons...',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                            ),
+                          ],
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Icon Selection
-                    const Text(
-                      'Choose Icon:',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: icons.map((icon) {
-                        bool isSelected = selectedIcon.codePoint == icon.codePoint;
-                        return GestureDetector(
-                          onTap: () {
-                            setDialogState(() {
-                              selectedIcon = icon;
-                            });
-                          },
-                          child: Container(
-                            width: 36,
-                            height: 36,
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? selectedColor.withValues(alpha: 0.2)
-                                  : Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(8),
-                              border: isSelected
-                                  ? Border.all(color: selectedColor, width: 2)
-                                  : null,
-                            ),
-                            child: Icon(
-                              icon,
-                              color: isSelected
-                                  ? selectedColor
-                                  : Colors.grey,
-                              size: 20,
-                            ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 14),
                     
                     Row(
                       children: [
@@ -1209,10 +1342,7 @@ class _MealsScreenState extends State<MealsScreen> {
     final List<IconData> icons = [
       Icons.restaurant, Icons.breakfast_dining, Icons.lunch_dining,
       Icons.dinner_dining, Icons.local_pizza, Icons.cake,
-      Icons.coffee, Icons.icecream, Icons.fastfood,
-      Icons.set_meal, Icons.restaurant_menu, Icons.egg_alt,
-      Icons.bakery_dining, Icons.rice_bowl, Icons.soup_kitchen,
-      Icons.phishing, Icons.tsunami, Icons.waves
+      Icons.coffee, Icons.icecream,
     ];
 
     showDialog(
@@ -1333,47 +1463,97 @@ class _MealsScreenState extends State<MealsScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 10),
 
                     // Icon Selection
-                    const Text(
-                      'Choose Icon:',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
-                      children: icons.map((icon) {
-                        bool isSelected = selectedIcon.codePoint == icon.codePoint;
-                        return GestureDetector(
-                          onTap: () {
-                            setDialogState(() {
-                              selectedIcon = icon;
-                            });
-                          },
-                          child: Container(
-                            width: 36,
-                            height: 36,
+                    Row(
+                        children: [
+                          const Text(
+                            'Choose Icon:',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const Spacer(),
+                          // Selected icon preview
+                          Container(
+                            padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: isSelected
-                                  ? selectedColor.withValues(alpha: 0.2)
-                                  : Colors.grey.shade100,
+                              color: selectedColor.withOpacity(0.15),
                               borderRadius: BorderRadius.circular(8),
-                              border: isSelected
-                                  ? Border.all(color: selectedColor, width: 2)
-                                  : null,
+                              border: Border.all(color: selectedColor, width: 2),
                             ),
                             child: Icon(
-                              icon,
-                              color: isSelected
-                                  ? selectedColor
-                                  : Colors.grey,
-                              size: 20,
+                              selectedIcon,
+                              color: selectedColor,
+                              size: 28,
                             ),
                           ),
-                        );
-                      }).toList(),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: icons.take(8).map((icon) {
+                          bool isSelected = selectedIcon.codePoint == icon.codePoint;
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                selectedIcon = icon;
+                              });
+                            },
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? selectedColor.withOpacity(0.2)
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: isSelected
+                                    ? Border.all(color: selectedColor, width: 2)
+                                    : null,
+                              ),
+                              child: Icon(
+                                icon,
+                                color: isSelected
+                                    ? selectedColor
+                                    : Colors.grey,
+                                size: 20,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    // More icons button
+                    GestureDetector(
+                      onTap: () async {
+                        final IconData? pickedIcon = await _showIconPicker(context, selectedIcon, selectedColor);
+                        if (pickedIcon != null) {
+                          setDialogState(() {
+                            selectedIcon = pickedIcon;
+                          });
+                        }
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.apps, size: 16, color: Colors.grey.shade700),
+                            const SizedBox(width: 6),
+                            Text(
+                              'More icons...',
+                              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 16),
                     

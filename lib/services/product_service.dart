@@ -135,6 +135,7 @@ class ProductService {
           .select('id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id, account_id')
           .eq('category_id', categoryId)
           .eq('account_id', accountId)
+          .gt('quantity', 0) // Only show products with quantity > 0
           .order('name', ascending: true);
 
       debugPrint('Fetched ${response.length} products for category $categoryId');
@@ -275,12 +276,17 @@ class ProductService {
     try {
       debugPrint('🔄 Deleting product: $productId');
       
+      // Instead of hard delete, we soft delete by setting quantity to 0 and in_stock to false
+      // This preserves the product for order history
       await _supabase
           .from('products')
-          .delete()
+          .update({
+            'quantity': 0,
+            'in_stock': false,
+          })
           .eq('id', productId);
 
-      debugPrint('Product deleted successfully');
+      debugPrint('Product soft-deleted successfully (marked as out of stock with 0 quantity)');
     } catch (e) {
       debugPrint('Failed to delete product: $e');
       throw Exception('Failed to delete product: $e');

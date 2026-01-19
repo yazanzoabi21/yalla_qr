@@ -119,11 +119,698 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
         ),
       ),
     ).then((result) {
-      // Refresh the list when returning from detail screen
-      if (result == true) {
-        _refreshChildCategories();
-      }
+      // Always refresh when returning from detail screen to ensure counts are up to date
+      _loadProductCounts();
     });
+  }
+
+  void _showLoadingDialog(BuildContext scaffoldContext, String categoryName, {String action = 'Creating'}) {
+    showDialog(
+      context: scaffoldContext,
+      barrierDismissible: false,
+      builder: (context) {
+        _loadingContext = context;
+        return AlertDialog(
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 20),
+              const SizedBox(
+                width: 50,
+                height: 50,
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.deepOrange),
+                  strokeWidth: 4,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                '$action $categoryName...',
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'This may take a few seconds',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _closeLoadingDialog() {
+    if (_loadingContext != null && mounted && Navigator.canPop(_loadingContext!)) {
+      Navigator.of(_loadingContext!).pop();
+      _loadingContext = null;
+    }
+  }
+
+  /// Show icon picker dialog for custom icon selection
+  Future<IconData?> _showIconPicker(BuildContext context, IconData currentIcon, Color selectedColor) async {
+    IconData selectedIcon = currentIcon;
+    
+    final List<IconData> allIcons = [
+      Icons.shopping_cart, Icons.shopping_bag, Icons.store,
+      Icons.storefront, Icons.local_grocery_store, Icons.shopping_basket,
+      Icons.kitchen, Icons.restaurant, Icons.local_cafe,
+      Icons.bakery_dining, Icons.local_pizza, Icons.wine_bar,
+      Icons.local_bar, Icons.cake, Icons.icecream,
+      Icons.fastfood, Icons.lunch_dining, Icons.local_dining,
+      Icons.food_bank, Icons.egg_alt, Icons.breakfast_dining,
+      Icons.ramen_dining, Icons.apple, Icons.water_drop,
+      Icons.cleaning_services, Icons.shower, Icons.soap,
+      Icons.sanitizer, Icons.local_pharmacy, Icons.medication,
+      Icons.vaccines, Icons.checkroom, Icons.dry_cleaning,
+      Icons.print, Icons.toys, Icons.sports_basketball,
+      Icons.fitness_center, Icons.pets, Icons.emoji_nature,
+      Icons.yard, Icons.local_florist, Icons.brightness_5,
+      Icons.lightbulb, Icons.power, Icons.electrical_services,
+      Icons.plumbing, Icons.hardware, Icons.build,
+      Icons.handyman, Icons.carpenter, Icons.home_repair_service,
+      Icons.construction, Icons.settings, Icons.phone_android,
+      Icons.computer, Icons.headphones, Icons.watch,
+      Icons.camera_alt, Icons.videogame_asset, Icons.sports_esports,
+      Icons.book, Icons.menu_book, Icons.library_books,
+      Icons.school, Icons.brush, Icons.palette,
+    ];
+
+    return showDialog<IconData>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Choose Icon'),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: GridView.builder(
+                  shrinkWrap: true,
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 5,
+                    crossAxisSpacing: 8,
+                    mainAxisSpacing: 8,
+                  ),
+                  itemCount: allIcons.length,
+                  itemBuilder: (context, index) {
+                    final icon = allIcons[index];
+                    final isSelected = selectedIcon.codePoint == icon.codePoint;
+                    return GestureDetector(
+                      onTap: () {
+                        setState(() {
+                          selectedIcon = icon;
+                        });
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? selectedColor.withOpacity(0.2)
+                              : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(8),
+                          border: isSelected
+                              ? Border.all(color: selectedColor, width: 2)
+                              : Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Icon(
+                          icon,
+                          color: isSelected ? selectedColor : Colors.grey.shade600,
+                          size: 24,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(selectedIcon),
+                  style: ElevatedButton.styleFrom(backgroundColor: selectedColor),
+                  child: const Text('Select', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  /// Show color picker dialog for custom color selection
+  Future<Color?> _showColorPicker(BuildContext context, Color currentColor) async {
+    Color selectedColor = currentColor;
+    double hue = HSVColor.fromColor(currentColor).hue;
+    double saturation = HSVColor.fromColor(currentColor).saturation;
+    double value = HSVColor.fromColor(currentColor).value;
+
+    return showDialog<Color>(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            selectedColor = HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
+            
+            return AlertDialog(
+              title: const Text('Choose Custom Color'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Color preview
+                    Container(
+                      width: double.infinity,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: selectedColor,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300, width: 2),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    // Hue slider
+                    Row(
+                      children: [
+                        const Text('Hue:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Expanded(
+                          child: Slider(
+                            value: hue,
+                            min: 0,
+                            max: 360,
+                            divisions: 360,
+                            onChanged: (value) {
+                              setState(() {
+                                hue = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Saturation slider
+                    Row(
+                      children: [
+                        const Text('Saturation:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Expanded(
+                          child: Slider(
+                            value: saturation,
+                            min: 0,
+                            max: 1,
+                            divisions: 100,
+                            onChanged: (value) {
+                              setState(() {
+                                saturation = value;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Value/Brightness slider
+                    Row(
+                      children: [
+                        const Text('Brightness:', style: TextStyle(fontWeight: FontWeight.w600)),
+                        Expanded(
+                          child: Slider(
+                            value: value,
+                            min: 0,
+                            max: 1,
+                            divisions: 100,
+                            onChanged: (newValue) {
+                              setState(() {
+                                value = newValue;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.of(context).pop(selectedColor),
+                  style: ElevatedButton.styleFrom(backgroundColor: selectedColor),
+                  child: const Text('Select', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showEditCategoryDialog(Category childCategory) {
+    final TextEditingController nameController = TextEditingController(text: childCategory.name);
+    final TextEditingController descriptionController = TextEditingController(text: childCategory.description ?? '');
+    Color selectedColor = childCategory.color;
+    IconData selectedIcon = childCategory.icon;
+
+    final List<Color> colors = [
+      Colors.deepOrange,
+      Colors.green,
+      Colors.blue,
+      Colors.purple,
+      Colors.red,
+      Colors.teal,
+      Colors.pink,
+      Colors.indigo,
+    ];
+
+    final List<IconData> icons = [
+      Icons.shopping_cart,
+      Icons.shopping_bag,
+      Icons.store,
+      Icons.local_grocery_store,
+      Icons.restaurant,
+      Icons.local_cafe,
+      Icons.cleaning_services,
+      Icons.local_pharmacy,
+    ];
+
+    showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Container(
+                width: MediaQuery.of(context).size.width * 0.9,
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.85,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Edit ${nameController.text} Category',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: selectedColor,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      TextField(
+                        controller: nameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Category Name',
+                          border: OutlineInputBorder(),
+                          hintText: 'e.g., Groceries, Electronics, Dairy',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      
+                      TextField(
+                        controller: descriptionController,
+                        decoration: const InputDecoration(
+                          labelText: 'Description',
+                          border: OutlineInputBorder(),
+                          hintText: 'Brief description of this category',
+                        ),
+                        maxLines: 2,
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Color Selection
+                      const Text(
+                        'Choose Color:',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          ...colors.map((color) {
+                            return GestureDetector(
+                              onTap: () {
+                                setDialogState(() {
+                                  selectedColor = color;
+                                });
+                              },
+                              child: Container(
+                                width: 28,
+                                height: 28,
+                                decoration: BoxDecoration(
+                                  color: color,
+                                  shape: BoxShape.circle,
+                                  border: selectedColor == color
+                                      ? Border.all(color: Colors.black, width: 2)
+                                      : null,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          // More colors button
+                          GestureDetector(
+                            onTap: () async {
+                              final color = await _showColorPicker(context, selectedColor);
+                              if (color != null) {
+                                setDialogState(() {
+                                  selectedColor = color;
+                                });
+                              }
+                            },
+                            child: Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  colors: [
+                                    Colors.red,
+                                    Colors.orange,
+                                    Colors.yellow,
+                                    Colors.green,
+                                    Colors.blue,
+                                    Colors.purple,
+                                  ],
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                ),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.grey.shade400, width: 1),
+                              ),
+                              child: const Icon(
+                                Icons.add,
+                                color: Colors.white,
+                                size: 16,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Icon Selection
+                      Row(
+                        children: [
+                          const Text(
+                            'Choose Icon:',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const Spacer(),
+                          // Selected icon preview
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: selectedColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: selectedColor, width: 2),
+                            ),
+                            child: Icon(
+                              selectedIcon,
+                              color: selectedColor,
+                              size: 28,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: icons.map((icon) {
+                          bool isSelected = selectedIcon.codePoint == icon.codePoint;
+                          return GestureDetector(
+                            onTap: () {
+                              setDialogState(() {
+                                selectedIcon = icon;
+                              });
+                            },
+                            child: Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isSelected
+                                    ? selectedColor.withOpacity(0.2)
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                                border: isSelected
+                                    ? Border.all(color: selectedColor, width: 2)
+                                    : null,
+                              ),
+                              child: Icon(
+                                icon,
+                                color: isSelected
+                                    ? selectedColor
+                                    : Colors.grey,
+                                size: 20,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                      // More icons button
+                      GestureDetector(
+                        onTap: () async {
+                          final IconData? pickedIcon = await _showIconPicker(context, selectedIcon, selectedColor);
+                          if (pickedIcon != null) {
+                            setDialogState(() {
+                              selectedIcon = pickedIcon;
+                            });
+                          }
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.apps, size: 16, color: Colors.grey.shade700),
+                              const SizedBox(width: 6),
+                              Text(
+                                'More icons...',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextButton(
+                              onPressed: () {
+                                if (Navigator.canPop(dialogContext)) {
+                                  Navigator.of(dialogContext).pop();
+                                }
+                              },
+                              child: const Text('Cancel'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: TextButton(
+                              onPressed: () => _showDeleteConfirmation(dialogContext, childCategory),
+                              style: TextButton.styleFrom(
+                                foregroundColor: Colors.red,
+                              ),
+                              child: const Text('Delete'),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 3,
+                            child: ElevatedButton(
+                              onPressed: () async {
+                                if (nameController.text.isNotEmpty) {
+                                  // Store context before async operations
+                                  final scaffoldContext = context;
+                                  final messenger = ScaffoldMessenger.of(scaffoldContext);
+                                  
+                                  try {
+                                    // Close the dialog first
+                                    if (Navigator.canPop(dialogContext)) {
+                                      Navigator.of(dialogContext).pop();
+                                    }
+                                    
+                                    // Show loading dialog
+                                    _showLoadingDialog(scaffoldContext, nameController.text, action: 'Updating');
+                                    
+                                    // Update the child category in the database
+                                    await CategoryService.updateCategory(
+                                      id: childCategory.id,
+                                      name: nameController.text,
+                                      description: descriptionController.text.isNotEmpty
+                                          ? descriptionController.text
+                                          : 'Custom super market category',
+                                      parentId: superMarketCategory?.id,
+                                      iconCode: selectedIcon.codePoint,
+                                      colorValue: '0x${selectedColor.value.toRadixString(16).padLeft(8, '0').toUpperCase()}',
+                                    );
+
+                                    // Refresh the child categories
+                                    await _refreshChildCategories();
+
+                                    // Close loading dialog
+                                    _closeLoadingDialog();
+
+                                    // Show success message
+                                    if (mounted) {
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text('${nameController.text} category updated successfully!'),
+                                          backgroundColor: Colors.green,
+                                          duration: const Duration(seconds: 2),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    // Close loading dialog safely
+                                    _closeLoadingDialog();
+                                    
+                                    // Show error message
+                                    if (mounted) {
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text('Failed to update category: ${e.toString()}'),
+                                          backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 3),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                } else {
+                                  // Show validation error
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Please enter a category name'),
+                                      backgroundColor: Colors.orange,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
+                                }
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: selectedColor,
+                              ),
+                              child: const Text(
+                                'Update',
+                                style: TextStyle(color: Colors.white),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _showDeleteConfirmation(BuildContext dialogContext, Category subCategory) {
+    showDialog(
+      context: context,
+      builder: (BuildContext confirmContext) {
+        return AlertDialog(
+          title: const Text('Delete Category'),
+          content: Text('Are you sure you want to delete "${subCategory.name}"? This action cannot be undone.'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(confirmContext).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Capture scaffold context before closing dialogs
+                final scaffoldContext = context;
+
+                try {
+                  // Close both dialogs
+                  Navigator.of(confirmContext).pop();
+                  if (Navigator.canPop(dialogContext)) {
+                    Navigator.of(dialogContext).pop();
+                  }
+
+                  // Show loading dialog
+                  _showLoadingDialog(scaffoldContext, subCategory.name, action: 'Deleting');
+
+                  // Delete the child category from the database
+                  await CategoryService.deleteCategory(subCategory.id);
+
+                  // Refresh the child categories
+                  await _refreshChildCategories();
+
+                  // Close loading dialog
+                  _closeLoadingDialog();
+
+                  // Show success message
+                  if (mounted) {
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                      SnackBar(
+                        content: Text('${subCategory.name} deleted successfully!'),
+                        backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  // Close loading dialog safely
+                  _closeLoadingDialog();
+
+                  // Show error message
+                  if (mounted) {
+                    ScaffoldMessenger.of(scaffoldContext).showSnackBar(
+                      SnackBar(
+                        content: Text('Failed to delete category: ${e.toString()}'),
+                        backgroundColor: Colors.red,
+                        duration: const Duration(seconds: 3),
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _showAddCategoryDialog() {
@@ -147,22 +834,14 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
     ];
     
     final List<IconData> icons = [
-      Icons.restaurant,
-      Icons.delete,
-      Icons.store,
-      Icons.bed,
-      Icons.wine_bar,
-      Icons.sports_basketball,
-      Icons.local_cafe,
-      Icons.cake,
-      Icons.diamond,
+      Icons.shopping_cart,
       Icons.shopping_bag,
-      Icons.kitchen,
-      Icons.lunch_dining,
-      Icons.local_dining,
-      Icons.local_offer,
-      Icons.local_shipping,
-      Icons.local_movies,
+      Icons.store,
+      Icons.local_grocery_store,
+      Icons.restaurant,
+      Icons.local_cafe,
+      Icons.cleaning_services,
+      Icons.local_pharmacy,
     ];
 
     showDialog(
@@ -245,14 +924,64 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 12),
+                      // More colors button
+                      GestureDetector(
+                        onTap: () async {
+                          final Color? pickedColor = await _showColorPicker(context, selectedColor);
+                          if (pickedColor != null) {
+                            setDialogState(() {
+                              selectedColor = pickedColor;
+                            });
+                          }
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.palette, size: 16, color: Colors.grey.shade700),
+                              const SizedBox(width: 6),
+                              Text(
+                                'More colors...',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
 
                       // Icon Selection
-                      const Text(
-                        'Choose Icon:',
-                        style: TextStyle(fontWeight: FontWeight.w600),
+                      Row(
+                        children: [
+                          const Text(
+                            'Choose Icon:',
+                            style: TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const Spacer(),
+                          // Selected icon preview
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: selectedColor.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: selectedColor, width: 2),
+                            ),
+                            child: Icon(
+                              selectedIcon,
+                              color: selectedColor,
+                              size: 28,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 8),
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -287,7 +1016,38 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                           );
                         }).toList(),
                       ),
-                      const SizedBox(height: 16),
+                      // More icons button
+                      GestureDetector(
+                        onTap: () async {
+                          final IconData? pickedIcon = await _showIconPicker(context, selectedIcon, selectedColor);
+                          if (pickedIcon != null) {
+                            setDialogState(() {
+                              selectedIcon = pickedIcon;
+                            });
+                          }
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.only(top: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.grey.shade300),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.apps, size: 16, color: Colors.grey.shade700),
+                              const SizedBox(width: 6),
+                              Text(
+                                'More icons...',
+                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 14),
                       
                       Row(
                         children: [
@@ -317,6 +1077,9 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                       Navigator.of(dialogContext).pop();
                                     }
                                     
+                                    // Show loading dialog
+                                    _showLoadingDialog(scaffoldContext, nameController.text, action: 'Creating');
+                                    
                                     // Create the new child category
                                     await CategoryService.createCategoryForAccount(
                                       name: nameController.text,
@@ -331,6 +1094,9 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                     // Refresh the child categories
                                     await _refreshChildCategories();
 
+                                    // Close loading dialog
+                                    _closeLoadingDialog();
+
                                     // Show success message
                                     if (mounted) {
                                       messenger.showSnackBar(
@@ -342,6 +1108,9 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                       );
                                     }
                                   } catch (e) {
+                                    // Close loading dialog safely
+                                    _closeLoadingDialog();
+                                    
                                     // Show error message
                                     if (mounted) {
                                       messenger.showSnackBar(
@@ -384,30 +1153,6 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
         );
       },
     );
-  }
-
-  Color _getColorForIndex(int index) {
-    final colors = [
-      const Color(0xFF43A047), // Bright Green
-      const Color(0xFFD81B60), // Bright Pink
-      const Color(0xFF3949AB), // Bright Indigo
-      const Color(0xFFF4511E), // Deep Orange
-      const Color(0xFF00897B), // Teal
-      const Color(0xFF5E35B1), // Deep Purple
-      const Color(0xFFFFB300), // Amber
-      const Color(0xFFD32F2F), // Deep Red
-      const Color(0xFF1976D2), // Strong Blue
-      const Color(0xFF388E3C), // Strong Green
-      const Color(0xFFC2185B), // Strong Pink
-      const Color(0xFF7B1FA2), // Strong Purple
-      const Color(0xFF0288D1), // Strong Cyan
-      const Color(0xFFF57C00), // Strong Orange
-      const Color(0xFF689F38), // Light Green
-    ];
-
-    // Use modulo with absolute value to get a consistent color index
-    final colorIndex = (index.hashCode.abs()) % colors.length;
-    return colors[colorIndex];
   }
 
   @override
@@ -502,7 +1247,7 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
                                       children: [
-                                        Icon(Icons.store, color: Colors.white, size: 36),
+                                        Icon(Icons.local_grocery_store, color: Colors.white, size: 36),
                                         const SizedBox(height: 12),
                                         const Text(
                                           'Super Market',
@@ -565,7 +1310,7 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                       (context, index) {
                                         final category = childCategories[index];
                                         final productCount = productCounts[category.id] ?? 0;
-                                        final color = _getColorForIndex(index);
+                                        final color = category.color;
 
                                         return GestureDetector(
                                           onTap: () => _onChildCategoryTap(category.id),
@@ -625,16 +1370,19 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                                                 size: 24,
                                                               ),
                                                             ),
-                                                            Container(
-                                                              padding: const EdgeInsets.all(8),
-                                                              decoration: BoxDecoration(
-                                                                color: Colors.white.withOpacity(0.2),
-                                                                borderRadius: BorderRadius.circular(8),
-                                                              ),
-                                                              child: Icon(
-                                                                Icons.edit,
-                                                                color: Colors.white,
-                                                                size: 18,
+                                                            GestureDetector(
+                                                              onTap: () => _showEditCategoryDialog(category),
+                                                              child: Container(
+                                                                padding: const EdgeInsets.all(8),
+                                                                decoration: BoxDecoration(
+                                                                  color: Colors.white.withOpacity(0.2),
+                                                                  borderRadius: BorderRadius.circular(8),
+                                                                ),
+                                                                child: Icon(
+                                                                  Icons.edit,
+                                                                  color: Colors.white,
+                                                                  size: 18,
+                                                                ),
                                                               ),
                                                             ),
                                                           ],
@@ -663,7 +1411,7 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                                                 borderRadius: BorderRadius.circular(6),
                                                               ),
                                                               child: Text(
-                                                                '🛒 $productCount products',
+                                                                '🛒 $productCount ${productCount == 1 ? 'product' : 'products'}',
                                                                 style: TextStyle(
                                                                   fontSize: 12,
                                                                   color: color,
