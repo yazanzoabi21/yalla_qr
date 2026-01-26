@@ -6,6 +6,7 @@ import 'package:yalla_qr/services/auth_service.dart';
 import 'package:phone_numbers_parser/phone_numbers_parser.dart';
 import '../../utils/navigation_helper.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:geolocator/geolocator.dart';
 import 'dart:io';
 
 class SignupScreen extends StatefulWidget {
@@ -1530,7 +1531,51 @@ class _SignupScreenState extends State<SignupScreen> {
         String errorMessage = 'Error creating account: ${error.toString()}';
         bool showSignInAction = false;
 
-        if (error.toString().contains('already registered') ||
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        debugPrint('❌ [SignupScreen] Signup error caught');
+        debugPrint('   Error type: ${error.runtimeType}');
+        debugPrint('   Error message: $error');
+        debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+        // Handle location-specific errors
+        if (error.toString().contains('location_services_disabled')) {
+          errorMessage =
+              'Location services are disabled. Please enable them in device settings and try again.';
+          if (mounted) {
+            _showLocationErrorDialog(
+              'Location Services Disabled',
+              errorMessage,
+              onEnable: () {
+                Geolocator.openLocationSettings();
+              },
+            );
+          }
+          return;
+        } else if (error.toString().contains('location_permission_permanently_denied')) {
+          errorMessage =
+              'Location permission is permanently denied. Please enable it in app settings.';
+          if (mounted) {
+            _showLocationErrorDialog(
+              'Location Permission Required',
+              errorMessage,
+              onEnable: () {
+                Geolocator.openAppSettings();
+              },
+            );
+          }
+          return;
+        } else if (error.toString().contains('location_permission_denied')) {
+          errorMessage =
+              'Location access is required to create an account. Please grant location permission.';
+          if (mounted) {
+            _showLocationErrorDialog(
+              'Location Permission Required',
+              errorMessage,
+              onRetry: _handleSignup,
+            );
+          }
+          return;
+        } else if (error.toString().contains('already registered') ||
             error.toString().contains('User already registered')) {
           errorMessage =
               'This email is already registered. Please try signing in instead.';
@@ -1567,5 +1612,50 @@ class _SignupScreenState extends State<SignupScreen> {
         }
       }
     }
+  }
+
+  /// Show location error dialog with action buttons
+  void _showLocationErrorDialog(
+    String title,
+    String message, {
+    VoidCallback? onEnable,
+    VoidCallback? onRetry,
+  }) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.location_on, color: Colors.red.shade600),
+            const SizedBox(width: 12),
+            Expanded(child: Text(title)),
+          ],
+        ),
+        content: Text(message),
+        actions: [
+          if (onRetry != null)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                onRetry();
+              },
+              child: const Text('Retry'),
+            ),
+          if (onEnable != null)
+            ElevatedButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                onEnable();
+              },
+              icon: const Icon(Icons.settings),
+              label: const Text('Open Settings'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue.shade600,
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }

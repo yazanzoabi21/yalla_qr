@@ -45,3 +45,7 @@ ios/Flutter/engine/
 *.lock
 *.log
 *.DS_Store
+
+# Local secret configs
+notification_config.json
+.env

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:geolocator/geolocator.dart';
 import '../exceptions/category_not_registered_exception.dart';
 import 'qr_code_service.dart';
 
@@ -10,6 +11,60 @@ class AuthService {
   AuthService(this._client) {
     _qrCodeService = QRCodeService(_client);
   }
+
+  /// Get real GPS location from device - MANDATORY for signup
+  /// Keeps requesting until permission is granted or throws error
+  Future<Map<String, double>> _getMandatoryGpsLocation() async {
+    try {
+      debugPrint('📍 [AuthService] Starting mandatory GPS location request');
+      
+      // Check if location services are enabled
+      final isLocationServiceEnabled =
+          await Geolocator.isLocationServiceEnabled();
+      
+      if (!isLocationServiceEnabled) {
+        debugPrint('❌ [AuthService] Location services are disabled');
+        throw Exception(
+          'location_services_disabled',
+        );
+      }
+
+      // Request permission
+      LocationPermission permission = await Geolocator.checkPermission();
+      
+      if (permission == LocationPermission.denied) {
+        debugPrint('📍 [AuthService] Location permission not granted, requesting...');
+        permission = await Geolocator.requestPermission();
+      }
+      
+      if (permission == LocationPermission.deniedForever) {
+        debugPrint('❌ [AuthService] Location permission permanently denied');
+        throw Exception(
+          'location_permission_permanently_denied',
+        );
+      }
+
+      if (permission == LocationPermission.denied) {
+        debugPrint('❌ [AuthService] Location permission denied by user');
+        throw Exception(
+          'location_permission_denied',
+        );
+      }
+
+      // Get current position
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: const Duration(seconds: 30),
+      );
+      
+      debugPrint('✅ [AuthService] Got GPS location: ${position.latitude}, ${position.longitude}');
+      return {'lat': position.latitude, 'lng': position.longitude};
+    } catch (e) {
+      debugPrint('❌ [AuthService] Error getting GPS location: $e');
+      rethrow;
+    }
+  }
+
   Future<void> signUpUser({
     required String email,
     required String password,
@@ -28,6 +83,13 @@ class AuthService {
     debugPrint('   🎭 Role: ${role ?? "USER (default)"}');
     
     try {
+      // ⚠️ IMPORTANT: Get GPS coordinates FIRST before auth.signUp()
+      // This prevents creating orphaned auth users if location fails
+      debugPrint('📍 [AuthService] Getting GPS location BEFORE auth signup...');
+      final coords = await _getMandatoryGpsLocation();
+      debugPrint('✅ [AuthService] GPS location confirmed: (${coords['lat']}, ${coords['lng']})');
+
+      // Now that we have GPS, proceed with auth signup
       final AuthResponse response = await _client.auth.signUp(
         email: email,
         password: password,
@@ -69,14 +131,14 @@ class AuthService {
       'name': name.trim(),
       'phone': phone != null && phone.trim().isNotEmpty ? phone.trim() : null,
       'description': description != null && description.trim().isNotEmpty
-          ? description.trim()
-          : null,
+        ? description.trim()
+        : null,
       'location_address':
-          locationAddress != null && locationAddress.trim().isNotEmpty
-          ? locationAddress.trim()
-          : null,
-      'location_lat': null,
-      'location_lng': null,
+        locationAddress != null && locationAddress.trim().isNotEmpty
+        ? locationAddress.trim()
+        : null,
+      'location_lat': coords['lat'],
+      'location_lng': coords['lng'],
       'logo_url': logoUrl,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
@@ -179,6 +241,11 @@ class AuthService {
     } catch (e) {
       String errorString = e.toString().toLowerCase();
       
+      debugPrint('❌ [AuthService] Exception in signUpUser');
+      debugPrint('   Raw error: $e');
+      debugPrint('   Error lowercase: $errorString');
+      debugPrint('   Error type: ${e.runtimeType}');
+      
       if (errorString.contains('user already registered') || 
           errorString.contains('email already registered') ||
           errorString.contains('already registered')) {
@@ -190,6 +257,8 @@ class AuthService {
       }
       
       // Re-throw the original exception if not matched
+      debugPrint('❌ [AuthService.signUpUser] Signup error: $e');
+      debugPrint('   Error string: $errorString');
       rethrow;
     }
   }

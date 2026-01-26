@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    
+    <!-- Simplified QR code pattern for notification icon -->
+    <!-- Top-left corner square -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2,2h7v7h-7zM3.5,3.5v4h4v-4z"/>
+    
+    <!-- Top-right corner square -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15,2h7v7h-7zM16.5,3.5v4h4v-4z"/>
+    
+    <!-- Bottom-left corner square -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M2,15h7v7h-7zM3.5,16.5v4h4v-4z"/>
+    
+    <!-- QR code pattern blocks in the center and bottom-right -->
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M11,2h2v2h-2zM11,5h2v2h-2zM11,11h2v2h-2zM11,15h2v2h-2zM11,19h2v2h-2z"/>
+    
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:pathData="M15,11h2v2h-2zM18,11h2v2h-2zM15,14h2v2h-2zM18,14h2v2h-2zM15,17h2v2h-2zM18,17h2v2h-2zM15,20h2v2h-2zM18,20h2v2h-2z"/>
+</vector>

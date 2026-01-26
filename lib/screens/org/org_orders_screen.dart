@@ -20,6 +20,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   List<Map<String, dynamic>> _deliveryAccounts = [];
   bool _isLoading = true;
   String? _orgAccountId;
+  double? _orgLocationLat;
+  double? _orgLocationLng;
   double? _usdRate;
   String _selectedFilter = 'ALL';
 
@@ -104,13 +106,15 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       if (user != null) {
         final orgAccount = await Supabase.instance.client
             .from('accounts')
-            .select('id')
+            .select('id, location_lat, location_lng')
             .eq('owner_id', user.id)
             .eq('role', 'ORG')
             .maybeSingle();
 
         if (orgAccount != null) {
           _orgAccountId = orgAccount['id'] as String;
+          _orgLocationLat = (orgAccount['location_lat'] as num?)?.toDouble();
+          _orgLocationLng = (orgAccount['location_lng'] as num?)?.toDouble();
 
           // Load orders with delivery info
           final orders = await _orderService.getOrganizationOrdersWithDelivery(
@@ -136,8 +140,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             }
           }
 
-          // Load delivery accounts
-          final deliveryAccounts = await _orderService.getDeliveryAccounts();
+          // Load delivery accounts with proximity filtering
+          final deliveryAccounts = await _orderService.getDeliveryAccounts(
+            orgLocationLat: _orgLocationLat,
+            orgLocationLng: _orgLocationLng,
+          );
 
           if (mounted) {
             // Resolve delivery_notes_by account names in bulk to avoid per-card queries
@@ -321,6 +328,29 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     }
 
     String? selectedDeliveryId = currentDeliveryId;
+    double selectedDistance = 50.0; // Default distance
+    List<Map<String, dynamic>> dialogDeliveryAccounts = List.from(_deliveryAccounts);
+    bool isLoadingAccounts = false;
+
+    Future<void> loadDeliveryAccountsForDistance(StateSetter setState) async {
+      setState(() => isLoadingAccounts = true);
+      
+      final accounts = await _orderService.getDeliveryAccounts(
+        orgLocationLat: _orgLocationLat,
+        orgLocationLng: _orgLocationLng,
+        maxDistanceKm: selectedDistance,
+      );
+      
+      setState(() {
+        dialogDeliveryAccounts = accounts;
+        isLoadingAccounts = false;
+        // Reset selection if current delivery not in filtered list
+        if (selectedDeliveryId != null && 
+            !accounts.any((a) => a['id'] == selectedDeliveryId)) {
+          selectedDeliveryId = null;
+        }
+      });
+    }
 
     await showDialog(
       context: context,
@@ -345,7 +375,76 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 style: TextStyle(color: Colors.grey.shade600),
               ),
               const SizedBox(height: 16),
-              if (_deliveryAccounts.isEmpty)
+              
+              // Distance selector
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade100),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, size: 18, color: Colors.blue.shade700),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Search Distance',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [10.0, 25.0, 50.0, 100.0].map((distance) {
+                        final isSelected = selectedDistance == distance;
+                        return ChoiceChip(
+                          label: Text('${distance.toInt()} km'),
+                          selected: isSelected,
+                          onSelected: (selected) async {
+                            if (selected) {
+                              setDialogState(() => selectedDistance = distance);
+                              await loadDeliveryAccountsForDistance(setDialogState);
+                            }
+                          },
+                          selectedColor: Colors.blue.shade600,
+                          labelStyle: TextStyle(
+                            color: isSelected ? Colors.white : Colors.blue.shade700,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Showing delivery accounts within ${selectedDistance.toInt()}km',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              if (isLoadingAccounts)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else if (dialogDeliveryAccounts.isEmpty)
+              // else if (dialogDeliveryAccounts.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -356,8 +455,10 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                     children: [
                       Icon(Icons.warning, color: Colors.orange.shade700),
                       const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text('No delivery accounts available'),
+                      Expanded(
+                        child: Text(
+                          'No delivery accounts within ${selectedDistance.toInt()}km. Try increasing the distance.',
+                        ),
                       ),
                     ],
                   ),
@@ -377,7 +478,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       value: null,
                       child: Text('-- No Assignment --'),
                     ),
-                    ..._deliveryAccounts.map(
+                    ...dialogDeliveryAccounts.map(
                       (d) => DropdownMenuItem<String>(
                         value: d['id'] as String,
                         child: Text(d['name'] as String? ?? 'Unknown'),

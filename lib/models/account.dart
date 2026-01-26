@@ -78,6 +78,8 @@ class Account {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'role': role,
+      'qr_code': qrCode,
+      'category_ids': categoryIds,
     };
   }
 

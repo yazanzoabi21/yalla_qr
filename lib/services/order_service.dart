@@ -1,13 +1,17 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/order.dart';
 import '../models/cart.dart';
 // import '../models/cart_item.dart'; // not required here
 import '../models/order_delivery_assignment.dart';
+import 'notification_service.dart';
 
 /// Service for managing orders
 class OrderService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  final NotificationService _notificationService = NotificationService();
 
   /// Create an order from a cart
   Future<Order?> createOrderFromCart(Cart cart, {Map<String, dynamic>? customerInfo}) async {
@@ -130,6 +134,30 @@ class OrderService {
       debugPrint('   ✅ Product quantities updated');
       debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
+      // Notify the organization about the new order
+      try {
+        final customerAccount = await _supabase
+            .from('accounts')
+            .select('name')
+            .eq('owner_id', user.id)
+            .maybeSingle();
+        
+        final customerName = customerAccount?['name'] ?? user.email ?? 'Customer';
+        
+        await _notificationService.notifyOrgNewOrder(
+          orgAccountId: cart.organizationId,
+          orderNumber: orderId.substring(0, 8),
+          customerName: customerName,
+          totalAmount: totalAmount,
+          currency: currencyCode,
+        );
+        
+        debugPrint('   ✅ Organization notified about new order');
+      } catch (e) {
+        debugPrint('   ⚠️ Could not send notification to organization: $e');
+        // Don't fail the order creation if notification fails
+      }
+
       // Return the created order
       return Order.fromJson(orderResponse);
     } catch (e) {
@@ -240,19 +268,71 @@ class OrderService {
   // ============== DELIVERY ASSIGNMENT METHODS ==============
 
   /// Get all delivery accounts
-  Future<List<Map<String, dynamic>>> getDeliveryAccounts() async {
+  /// If [orgLocationLat] and [orgLocationLng] are provided, only returns delivery
+  /// accounts within [maxDistanceKm] of the organization's location.
+  /// Default max distance is 50 km.
+  Future<List<Map<String, dynamic>>> getDeliveryAccounts({
+    double? orgLocationLat,
+    double? orgLocationLng,
+    double maxDistanceKm = 50.0,
+  }) async {
     try {
       final response = await _supabase
           .from('accounts')
-          .select('id, name, phone, email')
+          .select('id, name, phone, email, location_lat, location_lng')
           .eq('role', 'DELIVERY')
           .order('name');
 
-      return (response as List).cast<Map<String, dynamic>>();
+      final allAccounts = (response as List).cast<Map<String, dynamic>>();
+
+      // If no org location provided, return all accounts
+      if (orgLocationLat == null || orgLocationLng == null) {
+        debugPrint('⚠️ [OrderService] No org location provided - returning all delivery accounts');
+        return allAccounts;
+      }
+
+      // Filter by proximity using Haversine formula
+      final nearbyAccounts = allAccounts.where((account) {
+        final lat = (account['location_lat'] as num?)?.toDouble();
+        final lng = (account['location_lng'] as num?)?.toDouble();
+
+        // Skip accounts without location data
+        if (lat == null || lng == null) {
+          debugPrint('⚠️ [OrderService] Skipping account ${account['name']} - no location data');
+          return false;
+        }
+
+        final distance = _calculateDistance(orgLocationLat, orgLocationLng, lat, lng);
+        debugPrint('📍 [OrderService] ${account['name']}: ${distance.toStringAsFixed(2)} km away');
+        return distance <= maxDistanceKm;
+      }).toList();
+
+      debugPrint('✅ [OrderService] Found ${nearbyAccounts.length}/${allAccounts.length} delivery accounts within ${maxDistanceKm}km');
+      return nearbyAccounts;
     } catch (e) {
       debugPrint('❌ [OrderService] Error fetching delivery accounts: $e');
       return [];
     }
+  }
+
+  /// Calculate distance between two coordinates using Haversine formula (in kilometers)
+  double _calculateDistance(double lat1, double lng1, double lat2, double lng2) {
+    const double earthRadiusKm = 6371.0;
+    
+    final dLat = _toRadians(lat2 - lat1);
+    final dLng = _toRadians(lng2 - lng1);
+    
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(_toRadians(lat1)) * cos(_toRadians(lat2)) *
+        sin(dLng / 2) * sin(dLng / 2);
+    
+    final c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    
+    return earthRadiusKm * c;
+  }
+
+  double _toRadians(double degrees) {
+    return degrees * pi / 180;
   }
 
   /// Assign a delivery person to an order
@@ -276,6 +356,31 @@ class OrderService {
       
       // Update order status to CONFIRMED
       await updateOrderStatus(orderId, 'CONFIRMED');
+      
+      // Notify delivery person about the assignment
+      try {
+        final orderData = await _supabase
+            .from('orders')
+            .select('account:accounts!fk_order_account(name, location_address), delivery_address')
+            .eq('id', orderId)
+            .single();
+        
+        final orgAccount = orderData['account'] as Map<String, dynamic>?;
+        final pickupAddress = orgAccount?['location_address'] ?? 'Store location';
+        final deliveryAddress = orderData['delivery_address'] ?? 'Customer address';
+        
+        await _notificationService.notifyDeliveryAssignment(
+          deliveryAccountId: deliveryAccountId,
+          orderNumber: orderId.substring(0, 8),
+          pickupAddress: pickupAddress,
+          deliveryAddress: deliveryAddress,
+        );
+        
+        debugPrint('   ✅ Delivery person notified about assignment');
+      } catch (e) {
+        debugPrint('   ⚠️ Could not send notification to delivery person: $e');
+        // Don't fail the assignment if notification fails
+      }
       
       return OrderDeliveryAssignment.fromJson(response);
     } catch (e) {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "797114202880",
+    "project_id": "yallqr",
+    "storage_bucket": "yallqr.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:797114202880:android:2730d6ceb33766d88451e5",
+        "android_client_info": {
+          "package_name": "com.example.yalla_qr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCUI8TxZoP0Q9ZvApYJv5Jz_w6TTvNSUa4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

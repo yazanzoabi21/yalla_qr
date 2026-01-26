@@ -22,11 +22,18 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
+    <!-- Push notifications (Android 13+, API 33+) -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <application
         android:label="yalla_qr"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:enableOnBackInvokedCallback="true">
+        <!-- OneSignal App ID (client-safe) - ensures native SDK initializes with the correct app id -->
+        <meta-data
+            android:name="onesignal_app_id"
+            android:value="7bf37a7f-afd5-4a7d-b5e7-b3a7257392bf" />
         <activity
             android:name=".MainActivity"
             android:exported="true"

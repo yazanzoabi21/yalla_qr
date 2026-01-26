@@ -5,9 +5,11 @@ import '../models/delivery_live_location.dart';
 import '../models/delivery_location_history.dart';
 import '../models/delivery_status.dart';
 import 'package:flutter/material.dart' show debugPrint;
+import 'notification_service.dart';
 
 class DeliveryTrackingService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  final NotificationService _notificationService = NotificationService();
   
   static const String _liveLocationsTable = 'delivery_live_locations';
   static const String _locationHistoryTable = 'delivery_location_history';
@@ -110,6 +112,35 @@ class DeliveryTrackingService {
         },
         onConflict: 'assignment_id',
       );
+
+      // Notify customer about delivery status change
+      try {
+        // Get order and customer info from assignment
+        final assignmentData = await _supabase
+            .from('order_delivery_assignments')
+            .select('order_id, order:orders!fk_order_delivery_order(customer_id, account:accounts!fk_order_customer(id))')
+            .eq('id', assignmentId)
+            .single();
+        
+        final orderId = assignmentData['order_id'] as String;
+        final orderData = assignmentData['order'] as Map<String, dynamic>;
+        final customerAccount = orderData['account'] as Map<String, dynamic>?;
+        
+        if (customerAccount != null) {
+          final customerAccountId = customerAccount['id'] as String;
+          
+          await _notificationService.notifyUserDeliveryTracking(
+            userAccountId: customerAccountId,
+            orderNumber: orderId.substring(0, 8),
+            deliveryStatus: status.name,
+          );
+          
+          debugPrint('   ✅ Customer notified about delivery status change');
+        }
+      } catch (e) {
+        debugPrint('   ⚠️ Could not send notification to customer: $e');
+        // Don't fail the status update if notification fails
+      }
     } catch (e) {
       debugPrint('❌ Error updating delivery status: $e');
       rethrow;
