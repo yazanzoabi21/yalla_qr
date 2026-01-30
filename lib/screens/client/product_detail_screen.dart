@@ -32,8 +32,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         fullscreenDialog: true,
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
+        builder: (context) {
+          final innerTheme = Theme.of(context);
+          return Scaffold(
+          backgroundColor: innerTheme.scaffoldBackgroundColor,
           body: Stack(
             children: [
               Center(
@@ -48,11 +50,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       widget.product.imageUrl!,
                       fit: BoxFit.contain,
                       errorBuilder: (context, error, stackTrace) =>
-                          const Center(
+                          Center(
                             child: Icon(
                               Icons.broken_image,
                               size: 100,
-                              color: Colors.white54,
+                              color: innerTheme.colorScheme.onSurface.withOpacity(0.6),
                             ),
                           ),
                     ),
@@ -69,19 +71,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       icon: Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: innerTheme.cardColor,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.3),
+                              color: innerTheme.shadowColor.withOpacity(0.3),
                               blurRadius: 8,
                               spreadRadius: 2,
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.close,
-                          color: Colors.black,
+                          color: innerTheme.colorScheme.onSurface,
                           size: 24,
                         ),
                       ),
@@ -92,8 +94,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
               ),
             ],
           ),
-        ),
-      ),
+        );
+  }),
     );
   }
 
@@ -107,31 +109,33 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
 
     if (added) {
+      final theme = Theme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              Icon(Icons.check_circle, color: Colors.white),
+              Icon(Icons.check_circle, color: theme.colorScheme.onPrimary),
               const SizedBox(width: 12),
               Expanded(child: Text('${widget.product.name} added to cart')),
             ],
           ),
-          backgroundColor: Colors.green,
+          backgroundColor: theme.colorScheme.primary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
         ),
       );
     } else {
+      final theme = Theme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.warning, color: Colors.white),
+              Icon(Icons.warning, color: theme.colorScheme.onSecondary),
               const SizedBox(width: 12),
               Expanded(child: Text('Cannot add more than available stock')),
             ],
           ),
-          backgroundColor: Colors.orange,
+          backgroundColor: theme.colorScheme.secondary,
           behavior: SnackBarBehavior.floating,
           duration: const Duration(seconds: 2),
         ),
@@ -142,16 +146,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
   void _removeFromCart() {
     _cartService.removeFromCart(widget.organizationId, widget.product);
 
+    final theme = Theme.of(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
-            Icon(Icons.remove_circle, color: Colors.white),
+            Icon(Icons.remove_circle, color: theme.colorScheme.onSecondary),
             const SizedBox(width: 12),
             Expanded(child: Text('${widget.product.name} removed from cart')),
           ],
         ),
-        backgroundColor: Colors.orange,
+        backgroundColor: theme.colorScheme.secondary,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
       ),
@@ -160,8 +165,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: ListenableBuilder(
         listenable: _cartService,
         builder: (context, _) {
@@ -233,10 +239,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                   // Product Details
                   SliverToBoxAdapter(
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
+                          child: Container(
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(30),
                           topRight: Radius.circular(30),
                         ),
@@ -253,10 +259,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 Expanded(
                                   child: Text(
                                     widget.product.name,
-                                    style: const TextStyle(
+                                    style: TextStyle(
                                       fontSize: 28,
                                       fontWeight: FontWeight.w800,
-                                      color: Color(0xFF1A1A1A),
+                                      color: theme.colorScheme.onSurface,
                                       letterSpacing: 0.3,
                                     ),
                                   ),
@@ -269,11 +275,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: widget.product.isAvailable
-                                        ? Colors.green.withValues(alpha: 0.15)
-                                        : Colors.red.withValues(alpha: 0.15),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
+                                      color: widget.product.isAvailable
+                                          ? Colors.green.shade600.withOpacity(0.15)
+                                          : Colors.red.shade600.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -283,8 +289,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                             : Icons.cancel,
                                         size: 16,
                                         color: widget.product.isAvailable
-                                            ? Colors.green
-                                            : Colors.red,
+                                          ? Colors.green.shade600
+                                          : Colors.red.shade600,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
@@ -292,9 +298,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
-                                          color: widget.product.isAvailable
-                                              ? Colors.green
-                                              : Colors.red,
+                                            color: widget.product.isAvailable
+                                              ? Colors.green.shade600
+                                              : Colors.red.shade600,
                                         ),
                                       ),
                                     ],
@@ -312,10 +318,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 Text(
                                   'Price',
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey.shade600,
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                      fontSize: 12,
+                                      color: theme.textTheme.bodyMedium?.color,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -348,7 +354,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 widget.product.description!,
                                 style: TextStyle(
                                   fontSize: 15,
-                                  color: Colors.grey.shade700,
+                                  color: theme.textTheme.bodyMedium?.color,
                                   height: 1.6,
                                   fontWeight: FontWeight.w400,
                                 ),
@@ -361,17 +367,17 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: Colors.blue.withValues(alpha: 0.1),
+                                  color: widget.accentColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(12),
                                   border: Border.all(
-                                    color: Colors.blue.withValues(alpha: 0.3),
+                                    color: widget.accentColor.withOpacity(0.3),
                                   ),
                                 ),
                                 child: Row(
                                   children: [
                                     Icon(
                                       Icons.inventory_2,
-                                      color: Colors.blue.shade700,
+                                      color: widget.accentColor,
                                     ),
                                     const SizedBox(width: 12),
                                     Text(
@@ -379,7 +385,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                       style: TextStyle(
                                         fontSize: 15,
                                         fontWeight: FontWeight.w600,
-                                        color: Colors.blue.shade700,
+                                        color: widget.accentColor,
                                       ),
                                     ),
                                   ],

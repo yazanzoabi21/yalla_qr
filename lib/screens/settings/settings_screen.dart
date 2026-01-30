@@ -4,10 +4,11 @@ import '../../widgets/navbar.dart';
 import '../../widgets/qr_code_widget.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import '../../widgets/theme_selector.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String? categoryName;
-  
+
   const SettingsScreen({super.key, this.categoryName});
 
   @override
@@ -19,7 +20,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Map<String, dynamic>? _categoryInfo;
   bool _isLoading = true;
   bool _isEditing = false;
-  
+
   // Controllers for editable fields
   late TextEditingController _nameController;
   late TextEditingController _phoneController;
@@ -55,7 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final user = Supabase.instance.client.auth.currentUser;
       if (user != null) {
         debugPrint('⚙️ [Settings] Loading profile for user: ${user.email}');
-        
+
         // First get category info if categoryName is provided
         if (widget.categoryName != null) {
           final categoryResponse = await Supabase.instance.client
@@ -63,27 +64,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
               .select('*')
               .ilike('name', widget.categoryName!)
               .single();
-          
+
           setState(() {
             _categoryInfo = categoryResponse;
           });
-          
+
           debugPrint('   📂 Category context: ${_categoryInfo!['name']}');
         }
 
         // Get account profile from the accounts table based on user and category
         dynamic response;
-        
+
         // If no category is specified (home screen), prefer ORG account
         if (_categoryInfo == null) {
-          debugPrint('   🏠 No category specified - loading ORG account (home screen context)');
+          debugPrint(
+            '   🏠 No category specified - loading ORG account (home screen context)',
+          );
           final orgAccounts = await Supabase.instance.client
               .from('accounts')
               .select('*')
               .eq('owner_id', user.id)
               .eq('role', 'ORG')
               .limit(1);
-          
+
           if (orgAccounts.isNotEmpty) {
             response = orgAccounts.first;
             debugPrint('   ✅ Found ORG account: ${response['name']}');
@@ -105,7 +108,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               .select('*')
               .eq('owner_id', user.id)
               .eq('category_id', _categoryInfo!['id']);
-          
+
           // Try to get single account, but handle multiple accounts gracefully
           try {
             response = await query.maybeSingle();
@@ -118,7 +121,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 .eq('owner_id', user.id)
                 .eq('role', 'USER')
                 .limit(1);
-            
+
             if (multipleAccounts.isNotEmpty) {
               response = multipleAccounts.first;
             } else {
@@ -132,7 +135,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             }
           }
         }
-        
+
         if (response != null) {
           debugPrint('   ✅ Account found:');
           debugPrint('      - Name: ${response['name']}');
@@ -140,16 +143,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           debugPrint('      - Role: ${response['role']}');
           debugPrint('      - Category ID: ${response['category_id']}');
         } else {
-          debugPrint('   ⚠️ No account found for this user/category combination');
+          debugPrint(
+            '   ⚠️ No account found for this user/category combination',
+          );
         }
-        
+
         setState(() {
           _accountProfile = response;
           _userRole = response?['role'] as String?;
           _populateControllers();
           _isLoading = false;
         });
-        
+
         debugPrint('⚙️ [Settings] User role: $_userRole');
       } else {
         debugPrint('⚠️ [Settings] No user logged in');
@@ -163,9 +168,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isLoading = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading profile: $e')));
       }
     }
   }
@@ -187,7 +192,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
@@ -197,59 +202,56 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       debugPrint('Error picking image: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to pick image: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to pick image: $e')));
       }
     }
   }
 
   Future<void> _uploadProfileImage() async {
     if (_selectedImage == null || _accountProfile == null) return;
-    
+
     setState(() {
       _isUploadingImage = true;
     });
-    
+
     try {
       final supabase = Supabase.instance.client;
-      
+
       // Validate file size (max 5MB)
       final fileSize = await _selectedImage!.length();
       if (fileSize > 5 * 1024 * 1024) {
         throw Exception('Image size must be less than 5MB');
       }
-      
+
       // Generate unique filename
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final accountId = _accountProfile!['id'].toString().replaceAll('-', '_');
       final fileName = 'profile_${accountId}_$timestamp.jpg';
-      
+
       debugPrint('📤 Uploading profile image: $fileName');
-      
+
       // Delete old image if exists
       final oldLogoUrl = _accountProfile!['logo_url'];
       if (oldLogoUrl != null && oldLogoUrl.isNotEmpty) {
         await _deleteImageFromStorage(oldLogoUrl);
       }
-      
+
       // Upload the new image
       await supabase.storage
           .from('profile-images')
           .upload(
             fileName,
             _selectedImage!,
-            fileOptions: const FileOptions(
-              cacheControl: '3600',
-              upsert: false,
-            ),
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
           );
-      
+
       // Get the public URL
       final imageUrl = supabase.storage
           .from('profile-images')
           .getPublicUrl(fileName);
-      
+
       // Update account with new logo URL
       await supabase
           .from('accounts')
@@ -258,9 +260,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', _accountProfile!['id']);
-      
+
       debugPrint('✅ Profile image uploaded successfully');
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -269,7 +271,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       }
-      
+
       // Reload profile
       await _loadUserProfile();
     } catch (e) {
@@ -294,11 +296,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
     try {
       final uri = Uri.parse(imageUrl);
       final filename = uri.pathSegments.last;
-      
-      await Supabase.instance.client.storage
-          .from('profile-images')
-          .remove([filename]);
-      
+
+      await Supabase.instance.client.storage.from('profile-images').remove([
+        filename,
+      ]);
+
       debugPrint('🗑️ Deleted old profile image: $filename');
     } catch (e) {
       debugPrint('⚠️ Error deleting old image: $e');
@@ -307,12 +309,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _deleteProfileImage() async {
     if (_accountProfile?['logo_url'] == null) return;
-    
+
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Profile Image'),
-        content: const Text('Are you sure you want to delete your profile image?'),
+        content: const Text(
+          'Are you sure you want to delete your profile image?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -326,17 +330,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ],
       ),
     );
-    
+
     if (confirmed != true) return;
-    
+
     setState(() {
       _isUploadingImage = true;
     });
-    
+
     try {
       // Delete from storage
       await _deleteImageFromStorage(_accountProfile!['logo_url']);
-      
+
       // Update account to remove logo URL
       await Supabase.instance.client
           .from('accounts')
@@ -345,7 +349,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('id', _accountProfile!['id']);
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -354,7 +358,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         );
       }
-      
+
       // Reload profile
       await _loadUserProfile();
     } catch (e) {
@@ -375,7 +379,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _viewProfileImage() {
     if (_accountProfile?['logo_url'] == null) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => Dialog(
@@ -453,7 +457,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Helper method to get color based on category
   Color _getCategoryColor() {
     if (_categoryInfo == null) return Colors.blue;
-    
+
     switch (_categoryInfo!['name'].toString().toLowerCase()) {
       case 'meals':
         return Colors.orange;
@@ -473,7 +477,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // Helper method to get category-specific icon
   IconData _getCategoryIcon() {
     if (_categoryInfo == null) return Icons.admin_panel_settings;
-    
+
     switch (_categoryInfo!['name'].toString().toLowerCase()) {
       case 'meals':
         return Icons.restaurant;
@@ -513,23 +517,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       // Role Badge
                       if (_userRole != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: _userRole == 'ORG' 
+                            color: _userRole == 'ORG'
                                 ? Colors.purple.withValues(alpha: 0.2)
                                 : Colors.green.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                              color: _userRole == 'ORG'
+                                  ? Colors.purple
+                                  : Colors.green,
                             ),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                _userRole == 'ORG' ? Icons.business : Icons.person,
+                                _userRole == 'ORG'
+                                    ? Icons.business
+                                    : Icons.person,
                                 size: 14,
-                                color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                                color: _userRole == 'ORG'
+                                    ? Colors.purple
+                                    : Colors.green,
                               ),
                               const SizedBox(width: 4),
                               Text(
@@ -537,7 +550,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.bold,
-                                  color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                                  color: _userRole == 'ORG'
+                                      ? Colors.purple
+                                      : Colors.green,
                                 ),
                               ),
                             ],
@@ -546,7 +561,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       if (_categoryInfo != null) ...[
                         const SizedBox(width: 10),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: _getCategoryColor().withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(12),
@@ -585,15 +603,31 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 ),
                               ),
                               IconButton(
-                                icon: Icon(_isEditing ? Icons.save : Icons.edit),
-                                onPressed: _isEditing ? _saveProfile : () {
-                                  setState(() {
-                                    _isEditing = true;
-                                  });
-                                },
+                                icon: Icon(
+                                  _isEditing ? Icons.check_circle : Icons.edit,
+                                  color: _isEditing ? _getCategoryColor() : null,
+                                ),
+                                onPressed: _isEditing
+                                    ? _saveProfile
+                                    : () {
+                                        setState(() {
+                                          _isEditing = true;
+                                        });
+                                      },
                               ),
                             ],
                           ),
+                          if (_isEditing) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Editing mode',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                                color: Theme.of(context).colorScheme.primary,
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 16),
 
                           // Profile Image with edit functionality
@@ -615,7 +649,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.grey.withValues(alpha: 0.3),
+                                          color: Colors.grey.withValues(
+                                            alpha: 0.3,
+                                          ),
                                           blurRadius: 10,
                                           offset: const Offset(0, 4),
                                         ),
@@ -626,35 +662,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                             child: CircularProgressIndicator(),
                                           )
                                         : _accountProfile?['logo_url'] != null
-                                            ? ClipOval(
-                                                child: Image.network(
-                                                  _accountProfile!['logo_url'],
-                                                  fit: BoxFit.cover,
-                                                  width: 120,
-                                                  height: 120,
-                                                  errorBuilder: (context, error, stackTrace) {
+                                        ? ClipOval(
+                                            child: Image.network(
+                                              _accountProfile!['logo_url'],
+                                              fit: BoxFit.cover,
+                                              width: 120,
+                                              height: 120,
+                                              errorBuilder:
+                                                  (context, error, stackTrace) {
                                                     return Container(
-                                                      color: _getCategoryColor().withValues(alpha: 0.2),
+                                                      color: _getCategoryColor()
+                                                          .withValues(
+                                                            alpha: 0.2,
+                                                          ),
                                                       child: Icon(
                                                         _getCategoryIcon(),
                                                         size: 60,
-                                                        color: _getCategoryColor(),
+                                                        color:
+                                                            _getCategoryColor(),
                                                       ),
                                                     );
                                                   },
-                                                ),
-                                              )
-                                            : Container(
-                                                decoration: BoxDecoration(
-                                                  shape: BoxShape.circle,
-                                                  color: _getCategoryColor().withValues(alpha: 0.2),
-                                                ),
-                                                child: Icon(
-                                                  _getCategoryIcon(),
-                                                  size: 60,
-                                                  color: _getCategoryColor(),
-                                                ),
-                                              ),
+                                            ),
+                                          )
+                                        : Container(
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: _getCategoryColor()
+                                                  .withValues(alpha: 0.2),
+                                            ),
+                                            child: Icon(
+                                              _getCategoryIcon(),
+                                              size: 60,
+                                              color: _getCategoryColor(),
+                                            ),
+                                          ),
                                   ),
                                 ),
                                 // Edit button (pen icon)
@@ -670,7 +712,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                         shape: BoxShape.circle,
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.black.withValues(alpha: 0.2),
+                                            color: Colors.black.withValues(
+                                              alpha: 0.2,
+                                            ),
                                             blurRadius: 4,
                                             offset: const Offset(0, 2),
                                           ),
@@ -698,7 +742,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                           shape: BoxShape.circle,
                                           boxShadow: [
                                             BoxShadow(
-                                              color: Colors.black.withValues(alpha: 0.2),
+                                              color: Colors.black.withValues(
+                                                alpha: 0.2,
+                                              ),
                                               blurRadius: 4,
                                               offset: const Offset(0, 2),
                                             ),
@@ -720,7 +766,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           // Email (non-editable)
                           _buildProfileField(
                             'Email',
-                            Supabase.instance.client.auth.currentUser?.email ?? 'N/A',
+                            Supabase.instance.client.auth.currentUser?.email ??
+                                'N/A',
                             Icons.email,
                             isEditable: false,
                           ),
@@ -762,30 +809,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             isEditable: _isEditing,
                           ),
 
-                          if (_isEditing) ...[
+                            if (_isEditing) ...[
                             const SizedBox(height: 20),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                                ElevatedButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _isEditing = false;
-                                      _populateControllers(); // Reset to original values
-                                    });
-                                  },
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.grey,
-                                  ),
-                                  child: const Text('Cancel'),
+                              ElevatedButton(
+                                onPressed: () {
+                                setState(() {
+                                  _isEditing = false;
+                                  _populateControllers(); // Reset to original values
+                                });
+                                },
+                                style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey,
+                                foregroundColor: Colors.black, // Text color
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
                                 ),
-                                ElevatedButton(
-                                  onPressed: _saveProfile,
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: _getCategoryColor(),
-                                  ),
-                                  child: const Text('Save Changes'),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 14,
                                 ),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                ),
+                                child: const Text('Cancel'),
+                              ),
+                              ElevatedButton.icon(
+                                onPressed: _saveProfile,
+                                icon: const Icon(Icons.save, size: 20),
+                                label: const Text(
+                                'Save Changes',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                                ),
+                                style: ElevatedButton.styleFrom(
+                                backgroundColor: _getCategoryColor(),
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 12,
+                                ),
+                                elevation: 4,
+                                shadowColor: _getCategoryColor().withOpacity(0.4),
+                                ),
+                              ),
                               ],
                             ),
                           ],
@@ -821,9 +897,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             const SizedBox(height: 16),
-                            QRCodeGenerator(
-                              accountId: _accountProfile!['id'],
-                            ),
+                            QRCodeGenerator(accountId: _accountProfile!['id']),
                           ],
                         ),
                       ),
@@ -832,64 +906,48 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ],
 
                   // Additional Settings Sections
-                  _buildSettingsSection(
-                    'General Settings',
-                    [
-                      _buildSettingsTile(
-                        'Notifications',
-                        Icons.notifications,
-                        () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Notifications settings coming soon')),
-                          );
-                        },
-                      ),
-                      _buildSettingsTile(
-                        'Privacy',
-                        Icons.privacy_tip,
-                        () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Privacy settings coming soon')),
-                          );
-                        },
-                      ),
-                      _buildSettingsTile(
-                        'Security',
-                        Icons.security,
-                        () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Security settings coming soon')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                  _buildSettingsSection('General Settings', [
+                    _buildSettingsTile(
+                      'Notifications',
+                      Icons.notifications,
+                      () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Notifications settings coming soon'),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildSettingsTile('Privacy', Icons.privacy_tip, () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Privacy settings coming soon'),
+                        ),
+                      );
+                    }),
+                    _buildSettingsTile('Security', Icons.security, () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Security settings coming soon'),
+                        ),
+                      );
+                    }),
+                  ]),
 
                   const SizedBox(height: 20),
 
-                  _buildSettingsSection(
-                    'App Settings',
-                    [
-                      _buildSettingsTile(
-                        'Theme',
-                        Icons.palette,
-                        () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Theme settings coming soon')),
-                          );
-                        },
-                      ),
-                      _buildSettingsTile(
-                        'Language',
-                        Icons.language,
-                        () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Language settings coming soon')),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                  _buildSettingsSection('App Settings', [
+                    _buildSettingsTile('Theme', Icons.palette, () async {
+                      await showThemeSelector(context);
+                    }),
+                    _buildSettingsTile('Language', Icons.language, () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Language settings coming soon'),
+                        ),
+                      );
+                    }),
+                  ]),
                 ],
               ),
             ),
@@ -904,6 +962,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     bool isEditable = false,
     int maxLines = 1,
   }) {
+    final theme = Theme.of(context);
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Column(
@@ -911,41 +971,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 14,
+            style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w600,
-              color: Colors.grey,
             ),
           ),
           const SizedBox(height: 4),
-          Container(
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              border: Border.all(color: Colors.grey.shade300),
-              borderRadius: BorderRadius.circular(8),
-              color: isEditable ? Colors.white : Colors.grey.shade50,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: isEditable ? theme.colorScheme.primary : theme.dividerColor,
+                width: isEditable ? 1.6 : 1,
+              ),
+              color: isEditable
+                  ? theme.colorScheme.surfaceContainerHighest
+                  : theme.colorScheme.surfaceVariant,
             ),
             child: Row(
               children: [
-                Icon(icon, color: Colors.grey.shade600, size: 20),
+                Icon(
+                  icon,
+                  size: 20,
+                  color: isEditable ? theme.colorScheme.primary : theme.iconTheme.color,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: isEditable && controller != null
                       ? TextField(
                           controller: controller,
                           maxLines: maxLines,
+                          cursorColor: theme.colorScheme.primary,
+                          style: theme.textTheme.bodyMedium,
                           decoration: const InputDecoration(
                             border: InputBorder.none,
                             isDense: true,
-                            contentPadding: EdgeInsets.zero,
                           ),
                         )
                       : Text(
                           value.isEmpty ? 'Not set' : value,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: value.isEmpty ? Colors.grey : Colors.black87,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: value.isEmpty
+                                ? theme.textTheme.bodySmall?.color
+                                : theme.textTheme.bodyMedium?.color,
                           ),
                         ),
                 ),
@@ -967,10 +1038,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             ...children,

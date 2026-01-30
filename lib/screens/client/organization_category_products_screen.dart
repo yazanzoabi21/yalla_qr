@@ -78,9 +78,10 @@ class _OrganizationCategoryProductsScreenState
     final categoryColor = widget.category['color'] as Color;
     final categoryIcon = widget.category['icon'] as IconData;
     final categoryName = widget.category['name'] as String;
+    final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       // appBar: Navbar(
       //   showMenuButton: false,
       //   organizationAccountId: widget.accountId,
@@ -148,6 +149,7 @@ class _OrganizationCategoryProductsScreenState
   }
 
   Widget _buildBody() {
+    final theme = Theme.of(context);
     if (isLoading) {
       return const Center(
         child: Column(
@@ -166,12 +168,12 @@ class _OrganizationCategoryProductsScreenState
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.error_outline, size: 48, color: Colors.red.shade300),
+            Icon(Icons.error_outline, size: 48, color: theme.colorScheme.error.withOpacity(0.85)),
             const SizedBox(height: 16),
             Text(
               errorMessage!,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
+              style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.7)),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
@@ -191,7 +193,7 @@ class _OrganizationCategoryProductsScreenState
             Icon(
               Icons.inventory_2_outlined,
               size: 64,
-              color: Colors.grey.shade400,
+              color: theme.colorScheme.onSurface.withOpacity(0.4),
             ),
             const SizedBox(height: 16),
             Text(
@@ -199,7 +201,7 @@ class _OrganizationCategoryProductsScreenState
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: theme.colorScheme.onSurface.withOpacity(0.85),
               ),
             ),
             const SizedBox(height: 8),
@@ -207,7 +209,7 @@ class _OrganizationCategoryProductsScreenState
               'This category is currently empty',
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade600,
+                color: theme.colorScheme.onSurface.withOpacity(0.7),
               ),
             ),
           ],
@@ -230,6 +232,7 @@ class _OrganizationCategoryProductsScreenState
 
   Widget _buildProductCard(Product product) {
     final categoryColor = widget.category['color'] as Color;
+    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -310,10 +313,10 @@ class _OrganizationCategoryProductsScreenState
                       children: [
                         Text(
                           product.name,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w700,
-                            color: Color(0xFF1A1A1A),
+                            color: theme.textTheme.titleLarge?.color,
                             letterSpacing: 0.2,
                           ),
                         ),
@@ -323,7 +326,7 @@ class _OrganizationCategoryProductsScreenState
                             product.description!,
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey.shade600,
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
                               fontWeight: FontWeight.w500,
                             ),
                             maxLines: 2,
@@ -375,8 +378,8 @@ class _OrganizationCategoryProductsScreenState
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: product.isAvailable
-                          ? Colors.green.withValues(alpha: 0.15)
-                          : Colors.red.withValues(alpha: 0.15),
+                          ? Colors.green.shade600.withOpacity(0.15)
+                          : Colors.red.shade600.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -385,7 +388,7 @@ class _OrganizationCategoryProductsScreenState
                         Icon(
                           product.isAvailable ? Icons.check_circle : Icons.cancel,
                           size: 14,
-                          color: product.isAvailable ? Colors.green : Colors.red,
+                          color: product.isAvailable ? Colors.green.shade600 : Colors.red.shade600,
                         ),
                         const SizedBox(width: 6),
                         Text(
@@ -393,7 +396,7 @@ class _OrganizationCategoryProductsScreenState
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
-                            color: product.isAvailable ? Colors.green : Colors.red,
+                            color: product.isAvailable ? Colors.green.shade600 : Colors.red.shade600,
                           ),
                         ),
                       ],
@@ -410,24 +413,24 @@ class _OrganizationCategoryProductsScreenState
                       
                       return IconButton(
                         onPressed: product.isAvailable ? () {
-                          if (isInCart) {
+                            if (isInCart) {
                             // Remove from cart
                             _cartService.removeFromCart(widget.accountId, product);
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Row(
-                                  children: [
-                                    const Icon(Icons.remove_shopping_cart, color: Colors.white),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text('${product.name} removed from cart'),
-                                    ),
-                                  ],
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.remove_shopping_cart, color: theme.colorScheme.onSecondary),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Text('${product.name} removed from cart'),
+                                      ),
+                                    ],
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: theme.colorScheme.secondary,
+                                  behavior: SnackBarBehavior.floating,
                                 ),
-                                duration: const Duration(seconds: 2),
-                                backgroundColor: Colors.orange,
-                                behavior: SnackBarBehavior.floating,
-                              ),
                             );
                           } else {
                             // Add to cart
@@ -442,51 +445,51 @@ class _OrganizationCategoryProductsScreenState
                             );
                             if (added) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.check_circle, color: Colors.white),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text('${product.name} added to cart'),
-                                      ),
-                                    ],
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Icon(Icons.check_circle, color: theme.colorScheme.onPrimary),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text('${product.name} added to cart'),
+                                        ),
+                                      ],
+                                    ),
+                                    duration: const Duration(seconds: 2),
+                                    backgroundColor: theme.colorScheme.primary,
+                                    behavior: SnackBarBehavior.floating,
                                   ),
-                                  duration: const Duration(seconds: 2),
-                                  backgroundColor: Colors.green,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
                               );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.warning, color: Colors.white),
-                                      const SizedBox(width: 12),
-                                      Expanded(child: Text('Cannot add more than available stock')),
-                                    ],
+                                  SnackBar(
+                                    content: Row(
+                                      children: [
+                                        Icon(Icons.warning, color: theme.colorScheme.onSecondary),
+                                        const SizedBox(width: 12),
+                                        Expanded(child: Text('Cannot add more than available stock')),
+                                      ],
+                                    ),
+                                    duration: const Duration(seconds: 2),
+                                    backgroundColor: theme.colorScheme.secondary,
+                                    behavior: SnackBarBehavior.floating,
                                   ),
-                                  duration: const Duration(seconds: 2),
-                                  backgroundColor: Colors.orange,
-                                  behavior: SnackBarBehavior.floating,
-                                ),
                               );
                             }
                           }
                         } : null,
                         icon: Icon(
                           isInCart ? Icons.shopping_cart : Icons.add_shopping_cart,
-                          color: product.inStock 
-                              ? (isInCart ? Colors.green : categoryColor)
-                              : Colors.grey,
+                          color: product.inStock
+                              ? (isInCart ? theme.colorScheme.primary : categoryColor)
+                              : theme.disabledColor,
                         ),
                         style: IconButton.styleFrom(
                           backgroundColor: product.inStock
-                              ? (isInCart 
-                                  ? Colors.green.withValues(alpha: 0.1)
-                                  : categoryColor.withValues(alpha: 0.1))
-                              : Colors.grey.withValues(alpha: 0.1),
+                              ? (isInCart
+                                  ? theme.colorScheme.primary.withOpacity(0.08)
+                                  : categoryColor.withOpacity(0.08))
+                              : theme.disabledColor.withOpacity(0.08),
                         ),
                       );
                     },

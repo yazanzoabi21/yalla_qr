@@ -189,6 +189,8 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return PopScope(
       canPop: !_showSearchHints && !_searchFocusNode.hasFocus && _searchController.text.isEmpty,
       onPopInvokedWithResult: (bool didPop, dynamic result) {
@@ -205,7 +207,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: theme.scaffoldBackgroundColor,
         body: Stack(
           children: [
             Padding(
@@ -224,18 +226,19 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
   }
 
   Widget _buildBody() {
+    final theme = Theme.of(context);
     if (isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
             Text(
               'Loading products...',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey,
+                color: theme.textTheme.bodyMedium?.color,
               ),
             ),
           ],
@@ -251,21 +254,18 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red.shade300,
+              color: theme.colorScheme.error.withOpacity(0.85),
             ),
             const SizedBox(height: 16),
             Text(
               errorMessage!,
               textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 16,
-                color: Colors.grey,
-              ),
+              style: TextStyle(color: theme.colorScheme.onSurface.withOpacity(0.8)),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: _loadData,
-              child: const Text('Retry'),
+              child: Text('Retry', style: TextStyle(color: theme.colorScheme.onPrimary)),
             ),
           ],
         ),
@@ -319,20 +319,20 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
               decoration: InputDecoration(
                 hintText: 'Search categories...',
                 hintStyle: TextStyle(
-                  color: Colors.grey.shade400,
+                  color: theme.colorScheme.onSurface.withOpacity(0.55),
                   fontSize: 15,
                   fontWeight: FontWeight.w400,
                 ),
                 prefixIcon: Icon(
                   Icons.search,
-                  color: Colors.grey.shade400,
+                  color: theme.colorScheme.onSurface.withOpacity(0.55),
                   size: 22,
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(
                         icon: Icon(
                           Icons.clear,
-                          color: Colors.grey.shade400,
+                          color: theme.colorScheme.onSurface.withOpacity(0.55),
                           size: 20,
                         ),
                         onPressed: () {
@@ -342,7 +342,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                       )
                     : null,
                 filled: true,
-                fillColor: const Color(0xFFF5F5F5),
+                fillColor: theme.cardColor,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide.none,
@@ -409,7 +409,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                             : 'No products yet',
                         style: TextStyle(
                           fontSize: 20,
-                          color: Colors.grey.shade800,
+                          color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.3,
                         ),
@@ -421,7 +421,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                             : 'This organization hasn\'t added any products',
                         style: TextStyle(
                           fontSize: 15,
-                          color: Colors.grey.shade600,
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
                           fontWeight: FontWeight.w500,
                           letterSpacing: 0.1,
                         ),
@@ -446,7 +446,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                         duration: const Duration(milliseconds: 200),
                         padding: const EdgeInsets.all(18),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: theme.cardColor,
                           borderRadius: BorderRadius.circular(24),
                           border: Border.all(
                             color: subCategory.color.withValues(alpha: 0.2),
@@ -498,10 +498,10 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                             // Name
                             Text(
                               subCategory.name,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w800,
-                                color: Color(0xFF1A1A1A),
+                                color: theme.colorScheme.onSurface,
                                 letterSpacing: 0.3,
                                 height: 1.1,
                               ),
@@ -516,7 +516,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                               subCategory.description ?? 'No description',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: Colors.grey.shade600,
+                                color: theme.colorScheme.onSurface.withOpacity(0.7),
                                 fontWeight: FontWeight.w500,
                                 height: 1.3,
                                 letterSpacing: 0.1,
@@ -660,6 +660,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
   }
 
   Widget _buildSearchResults(Color categoryColor) {
+    final theme = Theme.of(context);
     final query = _searchController.text.toLowerCase();
     final results = <Map<String, dynamic>>[];
     
@@ -683,7 +684,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
         child: Container(
           padding: const EdgeInsets.all(24),
           decoration: BoxDecoration(
-            color: Colors.grey.shade100,
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -691,7 +692,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
               Icon(
                 Icons.search_off,
                 size: 48,
-                color: Colors.grey.shade400,
+                color: theme.colorScheme.onSurface.withOpacity(0.5),
               ),
               const SizedBox(height: 12),
               Text(
@@ -699,7 +700,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
               const SizedBox(height: 4),
@@ -707,7 +708,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                 'Try searching with different keywords',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Colors.grey.shade600,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
                 ),
               ),
             ],
@@ -752,7 +753,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
               children: [
                 Icon(
                   Icons.inventory_2_rounded,
-                  color: Colors.green.shade600,
+                  color: theme.colorScheme.primary,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -761,7 +762,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w700,
-                    color: Colors.green.shade600,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
               ],
@@ -778,7 +779,8 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
   }
 
   Widget _buildProductHintItem(Product product, Category category) {
-    // Format price
+    final theme = Theme.of(context);
+
     String priceText = '';
     if (product.priceUsd != null && product.priceUsd! > 0) {
       priceText = '\$${product.priceUsd!.toStringAsFixed(2)}';
@@ -793,33 +795,28 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: Colors.grey.shade200,
-            width: 1,
-          ),
+          border: Border.all(color: theme.dividerColor, width: 1),
         ),
         child: Row(
           children: [
-            // Product Image or Icon
             Container(
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: product.imageUrl != null ? Colors.transparent : Colors.green.shade50,
+                color: product.imageUrl != null
+                    ? Colors.transparent
+                    : theme.colorScheme.primary.withOpacity(0.08),
                 borderRadius: BorderRadius.circular(10),
                 image: product.imageUrl != null
-                    ? DecorationImage(
-                        image: NetworkImage(product.imageUrl!),
-                        fit: BoxFit.cover,
-                      )
+                    ? DecorationImage(image: NetworkImage(product.imageUrl!), fit: BoxFit.cover)
                     : null,
               ),
               child: product.imageUrl == null
                   ? Icon(
                       Icons.shopping_bag_rounded,
-                      color: Colors.green.shade600,
+                      color: theme.colorScheme.primary,
                       size: 24,
                     )
                   : null,
@@ -831,10 +828,10 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                 children: [
                   Text(
                     product.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
+                      color: theme.colorScheme.onSurface,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -845,7 +842,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                       Icon(
                         Icons.folder_outlined,
                         size: 12,
-                        color: Colors.grey.shade500,
+                        color: theme.colorScheme.onSurface.withOpacity(0.6),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
@@ -853,7 +850,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                           category.name,
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -868,7 +865,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w700,
-                        color: Colors.green.shade600,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                   ],
@@ -878,7 +875,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
             Icon(
               Icons.arrow_forward_ios,
               size: 14,
-              color: Colors.grey.shade400,
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
             ),
           ],
         ),
@@ -917,6 +914,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
   }
 
   Widget _buildTipItem(String text, Color color) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -936,7 +934,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
               text,
               style: TextStyle(
                 fontSize: 14,
-                color: Colors.grey.shade700,
+                color: theme.colorScheme.onSurface,
                 height: 1.4,
               ),
             ),
@@ -947,6 +945,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
   }
 
   Widget _buildCategoryHintItem(Category category) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: () => _navigateToProductDetail(category),
       borderRadius: BorderRadius.circular(12),
@@ -954,10 +953,10 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: theme.cardColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: Colors.grey.shade200,
+            color: theme.dividerColor,
             width: 1,
           ),
         ),
@@ -982,10 +981,10 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                 children: [
                   Text(
                     category.name,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
+                      color: theme.colorScheme.onSurface,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -995,7 +994,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
                       category.description!,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: theme.colorScheme.onSurface.withOpacity(0.7),
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1015,7 +1014,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
             Icon(
               Icons.arrow_forward_ios,
               size: 14,
-              color: Colors.grey.shade400,
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
             ),
           ],
         ),

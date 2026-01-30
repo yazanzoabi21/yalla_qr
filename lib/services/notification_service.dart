@@ -208,7 +208,7 @@ class NotificationService {
       var playerId = OneSignal.User.pushSubscription.id;
       var token = OneSignal.User.pushSubscription.token;
       // If pushSubscription hasn't populated yet, continue polling until listener or SDK populates it
-      debugPrint('⏳ [NotificationService] Poll attempt $attempt/30:');
+      // debugPrint('⏳ [NotificationService] Poll attempt $attempt/30:');
       debugPrint('   Player ID: ${playerId ?? "null"}');
       debugPrint('   Token available: ${token != null && token.isNotEmpty}');
       

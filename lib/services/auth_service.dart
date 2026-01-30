@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../exceptions/category_not_registered_exception.dart';
 import 'qr_code_service.dart';
 
@@ -494,6 +497,140 @@ class AuthService {
     );
   }
 
+  /// Send password reset email via Supabase (client-side flow)
+  Future<void> sendPasswordResetEmail({required String email}) async {
+    try {
+      // Try calling the server-side Edge Function first (recommended).
+      final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+      if (supabaseUrl.isNotEmpty) {
+        // Typical functions host is <project>.functions.supabase.co
+        final functionsHost = supabaseUrl.replaceFirst('.supabase.co', '.functions.supabase.co');
+        final candidates = [
+          '$functionsHost/send-reset',
+          '$supabaseUrl/functions/v1/send-reset',
+        ];
+
+        for (final u in candidates) {
+          try {
+            final uri = Uri.parse(u);
+            final resp = await http.post(
+              uri,
+              headers: {'Content-Type': 'application/json'},
+              body: json.encode({'email': email}),
+            ).timeout(const Duration(seconds: 8));
+
+            if (resp.statusCode >= 200 && resp.statusCode < 300) {
+              debugPrint('✅ [AuthService] send-reset function accepted the request (url=$u)');
+              return;
+            }
+          } catch (err) {
+            // Try next candidate
+            debugPrint('⚠️ [AuthService] send-reset attempt failed for $u: $err');
+          }
+        }
+      }
+
+      // Fallback to client-side Supabase reset (less preferred)
+      await _client.auth.resetPasswordForEmail(email);
+    } catch (e) {
+      debugPrint('❌ [AuthService.sendPasswordResetEmail] Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Complete a password reset using a server-side token (Edge Function).
+  /// Calls the `complete-reset` Edge Function with `token` and `new_password`.
+  Future<void> completePasswordReset({required String token, required String newPassword}) async {
+    try {
+      final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+      String? lastError;
+      if (supabaseUrl.isNotEmpty) {
+        final functionsHost = supabaseUrl.replaceFirst('.supabase.co', '.functions.supabase.co');
+        final candidates = [
+          '$functionsHost/complete-reset',
+          '$supabaseUrl/functions/v1/complete-reset',
+        ];
+
+        for (final u in candidates) {
+          try {
+            final uri = Uri.parse(u);
+            final resp = await http
+                .post(
+                  uri,
+                  headers: {'Content-Type': 'application/json'},
+                  body: json.encode({'token': token, 'new_password': newPassword}),
+                )
+                .timeout(const Duration(seconds: 8));
+
+            final body = resp.body.isNotEmpty ? resp.body : '<empty body>';
+            debugPrint('ℹ️ [AuthService] complete-reset response: url=$u status=${resp.statusCode} body=$body');
+
+            if (resp.statusCode >= 200 && resp.statusCode < 300) {
+              debugPrint('✅ [AuthService] complete-reset accepted (url=$u)');
+              return;
+            }
+
+            lastError = 'url=$u status=${resp.statusCode} body=$body';
+          } catch (err) {
+            debugPrint('⚠️ [AuthService] complete-reset attempt failed for $u: $err');
+            lastError = err.toString();
+          }
+        }
+      }
+
+      final message = lastError != null ? 'Could not complete password reset via server function: $lastError' : 'Could not complete password reset via server function';
+      throw Exception(message);
+    } catch (e) {
+      debugPrint('❌ [AuthService.completePasswordReset] Error: $e');
+      rethrow;
+    }
+  }
+
+  /// Verify a reset token/OTP without changing the password.
+  /// Calls an edge function `verify-reset` that should validate the token
+  /// and return success if the token is valid. This is purely a verification
+  /// step to allow showing a separate UI for entering a new password.
+  Future<void> verifyResetToken({required String token, String? email}) async {
+    try {
+      final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? '';
+      if (supabaseUrl.isNotEmpty) {
+        final functionsHost = supabaseUrl.replaceFirst('.supabase.co', '.functions.supabase.co');
+        final candidates = [
+          '$functionsHost/verify-reset',
+          '$supabaseUrl/functions/v1/verify-reset',
+        ];
+
+        final payload = <String, dynamic>{'token': token};
+        if (email != null && email.isNotEmpty) payload['email'] = email;
+
+        for (final u in candidates) {
+          try {
+            final uri = Uri.parse(u);
+            final resp = await http
+                .post(
+                  uri,
+                  headers: {'Content-Type': 'application/json'},
+                  body: json.encode(payload),
+                )
+                .timeout(const Duration(seconds: 8));
+
+            if (resp.statusCode >= 200 && resp.statusCode < 300) {
+              debugPrint('✅ [AuthService] verify-reset accepted (url=$u)');
+              return;
+            }
+          } catch (err) {
+            debugPrint('⚠️ [AuthService] verify-reset attempt failed for $u: $err');
+          }
+        }
+      }
+
+      throw Exception('Could not verify reset token via server function');
+    } catch (e) {
+      debugPrint('❌ [AuthService.verifyResetToken] Error: $e');
+      rethrow;
+    }
+  }
+
   /// Check if user is currently authenticated
   bool isAuthenticated() {
     return _client.auth.currentUser != null;
@@ -538,6 +675,28 @@ class AuthService {
       return isCleared;
     } catch (e) {
       return false;
+    }
+  }
+
+  /// Reset a user's password by phone number using a server-side RPC/function.
+  ///
+  /// NOTE: This requires you to implement a secure Postgres function or server endpoint
+  /// named `reset_password_by_phone` (or change the RPC name below) that accepts
+  /// `phone` and `new_password` and performs the password update using a service role key.
+  Future<void> resetPasswordByPhone({required String phone, required String newPassword}) async {
+    try {
+      final res = await _client.rpc('reset_password_by_phone', params: {
+        'phone': phone,
+        'new_password': newPassword,
+      });
+
+      // If the RPC returns an error structure, throw
+      if (res == null) {
+        throw Exception('Password reset RPC returned null');
+      }
+    } catch (e) {
+      debugPrint('❌ [AuthService.resetPasswordByPhone] RPC error: $e');
+      rethrow;
     }
   }
 }

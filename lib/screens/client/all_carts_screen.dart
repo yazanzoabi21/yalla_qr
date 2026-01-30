@@ -211,10 +211,11 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final cartService = CartService();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       // appBar: Navbar(
       //   showMenuButton: false,
       //   accentColor: Colors.blue,
@@ -227,16 +228,16 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
           return Column(
             children: [
               // Header
-              Container(
-                color: Colors.white,
+               Container(
+                color: theme.cardColor,
                 // padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 padding: const EdgeInsets.only(top: 60, bottom: 16),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back,
-                        color: Color(0xFF1A1A1A),
+                        color: theme.iconTheme.color ?? theme.colorScheme.onSurface,
                       ),
                       onPressed: () => Navigator.pop(context),
                     ),
@@ -245,10 +246,10 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'All Shopping Carts',
                             style: TextStyle(
-                              color: Color(0xFF1A1A1A),
+                              color: theme.colorScheme.onSurface,
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
                             ),
@@ -257,7 +258,7 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                           Text(
                             '${carts.length} ${carts.length == 1 ? 'organization' : 'organizations'}',
                             style: TextStyle(
-                              color: Colors.grey.shade600,
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -271,9 +272,9 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                         alignment: Alignment.centerRight,
                         child: IconButton(
                           tooltip: 'Clear all carts',
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.delete_outline,
-                            color: Colors.red,
+                            color: theme.colorScheme.error,
                           ),
                           onPressed: () async {
                             final confirm = await showDialog<bool>(
@@ -293,7 +294,7 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                                     onPressed: () =>
                                         Navigator.pop(context, true),
                                     style: TextButton.styleFrom(
-                                      foregroundColor: Colors.red,
+                                      foregroundColor: theme.colorScheme.error,
                                     ),
                                     child: const Text('Clear All'),
                                   ),
@@ -304,8 +305,9 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                             if (confirm == true) {
                               cartService.clearAllCarts();
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('All carts cleared'),
+                                SnackBar(
+                                  content: const Text('All carts cleared'),
+                                  backgroundColor: theme.colorScheme.secondary,
                                 ),
                               );
                             }
@@ -342,7 +344,7 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                 Container(
                   padding: const EdgeInsets.fromLTRB(15, 20, 15, 20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.scaffoldBackgroundColor,
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: 0.1),
@@ -359,12 +361,12 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Total Items:',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1A1A1A),
+                                color: theme.colorScheme.onBackground,
                               ),
                             ),
                             Text(
@@ -382,12 +384,12 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            const Text(
+                            Text(
                               'Total Price:',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF1A1A1A),
+                                color: theme.colorScheme.onBackground,
                               ),
                             ),
                             Flexible(child: _buildTotalPrice(carts)),
@@ -475,7 +477,7 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A1A),
+              color: Colors.grey,
             ),
           ),
           const SizedBox(height: 8),
@@ -506,6 +508,7 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
 
   Widget _buildCartCard(BuildContext context, Cart cart) {
     final cartService = CartService();
+    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -552,10 +555,10 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                       children: [
                         Text(
                           cart.organizationName,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w800,
-                            color: Color(0xFF1A1A1A),
+                            color: theme.colorScheme.onBackground,
                           ),
                         ),
                         Text(
@@ -621,12 +624,12 @@ class _AllCartsScreenState extends State<AllCartsScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  const Text(
+                  Text(
                     'Total:',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A1A1A),
+                      color: theme.colorScheme.onBackground,
                     ),
                   ),
                   Flexible(child: _buildCartPrice(cart)),

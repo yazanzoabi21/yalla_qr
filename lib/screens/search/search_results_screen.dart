@@ -213,11 +213,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
         }
 
         // Create a meal map format that MealDetailScreen expects
+        final theme = Theme.of(context);
         final mealMap = {
           'id': category.id,
           'name': category.name,
           'description': category.description ?? '',
-          'color': category.color,
+          'color': category.color ?? theme.colorScheme.primary,
         };
 
         if (!mounted) return;
@@ -328,10 +329,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   Future<void> _navigateToCategoryDetail(Category category) async {
     try {
       // Create a meal map format that MealDetailScreen expects
+      final theme = Theme.of(context);
       final mealMap = {
         'id': category.id,
         'name': category.name,
         'description': category.description ?? '',
+        'color': category.color ?? theme.colorScheme.primary,
       };
 
       if (!mounted) return;
@@ -364,19 +367,22 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: theme.appBarTheme.backgroundColor ?? theme.colorScheme.surface,
         elevation: 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: Icon(Icons.arrow_back, color: theme.iconTheme.color),
           onPressed: () => Navigator.pop(context),
         ),
         title: Container(
           height: 45,
           decoration: BoxDecoration(
-            color: Colors.grey[200],
+            color: theme.inputDecorationTheme.fillColor ?? theme.cardColor,
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextField(
@@ -390,12 +396,12 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                   : (widget.categoryId != null 
                       ? 'Search in this category...' 
                       : 'Search for products, categories...'),
-              hintStyle: const TextStyle(color: Colors.grey, fontSize: 15),
+              hintStyle: TextStyle(color: theme.hintColor, fontSize: 15),
               border: InputBorder.none,
-              prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 22),
+              prefixIcon: Icon(Icons.search, color: theme.iconTheme.color?.withOpacity(0.7), size: 22),
               suffixIcon: _searchController.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.grey, size: 20),
+                      icon: Icon(Icons.clear, color: theme.iconTheme.color?.withOpacity(0.7), size: 20),
                       onPressed: () {
                         _searchController.clear();
                         setState(() {
@@ -421,17 +427,18 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Widget _buildBody() {
+    final theme = Theme.of(context);
     if (_isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
             Text(
               'Searching...',
               style: TextStyle(
-                color: Colors.grey,
+                color: theme.disabledColor,
                 fontSize: 16,
               ),
             ),
@@ -450,7 +457,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               Icon(
                 Icons.error_outline,
                 size: 64,
-                color: Colors.red[300],
+                color: theme.colorScheme.error,
               ),
               const SizedBox(height: 16),
               Text(
@@ -458,7 +465,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.red[700],
+                  color: theme.colorScheme.error,
                 ),
               ),
               const SizedBox(height: 8),
@@ -467,7 +474,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 16,
-                  color: Colors.grey,
+                  // use default text color
                 ),
               ),
               const SizedBox(height: 24),
@@ -493,7 +500,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             Icon(
               Icons.search,
               size: 80,
-              color: Colors.grey[300],
+              color: theme.disabledColor,
             ),
             const SizedBox(height: 16),
             Text(
@@ -501,7 +508,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[600],
+                color: theme.textTheme.titleLarge?.color?.withOpacity(0.95),
               ),
             ),
             const SizedBox(height: 8),
@@ -514,7 +521,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
-                  color: Colors.grey[500],
+                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.75),
                 ),
               ),
             ),
@@ -531,15 +538,15 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
             Icon(
               Icons.search_off,
               size: 80,
-              color: Colors.grey[300],
+              color: theme.disabledColor,
             ),
             const SizedBox(height: 16),
             Text(
               'No Results Found',
-              style: TextStyle(
+                style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey[700],
+                color: theme.textTheme.titleLarge?.color,
               ),
             ),
             const SizedBox(height: 8),
@@ -550,7 +557,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 15,
-                  color: Colors.grey[500],
+                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.75),
                 ),
               ),
             ),
@@ -559,7 +566,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               'Try different keywords or check spelling',
               style: TextStyle(
                 fontSize: 13,
-                color: Colors.grey[400],
+                color: theme.textTheme.bodySmall?.color,
                 fontStyle: FontStyle.italic,
               ),
             ),
@@ -572,6 +579,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Widget _buildResults() {
+    final theme = Theme.of(context);
     // Group results by type
     final productResults = _results.where((r) => r.type == SearchResultType.product).toList();
     final categoryResults = _results.where((r) => r.type == SearchResultType.category).toList();
@@ -584,19 +592,19 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
           padding: const EdgeInsets.all(12),
           margin: const EdgeInsets.only(bottom: 16),
           decoration: BoxDecoration(
-            color: Colors.blue[50],
+            color: theme.colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue[100]!),
+            border: Border.all(color: theme.colorScheme.primary.withOpacity(0.12)),
           ),
           child: Row(
             children: [
-              Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+              Icon(Icons.info_outline, color: theme.colorScheme.primary, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   'Found ${_results.length} result${_results.length == 1 ? '' : 's'} for "${_searchController.text}"',
                   style: TextStyle(
-                    color: Colors.blue[900],
+                    color: theme.colorScheme.onPrimaryContainer,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -622,25 +630,26 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Widget _buildSectionHeader(String title, int count, IconData icon) {
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(bottom: 12, top: 8),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: Colors.grey[700]),
+          Icon(icon, size: 20, color: theme.iconTheme.color?.withOpacity(0.85)),
           const SizedBox(width: 8),
           Text(
             title,
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Colors.grey[800],
+              color: theme.textTheme.titleMedium?.color,
             ),
           ),
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: theme.colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -648,7 +657,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
-                color: Colors.grey[700],
+                color: theme.textTheme.bodySmall?.color,
               ),
             ),
           ),
@@ -658,6 +667,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
   }
 
   Widget _buildResultCard(SearchResult result) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       elevation: 1,
@@ -674,7 +686,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: result.color.withOpacity(0.1),
+                  color: result.color.withOpacity(isDark ? 0.22 : 0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Icon(
@@ -690,13 +702,13 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      result.title,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black87,
-                      ),
+                          Text(
+                            result.title,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: theme.textTheme.titleMedium?.color,
+                            ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -706,7 +718,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: result.color.withOpacity(0.15),
+                            color: result.color.withOpacity(isDark ? 0.28 : 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -723,9 +735,9 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                           Expanded(
                             child: Text(
                               result.subtitle!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey,
+                                color: theme.textTheme.bodySmall?.color,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -740,7 +752,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
                         result.description!,
                         style: TextStyle(
                           fontSize: 13,
-                          color: Colors.grey[600],
+                          color: theme.textTheme.bodyMedium?.color?.withOpacity(0.85),
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
@@ -754,7 +766,7 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
               Icon(
                 Icons.arrow_forward_ios,
                 size: 16,
-                color: Colors.grey[400],
+                color: theme.iconTheme.color?.withOpacity(0.6),
               ),
             ],
           ),

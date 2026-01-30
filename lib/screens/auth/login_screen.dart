@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'signup_screen.dart';
+import 'request_password_reset_email_screen.dart';
 import '../../services/auth_service.dart';
 import '../../exceptions/category_not_registered_exception.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -215,13 +216,25 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
+                          cursorColor: Colors.blueAccent,
+                          style: const TextStyle(color: Colors.black87),
                           decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
                             labelText: 'Email',
                             hintText: 'Enter your email',
+                            labelStyle: const TextStyle(
+                              color: Colors.blueAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            hintStyle: TextStyle(
+                              color: Colors.blueAccent.withOpacity(0.75),
+                              fontWeight: FontWeight.bold,
+                            ),
                             prefixIcon: Icon(
                               Icons.email,
                               color: _emailError
-                                  ? Colors.red
+                                  ? Colors.red.shade700
                                   : Colors.blueAccent,
                             ),
                             border: OutlineInputBorder(
@@ -249,19 +262,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             errorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Colors.red,
+                              borderSide: BorderSide(
+                                color: Colors.red.shade700,
                                 width: 2,
                               ),
                             ),
                             focusedErrorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Colors.red,
+                              borderSide: BorderSide(
+                                color: Colors.red.shade700,
                                 width: 2,
                               ),
                             ),
                             errorText: _emailErrorText,
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           validator: _validateEmail,
                           onChanged: (value) {
@@ -280,13 +297,25 @@ class _LoginScreenState extends State<LoginScreen> {
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
+                          cursorColor: Colors.blueAccent,
+                          style: const TextStyle(color: Colors.black87),
                           decoration: InputDecoration(
+                            filled: true,
+                            fillColor: Colors.white,
                             labelText: 'Password',
                             hintText: 'Enter your password',
+                            labelStyle: const TextStyle(
+                              color: Colors.blueAccent,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            hintStyle: TextStyle(
+                              color: Colors.blueAccent.withOpacity(0.75),
+                              fontWeight: FontWeight.bold,
+                            ),
                             prefixIcon: Icon(
                               Icons.lock,
                               color: _passwordError
-                                  ? Colors.red
+                                  ? Colors.red.shade700
                                   : Colors.blueAccent,
                             ),
                             suffixIcon: IconButton(
@@ -327,19 +356,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             errorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Colors.red,
+                              borderSide: BorderSide(
+                                color: Colors.red.shade700,
                                 width: 2,
                               ),
                             ),
                             focusedErrorBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Colors.red,
+                              borderSide: BorderSide(
+                                color: Colors.red.shade700,
                                 width: 2,
                               ),
                             ),
                             errorText: _passwordErrorText,
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           validator: _validatePassword,
                           onChanged: (value) {
@@ -391,12 +424,12 @@ class _LoginScreenState extends State<LoginScreen> {
                           alignment: Alignment.centerRight,
                           child: TextButton(
                             onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Forgot Password - Coming Soon!',
-                                  ),
-                                  backgroundColor: Colors.blueAccent,
+                              // Navigate to Forgot Password flow
+                              // Open email-based password reset screen
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const RequestPasswordResetEmailScreen(),
                                 ),
                               );
                             },
@@ -407,37 +440,53 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        const SizedBox(height: 15),
 
                         // Login Button
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleLogin,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.blueAccent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                          style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.resolveWith<Color>(
+                              (states) {
+                                // Keep strong blue background even when disabled (loading)
+                                if (states.contains(MaterialState.disabled)) {
+                                  return Colors.blueAccent;
+                                }
+                                return Colors.blueAccent;
+                              },
                             ),
-                            elevation: 3,
+                            foregroundColor: MaterialStateProperty.all<Color>(Colors.white),
+                            padding: MaterialStateProperty.all<EdgeInsets>(
+                              const EdgeInsets.symmetric(vertical: 16),
+                            ),
+                            shape: MaterialStateProperty.all<OutlinedBorder>(
+                              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                            elevation: MaterialStateProperty.all<double>(3),
                           ),
                           child: _isLoading
-                              ? const Row(
+                              ? Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    SizedBox(
+                                    const SizedBox(
                                       width: 20,
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
                                       ),
                                     ),
-                                    SizedBox(width: 12),
-                                    Text('Signing In...'),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Signing In...',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.white,
+                                      ),
+                                    ),
                                   ],
                                 )
                               : const Text(

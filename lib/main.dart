@@ -4,6 +4,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'screens/splash_screen.dart';
+import 'services/theme_service.dart';
 import 'screens/auth/welcome_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/client/client_categories_screen.dart';
@@ -40,6 +41,8 @@ Future<void> main() async {
       enableInAppNotifications: true,
     );
     debugPrint('✅ OneSignal initialized');
+    // Initialize theme service (loads saved preference)
+    await ThemeService.instance.init();
   } catch (e) {
     debugPrint('Initialization error: $e');
   }
@@ -231,25 +234,59 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Yalla QR',
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: _showSplash
-          ? SplashScreen(
-              onSplashComplete: () {
-                setState(() {
-                  _showSplash = false;
-                });
-              },
-            )
-          : const WelcomeScreen(),
-      routes: {
-        '/home': (context) => const HomeScreen(),
-        '/client': (context) => const ClientCategoriesScreen(),
-        '/delivery': (context) => const DeliveryHomeScreen(),
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.instance.modeNotifier,
+      builder: (context, mode, _) {
+        final lightScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: Brightness.light);
+        final darkScheme = ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: Brightness.dark);
+
+        return MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Yalla QR',
+          theme: ThemeData.light().copyWith(
+            colorScheme: lightScheme,
+            scaffoldBackgroundColor: lightScheme.background,
+            cardColor: lightScheme.surface,
+            appBarTheme: AppBarTheme(
+              backgroundColor: lightScheme.primary,
+              foregroundColor: lightScheme.onPrimary,
+              elevation: 0,
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: lightScheme.surfaceVariant,
+            ),
+          ),
+          darkTheme: ThemeData.dark().copyWith(
+            colorScheme: darkScheme,
+            scaffoldBackgroundColor: darkScheme.background,
+            cardColor: darkScheme.surface,
+            appBarTheme: AppBarTheme(
+              backgroundColor: darkScheme.surface,
+              foregroundColor: darkScheme.onSurface,
+              elevation: 0,
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: darkScheme.surfaceVariant,
+            ),
+          ),
+          themeMode: mode,
+          home: _showSplash
+              ? SplashScreen(
+                  onSplashComplete: () {
+                    setState(() {
+                      _showSplash = false;
+                    });
+                  },
+                )
+              : const WelcomeScreen(),
+          routes: {
+            '/home': (context) => const HomeScreen(),
+            '/client': (context) => const ClientCategoriesScreen(),
+            '/delivery': (context) => const DeliveryHomeScreen(),
+          },
+        );
       },
     );
   }

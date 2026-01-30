@@ -95,14 +95,14 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
         return false;
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
         title: Text(
           childCategory?.name ?? 'Category',
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
         ),
         backgroundColor: color,
-        foregroundColor: Colors.white,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         elevation: 0,
         centerTitle: true,
       ),
@@ -179,22 +179,22 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                         // Add Product Images
                         Text(
                           'Add Product Images',
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.grey.shade900,
-                          ),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              color: Theme.of(context).textTheme.titleMedium?.color,
+                            ),
                         ),
                         const SizedBox(height: 12),
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(18),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
+                                color: Theme.of(context).shadowColor.withOpacity(0.04),
                                 blurRadius: 16,
                                 offset: const Offset(0, 8),
                               ),
@@ -210,8 +210,10 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                   height: 160,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(color: Colors.blue.shade100, width: 1.8),
-                                    color: Colors.blue.shade50,
+                                    border: Border.all(color: (childCategory?.color ?? Colors.blue).withOpacity(0.14), width: 1.8),
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Theme.of(context).cardColor
+                                        : (childCategory?.color ?? Colors.blue).withOpacity(0.06),
                                   ),
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -247,20 +249,20 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                               style: TextStyle(
                                 fontSize: 20,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.grey.shade900,
+                                color: Theme.of(context).textTheme.titleMedium?.color,
                               ),
                             ),
                             const Spacer(),
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                               decoration: BoxDecoration(
-                                color: Colors.blue.shade50,
+                                color: Theme.of(context).cardColor,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
                                 '${products.length} ${products.length == 1 ? 'item' : 'items'}',
                                 style: TextStyle(
-                                  color: Colors.blue.shade700,
+                                  color: childCategory?.color ?? Theme.of(context).colorScheme.primary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 12,
                                 ),
@@ -276,12 +278,14 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 28),
                             decoration: BoxDecoration(
-                              color: color.withOpacity(0.06),
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Theme.of(context).cardColor
+                                  : color.withOpacity(0.06),
                               borderRadius: BorderRadius.circular(18),
                               border: Border.all(color: color.withOpacity(0.14)),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.03),
+                                  color: Theme.of(context).shadowColor.withOpacity(0.03),
                                   blurRadius: 18,
                                   offset: const Offset(0, 10),
                                 ),
@@ -299,12 +303,12 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                   child: Icon(Icons.anchor, size: 42, color: color),
                                 ),
                                 const SizedBox(height: 18),
-                                const Text(
+                                Text(
                                   'No products added yet',
                                   style: TextStyle(
                                     fontSize: 18,
                                     fontWeight: FontWeight.w700,
-                                    color: Color(0xFF4A4A4A),
+                                    color: Theme.of(context).textTheme.bodyLarge?.color,
                                   ),
                                 ),
                                 const SizedBox(height: 6),
@@ -312,7 +316,7 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                   'Start by adding your first product',
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.grey.shade600,
+                                    color: Theme.of(context).textTheme.bodySmall?.color,
                                     fontWeight: FontWeight.w500,
                                   ),
                                 ),
@@ -355,17 +359,21 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                 child: GestureDetector(
                                   onTap: isOutOfStock ? null : () => _showProductDetails(product),
                                   child: Container(
-                                    decoration: BoxDecoration(
-                                      color: isOutOfStock ? Colors.grey.shade200 : Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(isOutOfStock ? 0.02 : 0.05),
-                                          blurRadius: 12,
-                                          offset: const Offset(0, 6),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context).cardColor,
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: Theme.of(context).dividerColor.withOpacity(isOutOfStock ? 0.06 : 0.12),
+                                          width: 1,
                                         ),
-                                      ],
-                                    ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Theme.of(context).shadowColor.withOpacity(isOutOfStock ? 0.02 : 0.06),
+                                            blurRadius: 12,
+                                            offset: const Offset(0, 6),
+                                          ),
+                                        ],
+                                      ),
                                     child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
@@ -376,10 +384,10 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                               borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                                               child: Container(
                                                 width: double.infinity,
-                                                color: Colors.grey.shade100,
+                                                color: Theme.of(context).cardColor,
                                                 child: product.imageUrl != null
                                                     ? Image.network(product.imageUrl!, fit: BoxFit.cover)
-                                                    : Icon(Icons.image_outlined, size: 48, color: Colors.grey.shade400),
+                                                    : Icon(Icons.image_outlined, size: 48, color: Theme.of(context).iconTheme.color?.withOpacity(0.5)),
                                               ),
                                             ),
                                             Positioned(
@@ -388,11 +396,11 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                               child: Container(
                                                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                                                 decoration: BoxDecoration(
-                                                  color: product.quantity > 0 ? const Color(0xFF4CAF50) : const Color(0xFFF44336),
+                                                  color: product.quantity > 0 ? Colors.green.shade700 : Colors.red.shade600,
                                                   borderRadius: BorderRadius.circular(6),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: Colors.black.withOpacity(0.1),
+                                                      color: Colors.black.withOpacity(0.08),
                                                       blurRadius: 4,
                                                       offset: const Offset(0, 2),
                                                     ),
@@ -418,17 +426,17 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                                   child: Container(
                                                     padding: const EdgeInsets.all(6),
                                                     decoration: BoxDecoration(
-                                                      color: Colors.white,
+                                                      color: Theme.of(context).cardColor,
                                                       borderRadius: BorderRadius.circular(10),
                                                       boxShadow: [
                                                         BoxShadow(
-                                                          color: Colors.black.withOpacity(0.05),
+                                                          color: Theme.of(context).shadowColor.withOpacity(0.05),
                                                           blurRadius: 6,
                                                           offset: const Offset(0, 3),
                                                         ),
                                                       ],
                                                     ),
-                                                    child: Icon(Icons.edit, size: 16, color: Colors.teal.shade600),
+                                                    child: Icon(Icons.edit, size: 16, color: Theme.of(context).colorScheme.secondary),
                                                   ),
                                                 ),
                                               ),
@@ -445,10 +453,9 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(
+                                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                                                 fontWeight: FontWeight.w700,
                                                 fontSize: 15,
-                                                color: Color(0xFF1A1A1A),
                                               ),
                                             ),
                                             if (product.description?.isNotEmpty == true) ...[
@@ -459,7 +466,7 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                                 overflow: TextOverflow.ellipsis,
                                                 textAlign: TextAlign.center,
                                                 style: TextStyle(
-                                                  color: Colors.grey.shade600,
+                                                  color: Theme.of(context).textTheme.bodySmall?.color,
                                                   fontSize: 12,
                                                   height: 1.3,
                                                 ),
@@ -473,8 +480,8 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(
-                                                color: Color(0xFF2196F3),
+                                              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                                color: childCategory?.color ?? Theme.of(context).colorScheme.primary,
                                                 fontSize: 13,
                                                 fontWeight: FontWeight.w700,
                                               ),
@@ -511,25 +518,25 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                                     decoration: BoxDecoration(
                                                       shape: BoxShape.circle,
                                                       border: Border.all(
-                                                        color: Colors.grey.shade400,
+                                                        color: Theme.of(context).dividerColor,
                                                         width: 1.5,
                                                       ),
                                                     ),
                                                     child: Icon(
                                                       Icons.remove,
                                                       size: 18,
-                                                      color: Colors.grey.shade700,
+                                                      color: Theme.of(context).iconTheme.color?.withOpacity(0.85),
                                                     ),
                                                   ),
                                                 ),  
                                                 Padding(
-                                                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                                                    padding: const EdgeInsets.symmetric(horizontal: 16),
                                                   child: Text(
                                                     '${product.quantity}',
-                                                    style: const TextStyle(
+                                                    style: TextStyle(
                                                       fontWeight: FontWeight.w700,
                                                       fontSize: 16,
-                                                      color: Color(0xFF1A1A1A),
+                                                      color: Theme.of(context).textTheme.bodyLarge?.color,
                                                     ),
                                                   ),
                                                 ),
@@ -554,19 +561,19 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                                       }
                                                     }
                                                   },
-                                                  child: Container(
+                                                    child: Container(
                                                     padding: const EdgeInsets.all(4),
                                                     decoration: BoxDecoration(
                                                       shape: BoxShape.circle,
                                                       border: Border.all(
-                                                        color: Colors.grey.shade700,
+                                                        color: Theme.of(context).dividerColor,
                                                         width: 1.5,
                                                       ),
                                                     ),
                                                     child: Icon(
                                                       Icons.add,
                                                       size: 18,
-                                                      color: Colors.grey.shade700,
+                                                      color: Theme.of(context).iconTheme.color?.withOpacity(0.85),
                                                     ),
                                                   ),
                                                 ),
@@ -855,7 +862,7 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               ),
                               child: isUploading
-                                  ? const Row(
+                                  ? Row(
                                       mainAxisAlignment: MainAxisAlignment.center,
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
@@ -864,10 +871,10 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                           height: 16,
                                           child: CircularProgressIndicator(
                                             strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.onPrimary),
                                           ),
                                         ),
-                                        SizedBox(width: 8),
+                                        const SizedBox(width: 8),
                                         Text('Saving...', softWrap: false),
                                       ],
                                     )
@@ -1306,16 +1313,16 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                   child: Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: Theme.of(context).cardColor,
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.06),
+                                          color: Theme.of(context).shadowColor.withOpacity(0.06),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         ),
                                       ],
-                                      border: Border.all(color: Colors.grey.shade200),
+                                      border: Border.all(color: Theme.of(context).dividerColor),
                                     ),
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -1345,7 +1352,7 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
                                       width: 40,
                                       height: 4,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade300,
+                                        color: Theme.of(context).dividerColor,
                                         borderRadius: BorderRadius.circular(2),
                                       ),
                                     ),
@@ -1598,9 +1605,9 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1608,11 +1615,11 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
           SizedBox(
             width: 90,
             child: Text(
-              label,
+                label,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
                 letterSpacing: 0.2,
               ),
             ),
@@ -1666,9 +1673,9 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200, width: 1),
+        border: Border.all(color: Theme.of(context).dividerColor, width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1680,7 +1687,7 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).textTheme.bodyMedium?.color,
                 letterSpacing: 0.2,
               ),
             ),
@@ -1692,10 +1699,10 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF1A1A1A),
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                     height: 1.4,
                   ),
                   maxLines: maxLines,

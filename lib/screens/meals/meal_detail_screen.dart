@@ -34,11 +34,12 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   String? errorMessage;
   double usdRate = 0.0;
 
-  Color inStockColor = const Color.fromARGB(255, 76, 175, 80); // #4CAF50
-  Color outOfStockColor = const Color.fromARGB(255, 244, 67, 54); // #F44336
+  Color get inStockColor => Colors.green.shade700;
+  Color get outOfStockColor => Colors.red.shade600;
 
-  Color inStockBg = const Color.fromARGB(30, 76, 175, 80); // light green
-  Color outOfStockBg = const Color.fromARGB(30, 244, 67, 54); // light red
+  Color get inStockBg => Colors.green.shade700.withOpacity(0.12);
+  Color get outOfStockBg => Colors.red.shade600.withOpacity(0.12);
+
 
   // Map to store product quantities by product ID (using String since product.id is String)
   Map<String, int> productQuantities = <String, int>{};
@@ -163,14 +164,14 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         title: Text(
           widget.meal['name'],
           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 20),
         ),
         backgroundColor: widget.meal['color'],
-        foregroundColor: Colors.white,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
         elevation: 0,
         centerTitle: true,
       ),
@@ -234,12 +235,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
             const SizedBox(height: 32),
 
             // Product Image Capture Section
-            const Text(
+            Text(
               'Add Product Images',
-              style: TextStyle(
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(
                 fontSize: 20,
                 fontWeight: FontWeight.w700,
-                color: Color(0xFF1A1A1A),
                 letterSpacing: 0.3,
               ),
             ),
@@ -249,11 +249,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(20),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: Theme.of(context).shadowColor.withOpacity(0.06),
                     blurRadius: 20,
                     offset: const Offset(0, 8),
                     spreadRadius: 0,
@@ -269,7 +269,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                       height: 170,
                       width: double.infinity,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF8F9FA),
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(16),
                         border: Border.all(
                           color: widget.meal['color'].withValues(alpha: 0.3),
@@ -318,12 +318,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
               children: [
                 Text(
                   '${widget.meal['name']} Products',
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
-                    letterSpacing: 0.3,
-                  ),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium!
+                      .copyWith(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: 0.3),
                 ),
                 Row(
                   children: [
@@ -355,13 +353,15 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
             SizedBox(
               height: 600, // Fixed height for scrollable content
               child: isLoading
-                  ? const Center(
-                      child: Column(
+                        ? Center(
+                          child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          CircularProgressIndicator(),
-                          SizedBox(height: 16),
-                          Text('Loading products...'),
+                          CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
+                          ),
+                          const SizedBox(height: 16),
+                          Text('Loading products...', style: TextStyle(color: Theme.of(context).textTheme.bodyMedium?.color)),
                         ],
                       ),
                     )
@@ -370,11 +370,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Theme.of(context).shadowColor.withOpacity(0.06),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                             spreadRadius: 0,
@@ -387,21 +387,21 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                           Container(
                             padding: const EdgeInsets.all(20),
                             decoration: BoxDecoration(
-                              color: Colors.red.withValues(alpha: 0.1),
+                              color: outOfStockColor.withOpacity(0.12),
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
+                            child: Icon(
                               Icons.error_outline,
                               size: 48,
-                              color: Colors.red,
+                              color: outOfStockColor,
                             ),
                           ),
                           const SizedBox(height: 20),
-                          const Text(
+                          Text(
                             'Error loading products',
                             style: TextStyle(
                               fontSize: 18,
-                              color: Colors.red,
+                              color: Theme.of(context).colorScheme.error,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -410,7 +410,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             errorMessage!,
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade500,
+                              color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey,
                               fontWeight: FontWeight.w400,
                             ),
                             textAlign: TextAlign.center,
@@ -422,7 +422,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             label: const Text('Retry'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: widget.meal['color'],
-                              foregroundColor: Colors.white,
+                              foregroundColor: Theme.of(context).colorScheme.onPrimary,
                             ),
                           ),
                         ],
@@ -433,11 +433,11 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(32),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: Theme.of(context).cardColor,
                         borderRadius: BorderRadius.circular(20),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
+                            color: Theme.of(context).shadowColor.withOpacity(0.04),
                             blurRadius: 20,
                             offset: const Offset(0, 8),
                             spreadRadius: 0,
@@ -468,7 +468,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             'No products added yet',
                             style: TextStyle(
                               fontSize: 18,
-                              color: Colors.grey.shade700,
+                              color: Theme.of(context).textTheme.bodyLarge?.color,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -477,7 +477,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                             'Start by adding your first product',
                             style: TextStyle(
                               fontSize: 14,
-                              color: Colors.grey.shade500,
+                              color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey,
                               fontWeight: FontWeight.w400,
                             ),
                           ),
@@ -510,13 +510,22 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                   duration: const Duration(milliseconds: 200),
                                   padding: const EdgeInsets.all(16),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: Theme.of(context).cardColor,
                                     borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: widget.meal['color'].withValues(alpha: 0.28),
+                                      width: 2.0,
+                                    ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withAlpha(15),
+                                        color: Theme.of(context).shadowColor.withOpacity(0.06),
                                         blurRadius: 20,
                                         offset: const Offset(0, 8),
+                                      ),
+                                      BoxShadow(
+                                        color: widget.meal['color'].withValues(alpha: 0.12),
+                                        blurRadius: 14,
+                                        offset: const Offset(0, 6),
                                       ),
                                     ],
                                   ),
@@ -531,27 +540,17 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                             vertical: 2,
                                           ),
                                           decoration: BoxDecoration(
-                                            color: product.quantity > 0
-                                                ? Colors.green.withValues(
-                                                    alpha: 0.1,
-                                                  )
-                                                : Colors.red.withValues(
-                                                    alpha: 0.1,
-                                                  ),
-                                            borderRadius: BorderRadius.circular(
-                                              6,
-                                            ),
+                                            color: product.quantity > 0 ? inStockBg : outOfStockBg,
+                                            borderRadius: BorderRadius.circular(6),
                                           ),
                                           child: Text(
                                             product.quantity > 0
                                                 ? 'In Stock'
                                                 : 'Out of Stock',
-                                            style: TextStyle(
+                                              style: TextStyle(
                                               fontSize: 10,
                                               fontWeight: FontWeight.bold,
-                                              color: product.quantity > 0
-                                                  ? Colors.green
-                                                  : Colors.red,
+                                              color: product.quantity > 0 ? inStockColor : outOfStockColor,
                                             ),
                                           ),
                                         ),
@@ -575,10 +574,22 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                                     height: 140,
                                                     width: double.infinity,
                                                     decoration: BoxDecoration(
-                                                      color: widget.meal['color']
-                                                          .withAlpha(30),
+                                                      color: Theme.of(context).brightness == Brightness.dark
+                                                          ? Theme.of(context).cardColor
+                                                          : widget.meal['color'].withAlpha(30),
                                                       borderRadius:
                                                           BorderRadius.circular(12),
+                                                      border: Border.all(
+                                                        color: widget.meal['color'].withValues(alpha: 0.28),
+                                                        width: 1.6,
+                                                      ),
+                                                      boxShadow: [
+                                                        BoxShadow(
+                                                          color: Theme.of(context).shadowColor.withOpacity(0.04),
+                                                          blurRadius: 6,
+                                                          offset: const Offset(0, 3),
+                                                        ),
+                                                      ],
                                                     ),
                                                     child: product.imageUrl != null
                                                         ? ClipRRect(
@@ -612,10 +623,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                                   const SizedBox(height: 8),
                                                   Text(
                                                     product.name,
-                                                    style: const TextStyle(
+                                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                                                       fontSize: 13,
                                                       fontWeight: FontWeight.w600,
-                                                      color: Color(0xFF1A1A1A),
                                                     ),
                                                     textAlign: TextAlign.center,
                                                     maxLines: 2,
@@ -629,10 +639,9 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                                                 .isNotEmpty
                                                         ? product.description!
                                                         : 'No description',
-                                                    style: TextStyle(
+                                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
                                                       fontSize: 11,
                                                       fontWeight: FontWeight.w400,
-                                                      color: Colors.grey.shade600,
                                                     ),
                                                     textAlign: TextAlign.center,
                                                     maxLines: 2,
@@ -750,12 +759,12 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                   child: GestureDetector(
                                     onTap: () =>
                                         _showEditProductDialog(product),
-                                    child: Container(
-                                      padding: const EdgeInsets.all(6),
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
-                                        shape: BoxShape.circle,
-                                      ),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(6),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.surfaceVariant,
+                                          shape: BoxShape.circle,
+                                        ),
                                       child: ShaderMask(
                                         shaderCallback: (Rect bounds) {
                                           return LinearGradient(
@@ -1046,34 +1055,23 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                         });
 
                                         // Ensure price fields are calculated before saving
-                                        if (priceLbpController
-                                                .text
-                                                .isNotEmpty &&
+                                        if (priceLbpController.text.isNotEmpty &&
                                             priceUsdController.text.isEmpty) {
                                           final lbpValue = double.tryParse(
-                                            priceLbpController.text.replaceAll(
-                                              ',',
-                                              '',
-                                            ),
+                                            priceLbpController.text.replaceAll(',', ''),
                                           );
                                           if (lbpValue != null && usdRate > 0) {
                                             priceUsdController.text =
-                                                (lbpValue / usdRate)
-                                                    .toStringAsFixed(2);
+                                                (lbpValue / usdRate).toStringAsFixed(2);
                                           }
-                                        }
-
-                                        if (priceUsdController
-                                                .text
-                                                .isNotEmpty &&
+                                        } else if (priceUsdController.text.isNotEmpty &&
                                             priceLbpController.text.isEmpty) {
                                           final usdValue = double.tryParse(
                                             priceUsdController.text,
                                           );
                                           if (usdValue != null && usdRate > 0) {
                                             priceLbpController.text =
-                                                (usdValue * usdRate)
-                                                    .toStringAsFixed(0);
+                                                (usdValue * usdRate).toStringAsFixed(0);
                                           }
                                         }
 
@@ -1405,17 +1403,34 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                 height: 140,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
-                                  color: widget.meal['color'].withValues(alpha: 0.08),
+                                  // Use a subtle gradient that keeps the meal accent,
+                                  // but prefers the card surface so it reads well in dark mode.
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Theme.of(context).cardColor,
+                                      widget.meal['color'].withValues(alpha: 0.04),
+                                    ],
+                                  ),
                                   borderRadius: BorderRadius.circular(16),
+                                  // Thicker, more opaque border to make the card pop
                                   border: Border.all(
-                                    color: widget.meal['color'].withValues(alpha: 0.2),
-                                    width: 1.5,
+                                    color: widget.meal['color'].withValues(alpha: 0.32),
+                                    width: 2.4,
                                   ),
                                   boxShadow: [
+                                    // Slight colored glow from the meal accent
                                     BoxShadow(
-                                      color: widget.meal['color'].withValues(alpha: 0.1),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
+                                      color: widget.meal['color'].withValues(alpha: 0.12),
+                                      blurRadius: 12,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                    // Small neutral shadow for depth across themes
+                                    BoxShadow(
+                                      color: Theme.of(context).shadowColor.withOpacity(0.04),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
                                     ),
                                   ],
                                 ),
@@ -1617,20 +1632,20 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                               }) {
                                 return GestureDetector(
                                   onTap: () => Navigator.of(ctx).pop(value),
-                                  child: Container(
+                                    child: Container(
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.white,
+                                      color: Theme.of(context).cardColor,
                                       borderRadius: BorderRadius.circular(12),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.06),
+                                          color: Theme.of(context).shadowColor.withOpacity(0.06),
                                           blurRadius: 8,
                                           offset: const Offset(0, 2),
                                         ),
                                       ],
                                       border: Border.all(
-                                        color: Colors.grey.shade200,
+                                        color: Theme.of(context).dividerColor,
                                       ),
                                     ),
                                     child: Column(
@@ -1661,7 +1676,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                                       width: 40,
                                       height: 4,
                                       decoration: BoxDecoration(
-                                        color: Colors.grey.shade300,
+                                        color: Theme.of(context).dividerColor,
                                         borderRadius: BorderRadius.circular(2),
                                       ),
                                     ),
@@ -1799,7 +1814,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                           child: TextButton(
                             onPressed: () => Navigator.of(context).pop(),
                             style: TextButton.styleFrom(
-                              backgroundColor: Colors.grey.shade200,
+                              backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
                             ),
                             child: const Text('Cancel'),
                           ),
@@ -1953,10 +1968,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.grey.shade200,
+          color: Theme.of(context).dividerColor,
           width: 1,
         ),
       ),
@@ -1964,13 +1979,13 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 90,
+          width: 90,
             child: Text(
               label,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).textTheme.bodySmall?.color,
                 letterSpacing: 0.2,
               ),
             ),
@@ -1992,7 +2007,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: valueTextColor ?? const Color(0xFF1A1A1A),
+                  color: valueTextColor ?? Theme.of(context).textTheme.bodyMedium?.color,
                   height: 1.4,
                 ),
               ),
@@ -2066,10 +2081,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
     // Check if the text is actually long enough to need expanding
     final textSpan = TextSpan(
       text: value,
-      style: const TextStyle(
+      style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w500,
-        color: Color(0xFF1A1A1A),
+        color: Theme.of(context).textTheme.bodyMedium?.color,
       ),
     );
     
@@ -2086,10 +2101,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Colors.grey.shade200,
+          color: Theme.of(context).dividerColor,
           width: 1,
         ),
       ),
@@ -2103,7 +2118,7 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).textTheme.bodySmall?.color,
                 letterSpacing: 0.2,
               ),
             ),
@@ -2115,10 +2130,10 @@ class _MealDetailScreenState extends State<MealDetailScreen> {
               children: [
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xFF1A1A1A),
+                    color: Theme.of(context).textTheme.bodyMedium?.color,
                     height: 1.4,
                   ),
                   maxLines: maxLines,

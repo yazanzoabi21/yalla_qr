@@ -79,6 +79,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       // Request location permission
       final permission = await Geolocator.requestPermission();
 
+      final theme = Theme.of(context);
+
       if (permission == LocationPermission.denied) {
         debugPrint('⚠️ Location permission denied by user');
         if (mounted) {
@@ -87,7 +89,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
               content: const Text(
                 'Location permission is required to share your delivery location',
               ),
-              backgroundColor: Colors.orange,
+              backgroundColor: theme.colorScheme.secondary,
               action: SnackBarAction(
                 label: 'Enable',
                 onPressed: () async {
@@ -105,7 +107,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
               content: const Text(
                 'Location permission required. Please enable it in settings.',
               ),
-              backgroundColor: Colors.red,
+              backgroundColor: theme.colorScheme.error,
               action: SnackBarAction(
                 label: 'Settings',
                 onPressed: () async {
@@ -208,6 +210,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
 
   /// Automatically start location tracking for active deliveries
   Future<void> _autoStartLocationTracking() async {
+    final theme = Theme.of(context);
     // Get first pending order (non-delivered, non-cancelled)
     final activeOrders = _assignedOrders
         .where((o) => o.status != 'DELIVERED' && o.status != 'CANCELLED')
@@ -243,12 +246,13 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
         debugPrint('📍 Location permission not granted');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
                 'Location permission is required for delivery tracking',
+                style: TextStyle(color: theme.textTheme.bodyMedium?.color),
               ),
-              backgroundColor: Colors.orange,
-              duration: Duration(seconds: 3),
+              backgroundColor: theme.colorScheme.secondary,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -270,21 +274,31 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       );
 
       if (mounted) {
+        final snackBg = theme.brightness == Brightness.dark
+            ? theme.colorScheme.primaryContainer
+            : theme.colorScheme.primary;
+        final snackText = theme.brightness == Brightness.dark
+            ? theme.colorScheme.onPrimaryContainer
+            : theme.colorScheme.onPrimary;
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
+            behavior: SnackBarBehavior.floating,
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             content: Row(
               children: [
-                const Icon(Icons.location_on, color: Colors.white, size: 20),
+                Icon(Icons.location_on, color: snackText, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Location tracking started for Order #${firstOrder.id.substring(0, 8)}',
-                    style: const TextStyle(fontSize: 13),
+                    style: TextStyle(fontSize: 13, color: snackText),
                   ),
                 ),
               ],
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: snackBg,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -356,7 +370,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
   Color _getStatusColor(String status) {
     switch (status) {
       case 'PENDING':
-        return Colors.orange;
+        return Colors.yellow[700]!;
       case 'CONFIRMED':
         return Colors.blue;
       case 'PREPARING':
@@ -364,7 +378,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       case 'READY':
         return Colors.teal;
       case 'DELIVERED':
-        return Colors.green;
+        return Colors.green.shade600;
       case 'CANCELLED':
         return Colors.red;
       default:
@@ -374,6 +388,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    // Status colors (force explicit colors regardless of theme)
+    final pendingColor = Colors.yellow[700]!;
+    final completedColor = Colors.green.shade600;
+
     return PopScope(
       canPop: false, // Prevent default back navigation
       onPopInvokedWithResult: (didPop, result) {
@@ -385,7 +405,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Press back again to exit'),
-                backgroundColor: Colors.grey.shade700,
+                backgroundColor: theme.colorScheme.onSurface.withOpacity(0.7),
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
                 margin: const EdgeInsets.all(16),
@@ -399,7 +419,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFEFF0F3),
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: Navbar(
         showMenuButton: true,
         searchHint: 'Search orders, customers, addresses...',
@@ -486,121 +506,124 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                   Container(
                     margin: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.cardColor,
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: TabBar(
-                      controller: _tabController,
-                      indicator: BoxDecoration(
-                        color: _tabController.index == 0
-                            ? Colors.yellow[700]
-                            : Colors.green,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      labelColor: Colors.white,
-                      unselectedLabelColor: Colors.grey.shade600,
-                      indicatorSize: TabBarIndicatorSize.tab,
-                      dividerColor: Colors.transparent,
-                      tabs: [
-                        Tab(
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                    child: AnimatedBuilder(
+                      animation: _tabController.animation ?? _tabController,
+                      builder: (context, _) {
+                        return TabBar(
+                          controller: _tabController,
+                          indicator: BoxDecoration(
+                            color: _tabController.index == 0 ? pendingColor : completedColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          labelColor: Colors.white,
+                          unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
+                          indicatorSize: TabBarIndicatorSize.tab,
+                          dividerColor: Colors.transparent,
+                          tabs: [
+                            Tab(
+                              child: Stack(
+                                clipBehavior: Clip.none,
                                 children: [
-                                  const Icon(Icons.pending_actions, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text('Pending'),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.pending_actions, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text('Pending'),
+                                    ],
+                                  ),
+                                  if (_pendingOrders.isNotEmpty)
+                                    Positioned(
+                                      top: -2,
+                                      right: -10,
+                                      child: Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          color: pendingColor,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.12),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${_pendingOrders.length}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
-                              if (_pendingOrders.isNotEmpty)
-                                Positioned(
-                                  top: -2,
-                                  right: -10,
-                                  child: Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: Colors.orange.shade700,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.12),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '${_pendingOrders.length}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Tab(
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
+                            ),
+                            Tab(
+                              child: Stack(
+                                clipBehavior: Clip.none,
                                 children: [
-                                  const Icon(Icons.check_circle, size: 18),
-                                  const SizedBox(width: 8),
-                                  Text('Completed'),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      const Icon(Icons.check_circle, size: 18),
+                                      const SizedBox(width: 8),
+                                      Text('Completed'),
+                                    ],
+                                  ),
+                                  if (_completedOrders.isNotEmpty)
+                                    Positioned(
+                                      top: -4,
+                                      right: -10,
+                                      child: Container(
+                                        width: 24,
+                                        height: 24,
+                                        decoration: BoxDecoration(
+                                          color: completedColor,
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.white,
+                                            width: 2,
+                                          ),
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.12),
+                                              blurRadius: 4,
+                                              offset: const Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            '${_completedOrders.length}',
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
                                 ],
                               ),
-                              if (_completedOrders.isNotEmpty)
-                                Positioned(
-                                  top: -4,
-                                  right: -10,
-                                  child: Container(
-                                    width: 24,
-                                    height: 24,
-                                    decoration: BoxDecoration(
-                                      color: Colors.green.shade600,
-                                      shape: BoxShape.circle,
-                                      border: Border.all(
-                                        color: Colors.white,
-                                        width: 2,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.black.withOpacity(0.12),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        '${_completedOrders.length}',
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ),
 
@@ -671,6 +694,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
   }
 
   Widget _buildEmptyState(String message, IconData icon) {
+    final theme = Theme.of(context);
+    final circleColor = theme.colorScheme.surfaceVariant;
+    final iconColor = theme.colorScheme.onSurface.withOpacity(0.4);
+    final textColor = theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
+
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -678,15 +706,15 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: Colors.grey.shade200,
+              color: circleColor,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon, size: 48, color: Colors.grey.shade400),
+            child: Icon(icon, size: 48, color: iconColor),
           ),
           const SizedBox(height: 16),
           Text(
             message,
-            style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 16, color: textColor),
           ),
         ],
       ),
@@ -697,6 +725,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     final assignment = _assignments[order.id];
     // Show red border only when the delivery note is unread (ORG hasn't seen it yet)
     final hasUnreadNote = assignment?.deliveryNotesUnread == true;
+    final theme = Theme.of(context);
+    final pendingColorLocal = Colors.yellow[700]!;
+    final completedColorLocal = Colors.green.shade600;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 350),
@@ -810,12 +841,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                     children: [
                       // Item count card with image
                       Expanded(
-                        child: Container(
+                          child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade50,
+                            color: theme.cardColor,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.grey.shade200),
+                            border: Border.all(color: theme.dividerColor),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -828,20 +859,20 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                        Icon(
-                                          Icons.shopping_bag_outlined,
-                                          size: 14,
-                                          color: Colors.grey.shade600,
-                                        ),
+                                          Icon(
+                                            Icons.shopping_bag_outlined,
+                                            size: 14,
+                                            color: theme.iconTheme.color?.withOpacity(0.75),
+                                          ),
                                         const SizedBox(width: 3),
                                         Flexible(
                                           child: Text(
-                                            'Items',
-                                            style: TextStyle(
-                                              color: Colors.grey.shade600,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w500,
-                                            ),
+                                                'Items',
+                                                style: TextStyle(
+                                                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.85),
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -850,10 +881,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                     const SizedBox(height: 4),
                                     Text(
                                       '${order.items?.length ?? 0}',
-                                      style: const TextStyle(
+                                      style: theme.textTheme.titleLarge?.copyWith(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w800,
-                                        color: Color(0xFF1A1A1A),
                                       ),
                                     ),
                                   ],
@@ -971,20 +1001,20 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.blue.shade50,
+                        color: theme.cardColor,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.shade100),
+                        border: Border.all(color: theme.dividerColor),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              Icon(
-                                Icons.person,
-                                size: 18,
-                                color: Colors.blue.shade700,
-                              ),
+                                  Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: theme.colorScheme.primary,
+                                  ),
                               const SizedBox(width: 8),
                               Text(
                                 'Customer Delivery Info',
@@ -1080,20 +1110,20 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.orange.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.orange.shade200,
-                                ),
+                                  color: theme.cardColor,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: theme.dividerColor,
+                                  ),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Icon(
-                                    Icons.sticky_note_2,
-                                    size: 20,
-                                    color: Colors.orange.shade700,
-                                  ),
+                                    Icon(
+                                      Icons.sticky_note_2,
+                                      size: 20,
+                                      color: theme.colorScheme.secondary,
+                                    ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
@@ -1104,14 +1134,16 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                           'Delivery Note',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w700,
-                                            color: Colors.orange.shade700,
+                                            color: theme.colorScheme.secondary,
                                           ),
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
                                           deliveryNotes,
                                           style: TextStyle(
-                                            color: Colors.grey.shade800,
+                                            color: theme.brightness == Brightness.dark
+                                                ? Colors.white
+                                                : theme.textTheme.bodyMedium?.color ?? Colors.black,
                                           ),
                                         ),
                                       ],
@@ -1125,7 +1157,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                             _showAddNoteDialog(order),
                                         icon: Icon(
                                           Icons.edit,
-                                          color: Colors.orange.shade700,
+                                          color: theme.colorScheme.secondary,
                                         ),
                                         tooltip: 'Edit note',
                                       ),
@@ -1153,7 +1185,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                   ? Icons.note_add
                                   : Icons.edit,
                               size: 18,
-                              color: Colors.orange,
+                              color: Theme.of(context).colorScheme.secondary,
                             ),
                             label: Text(
                               _assignments[order.id]?.deliveryNotes == null
@@ -1161,8 +1193,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                   : 'Edit Note',
                             ),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: Colors.orange,
-                              side: BorderSide(color: Colors.orange.shade200),
+                              foregroundColor: Theme.of(context).colorScheme.secondary,
+                              side: BorderSide(color: Theme.of(context).colorScheme.secondary.withOpacity(0.28)),
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -1178,7 +1210,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                             icon: const Icon(Icons.check_circle),
                             label: const Text('Mark as Delivered'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.green,
+                              backgroundColor: completedColorLocal,
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
@@ -1225,14 +1257,17 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     }
 
     if (imageUrl == null) {
+      final theme = Theme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('No image available'),
-          backgroundColor: Colors.orange,
+        SnackBar(
+          content: Text('No image available', style: TextStyle(color: theme.colorScheme.onSecondary)),
+          backgroundColor: theme.colorScheme.secondary,
         ),
       );
       return;
     }
+
+    final theme = Theme.of(context);
 
     showDialog(
       context: context,
@@ -1251,12 +1286,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
               ),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(24),
-                color: Colors.white,
+                color: theme.cardColor,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
-                    blurRadius: 30,
-                    offset: const Offset(0, 10),
+                    color: theme.shadowColor.withOpacity(0.12),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
                   ),
                 ],
               ),
@@ -1359,7 +1394,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                             : null,
                                         strokeWidth: 3,
                                         valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.deepOrange.shade400,
+                                          theme.colorScheme.primary,
                                         ),
                                       ),
                                     ),
@@ -1367,7 +1402,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                     Text(
                                       'Loading image...',
                                       style: TextStyle(
-                                        color: Colors.grey.shade600,
+                                        color: theme.textTheme.bodyMedium?.color,
                                         fontSize: 14,
                                       ),
                                     ),
@@ -1377,40 +1412,40 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                             },
                             errorBuilder: (context, error, stackTrace) {
                               return Center(
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(20),
-                                      decoration: BoxDecoration(
-                                        color: Colors.red.shade50,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: Icon(
-                                        Icons.broken_image_outlined,
-                                        size: 48,
-                                        color: Colors.red.shade400,
-                                      ),
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(20),
+                                          decoration: BoxDecoration(
+                                            color: theme.colorScheme.error.withOpacity(0.08),
+                                            shape: BoxShape.circle,
+                                          ),
+                                          child: Icon(
+                                            Icons.broken_image_outlined,
+                                            size: 48,
+                                            color: theme.colorScheme.error,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Text(
+                                          'Failed to load image',
+                                          style: TextStyle(
+                                            color: theme.textTheme.bodyMedium?.color,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Please try again later',
+                                          style: TextStyle(
+                                            color: theme.textTheme.bodySmall?.color,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Failed to load image',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      'Please try again later',
-                                      style: TextStyle(
-                                        color: Colors.grey.shade500,
-                                        fontSize: 14,
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               );
                             },
                           ),
@@ -1425,7 +1460,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                       vertical: 12,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade50,
+                      color: theme.colorScheme.surfaceVariant,
                       borderRadius: const BorderRadius.only(
                         bottomLeft: Radius.circular(24),
                         bottomRight: Radius.circular(24),
@@ -1437,14 +1472,14 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                         Icon(
                           Icons.zoom_in,
                           size: 16,
-                          color: Colors.grey.shade600,
+                          color: theme.textTheme.bodyMedium?.color,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Pinch to zoom • Tap outside to close',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey.shade600,
+                            color: theme.textTheme.bodyMedium?.color,
                           ),
                         ),
                       ],
@@ -1465,11 +1500,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                   child: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.cardColor,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
+                          color: theme.shadowColor.withOpacity(0.12),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -1477,7 +1512,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                     ),
                     child: Icon(
                       Icons.close,
-                      color: Colors.grey.shade800,
+                      color: theme.colorScheme.onSurface,
                       size: 20,
                     ),
                   ),
@@ -1608,11 +1643,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(16),
                                 ),
-                                title: const Row(
+                                title: Row(
                                   children: [
-                                    Icon(Icons.delete, color: Colors.red),
-                                    SizedBox(width: 12),
-                                    Text('Delete Note'),
+                                    Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                                    const SizedBox(width: 12),
+                                    const Text('Delete Note'),
                                   ],
                                 ),
                                 content: const Text(
@@ -1628,7 +1663,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                     onPressed: () =>
                                         Navigator.pop(context, true),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.red,
+                                      backgroundColor: Theme.of(context).colorScheme.error,
+                                      foregroundColor: Colors.black,
                                     ),
                                     child: const Text('Delete'),
                                   ),
@@ -1640,7 +1676,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                           },
                           child: Text(
                             'Delete Note',
-                            style: TextStyle(color: Colors.red.shade700),
+                            style: TextStyle(color: Theme.of(context).colorScheme.error),
                           ),
                         ),
                       const SizedBox(width: 8),
@@ -1648,8 +1684,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                         onPressed: () =>
                             Navigator.pop(context, noteController.text.trim()),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          foregroundColor: Colors.white,
+                          backgroundColor: Theme.of(context).colorScheme.secondary,
+                          foregroundColor: Theme.of(context).colorScheme.onSecondary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -1671,135 +1707,123 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     );
 
     if (note != null && mounted) {
+      final theme = Theme.of(context);
       try {
-        // Get assignment ID from order
         final assignmentResponse = await Supabase.instance.client
             .from('order_delivery_assignments')
             .select('id')
             .eq('order_id', order.id)
             .maybeSingle();
 
-        if (assignmentResponse != null) {
-          final assignmentId = assignmentResponse['id'] as String;
+        if (assignmentResponse == null) {
+          if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Failed to locate assignment', style: TextStyle(color: theme.colorScheme.onError)),
+                backgroundColor: theme.colorScheme.error,
+              ),
+            );
+          }
+          return;
+        }
 
-          if (note == '__DELETE__') {
-            // Delete (clear) the note and metadata; explicitly clear unread flag
-            try {
-              await Supabase.instance.client
-                  .from('order_delivery_assignments')
-                  .update({
-                    'delivery_notes': null,
-                    'delivery_notes_by': null,
-                    'delivery_notes_updated_at': null,
-                    'delivery_notes_unread': false,
-                  })
-                  .eq('id', assignmentId);
-            } on PostgrestException catch (_) {
-              // Retry without unread column for older schemas
-              await Supabase.instance.client
-                  .from('order_delivery_assignments')
-                  .update({
-                    'delivery_notes': null,
-                    'delivery_notes_by': null,
-                    'delivery_notes_updated_at': null,
-                  })
-                  .eq('id', assignmentId);
-            }
+        final assignmentId = assignmentResponse['id'] as String;
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Note deleted'),
-                  backgroundColor: Colors.green,
-                ),
-              );
+        if (note == '__DELETE__') {
+          try {
+            await Supabase.instance.client
+                .from('order_delivery_assignments')
+                .update({
+                  'delivery_notes': null,
+                  'delivery_notes_by': null,
+                  'delivery_notes_updated_at': null,
+                  'delivery_notes_unread': false,
+                })
+                .eq('id', assignmentId);
+          } catch (_) {
+            // older schema fallback
+            await Supabase.instance.client
+                .from('order_delivery_assignments')
+                .update({
+                  'delivery_notes': null,
+                  'delivery_notes_by': null,
+                  'delivery_notes_updated_at': null,
+                })
+                .eq('id', assignmentId);
+          }
 
-              await _loadData();
-              EventBus.emit('orders:updated');
-
-              // Notify ORG locally that the note was deleted so UI clears immediately
-              EventBus.emit('note:deleted:$assignmentId:${order.id}');
-            }
-          } else if (note.isNotEmpty) {
-            // Update the delivery notes and metadata
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Note deleted', style: TextStyle(color: theme.colorScheme.onSecondary)),
+                backgroundColor: theme.colorScheme.secondary,
+              ),
+            );
+            await _loadData();
+            EventBus.emit('orders:updated');
+            EventBus.emit('note:deleted:$assignmentId:${order.id}');
+          }
+        } else if (note.isNotEmpty) {
+          try {
+            await Supabase.instance.client
+                .from('order_delivery_assignments')
+                .update({
+                  'delivery_notes': note,
+                  'delivery_notes_by': _deliveryAccountId,
+                  'delivery_notes_updated_at': DateTime.now().toUtc().toIso8601String(),
+                  'delivery_notes_unread': true,
+                })
+                .eq('id', assignmentId);
+          } catch (e) {
+            // Fallback if unread column missing
             try {
               await Supabase.instance.client
                   .from('order_delivery_assignments')
                   .update({
                     'delivery_notes': note,
                     'delivery_notes_by': _deliveryAccountId,
-                    'delivery_notes_updated_at': DateTime.now()
-                        .toUtc()
-                        .toIso8601String(),
-                    'delivery_notes_unread': true,
+                    'delivery_notes_updated_at': DateTime.now().toUtc().toIso8601String(),
                   })
                   .eq('id', assignmentId);
-            } on PostgrestException catch (e) {
-              // If the unread column is missing, retry without it
-              debugPrint(
-                'Missing delivery_notes_unread column, retrying without it: $e',
-              );
-              try {
-                await Supabase.instance.client
-                    .from('order_delivery_assignments')
-                    .update({
-                      'delivery_notes': note,
-                      'delivery_notes_by': _deliveryAccountId,
-                      'delivery_notes_updated_at': DateTime.now()
-                          .toUtc()
-                          .toIso8601String(),
-                    })
-                    .eq('id', assignmentId);
-
-                // Let user know migration is recommended (soft warning)
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: const Text(
-                        'Note saved (schema missing unread flag). Run migration to enable unread badges.',
-                      ),
-                      backgroundColor: Colors.orange.shade700,
-                    ),
-                  );
-
-                  // Notify ORG locally that the note was created/updated (DB lacks unread flag)
-                  EventBus.emit('note:updated:$assignmentId:${order.id}');
-                }
-              } catch (e2) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to save note: $e2'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-                return;
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Note saved (schema missing unread flag).', style: TextStyle(color: theme.colorScheme.onSecondary)),
+                    backgroundColor: theme.colorScheme.secondary,
+                  ),
+                );
+                EventBus.emit('note:updated:$assignmentId:${order.id}');
               }
+            } catch (e2) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Failed to save note: $e2'),
+                    backgroundColor: theme.colorScheme.error,
+                  ),
+                );
+              }
+              return;
             }
+          }
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Note saved successfully'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-
-              // Refresh assignments and orders list
-              await _loadData();
-
-              // Notify ORG and navbar
-              EventBus.emit('orders:updated');
-            }
+          if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Note saved', style: TextStyle(color: theme.colorScheme.onSecondary)),
+                    backgroundColor: theme.colorScheme.secondary,
+                  ),
+                );
+            await _loadData();
+            EventBus.emit('orders:updated');
           }
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to save note: $e'),
-              backgroundColor: Colors.red,
+              content: Text('Failed to save note: $e', style: TextStyle(color: Theme.of(context).colorScheme.onError)),
+              backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
         }
@@ -1812,11 +1836,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       context: context,
       builder: (context) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: Colors.green),
-            SizedBox(width: 12),
-            Text('Confirm Delivery'),
+            Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 12),
+            const Text('Confirm Delivery'),
           ],
         ),
         content: Text('Mark order #${order.id.substring(0, 8)} as delivered?'),
@@ -1828,8 +1852,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.primary,
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
             ),
             child: const Text('Confirm'),
           ),
@@ -1842,9 +1866,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
 
       if (success && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Order marked as delivered!'),
-            backgroundColor: Colors.green,
+          SnackBar(
+            content: const Text('Order marked as delivered!'),
+            backgroundColor: Theme.of(context).colorScheme.primary,
           ),
         );
         // Ensure we fetch the latest order and show it in the completed tab immediately
@@ -1869,9 +1893,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
         }
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to update order'),
-            backgroundColor: Colors.red,
+          SnackBar(
+            content: const Text('Failed to update order'),
+            backgroundColor: Theme.of(context).colorScheme.error,
           ),
         );
       }

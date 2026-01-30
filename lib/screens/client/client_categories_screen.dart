@@ -663,9 +663,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
+        final theme = Theme.of(context);
         return Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.dialogBackgroundColor ?? theme.cardColor,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(20),
               topRight: Radius.circular(20),
@@ -680,7 +681,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade300,
+                    color: theme.dividerColor.withOpacity(0.45),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -689,18 +690,22 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
+                      color: theme.colorScheme.error.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.exit_to_app, color: Colors.red),
+                    child: Icon(Icons.exit_to_app, color: theme.colorScheme.error),
                   ),
-                  title: const Text(
+                  title: Text(
                     'Unenroll',
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                      color: theme.colorScheme.onBackground,
+                    ),
                   ),
-                  subtitle: const Text(
+                  subtitle: Text(
                     'Remove this organization from your list',
-                    style: TextStyle(fontSize: 13),
+                    style: TextStyle(fontSize: 13, color: theme.colorScheme.onBackground.withOpacity(0.8)),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
@@ -724,10 +729,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                             ElevatedButton(
                               onPressed: () => Navigator.pop(context, true),
                               style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
+                                backgroundColor: theme.colorScheme.error,
+                                foregroundColor: theme.colorScheme.onError,
                               ),
-                              child: const Text('Unenroll'),
+                              child: Text('Unenroll', style: TextStyle(color: theme.colorScheme.onError)),
                             ),
                           ],
                         );
@@ -750,6 +755,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final filteredHistory = _filteredScanHistory;
 
     return PopScope(
@@ -777,7 +783,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFEFF0F3),
+        backgroundColor: theme.scaffoldBackgroundColor,
         appBar: Navbar(
         showScanButton: true,
         onScanPressed: _handleScan,
@@ -811,15 +817,15 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                           vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          color: theme.colorScheme.primary.withOpacity(0.06),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade200),
+                          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.22)),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               Icons.filter_list,
-                              color: Colors.blue.shade700,
+                              color: theme.colorScheme.primary,
                               size: 20,
                             ),
                             const SizedBox(width: 8),
@@ -830,7 +836,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                                   Text(
                                     '${filteredHistory.length} of ${_scanHistory.length} organizations',
                                     style: TextStyle(
-                                      color: Colors.blue.shade700,
+                                      color: theme.colorScheme.primary,
                                       fontWeight: FontWeight.w600,
                                       fontSize: 14,
                                     ),
@@ -850,9 +856,9 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                                             ),
                                             labelStyle: TextStyle(
                                               fontSize: 11,
-                                              color: Colors.blue.shade700,
+                                              color: theme.colorScheme.primary,
                                             ),
-                                            backgroundColor: Colors.white,
+                                            backgroundColor: theme.cardColor,
                                             padding: EdgeInsets.zero,
                                             materialTapTargetSize:
                                                 MaterialTapTargetSize
@@ -867,9 +873,9 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                                             ),
                                             labelStyle: TextStyle(
                                               fontSize: 11,
-                                              color: Colors.blue.shade700,
+                                              color: theme.colorScheme.primary,
                                             ),
-                                            backgroundColor: Colors.white,
+                                            backgroundColor: theme.cardColor,
                                             padding: EdgeInsets.zero,
                                             materialTapTargetSize:
                                                 MaterialTapTargetSize
@@ -884,9 +890,9 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                                             ),
                                             labelStyle: TextStyle(
                                               fontSize: 11,
-                                              color: Colors.blue.shade700,
+                                              color: theme.colorScheme.primary,
                                             ),
-                                            backgroundColor: Colors.white,
+                                            backgroundColor: theme.cardColor,
                                             padding: EdgeInsets.zero,
                                             materialTapTargetSize:
                                                 MaterialTapTargetSize
@@ -911,7 +917,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                               icon: const Icon(Icons.clear, size: 18),
                               label: const Text('Clear'),
                               style: TextButton.styleFrom(
-                                foregroundColor: Colors.blue.shade700,
+                                foregroundColor: theme.colorScheme.primary,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 12,
                                 ),
@@ -998,28 +1004,30 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     // Generate a unique color based on the organization ID
     final categoryColor = _generateColorFromId(visit.orgId);
     final categoryIcon = Icons.store;
+    final theme = Theme.of(context);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 3,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(20),
-        side: BorderSide(color: categoryColor.withValues(alpha: 0.4), width: 2),
+        side: BorderSide(color: categoryColor.withOpacity(0.28), width: 2),
       ),
       child: InkWell(
         onTap: () => _viewOrganizationProducts(visit.orgId),
         borderRadius: BorderRadius.circular(20),
         child: Container(
           decoration: BoxDecoration(
+            color: theme.cardColor,
             borderRadius: BorderRadius.circular(20),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                categoryColor.withValues(alpha: 0.15),
-                categoryColor.withValues(alpha: 0.08),
-              ],
-            ),
+            border: Border.all(color: categoryColor.withOpacity(0.08), width: 1),
+            boxShadow: [
+              BoxShadow(
+                color: theme.shadowColor.withOpacity(0.04),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
@@ -1060,7 +1068,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w900,
-                              color: const Color(0xFF1A1A1A),
+                              color: theme.colorScheme.onSurface,
                               letterSpacing: 0.3,
                             ),
                             maxLines: 2,
@@ -1074,7 +1082,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                                 : '${categories.length} ${categories.length == 1 ? 'category' : 'categories'} available',
                             style: TextStyle(
                               fontSize: 13,
-                              color: Colors.grey.shade600,
+                              color: theme.colorScheme.onSurface.withOpacity(0.72),
                               fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
@@ -1125,7 +1133,7 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                             _showUnenrollMenu(context, visit, categoryColor),
                         tooltip: 'Options',
                         style: IconButton.styleFrom(
-                          backgroundColor: categoryColor.withValues(alpha: 0.1),
+                          backgroundColor: categoryColor.withOpacity(0.08),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(10),
                           ),
@@ -1134,16 +1142,13 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                     ),
                   ],
                 ),
-
-                // Description if available
-                if (account?.description != null &&
-                    account!.description!.isNotEmpty) ...[
+                if (account?.description != null && account!.description!.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     account.description!,
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: theme.colorScheme.onSurface.withOpacity(0.68),
                       fontWeight: FontWeight.w500,
                       height: 1.4,
                     ),

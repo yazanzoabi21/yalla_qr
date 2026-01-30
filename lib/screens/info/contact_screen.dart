@@ -77,8 +77,8 @@ class ContactScreen extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Contact Us'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        // foregroundColor: Colors.black,
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -86,23 +86,31 @@ class ContactScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header
-            Center(
-              child: Column(
-                children: [
-                  Container(
-                    width: 80,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      shape: BoxShape.circle,
+            // Header (subtle separator from the rest of the content)
+            Container(
+              padding: const EdgeInsets.only(bottom: 20),
+              margin: const EdgeInsets.only(bottom: 20),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Theme.of(context).dividerColor, width: 1),
+                ),
+              ),
+              child: Center(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 80,
+                      height: 80,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.contact_support,
+                        size: 40,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
                     ),
-                    child: Icon(
-                      Icons.contact_support,
-                      size: 40,
-                      color: Colors.blue.shade700,
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   const Text(
                     'Get in Touch',
@@ -122,10 +130,12 @@ class ContactScreen extends StatelessWidget {
                 ],
               ),
             ),
+            ),
             const SizedBox(height: 40),
 
             // Contact Methods
             _buildContactCard(
+              context: context,
               icon: Icons.email_outlined,
               title: 'Email',
               subtitle: 'support@gmail.com',
@@ -133,6 +143,7 @@ class ContactScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _buildContactCard(
+              context: context,
               icon: Icons.phone_outlined,
               title: 'Phone',
               subtitle: '+961-76557980',
@@ -140,6 +151,7 @@ class ContactScreen extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _buildContactCard(
+              context: context,
               icon: Icons.chat_bubble_outline,
               title: 'WhatsApp',
               subtitle: '+961-76557980',
@@ -152,16 +164,16 @@ class ContactScreen extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.grey.shade50,
+                color: Theme.of(context).cardColor,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200),
+                border: Border.all(color: Theme.of(context).dividerColor),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.access_time, color: Colors.grey.shade700),
+                      Icon(Icons.access_time, color: Theme.of(context).iconTheme.color),
                       const SizedBox(width: 8),
                       const Text(
                         'Business Hours',
@@ -173,19 +185,20 @@ class ContactScreen extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildHoursRow('Monday - Friday', '9:00 AM - 6:00 PM'),
-                  _buildHoursRow('Saturday', '10:00 AM - 4:00 PM'),
-                  _buildHoursRow('Sunday', 'Closed'),
+                  _buildHoursRow(context, 'Monday - Friday', '9:00 AM - 6:00 PM'),
+                  _buildHoursRow(context, 'Saturday', '10:00 AM - 4:00 PM'),
+                  _buildHoursRow(context, 'Sunday', 'Closed'),
                 ],
               ),
             ),
-          ],
+        ],
         ),
       ),
     );
   }
 
   Widget _buildContactCard({
+    required BuildContext context,
     required IconData icon,
     required String title,
     required String subtitle,
@@ -196,7 +209,7 @@ class ContactScreen extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
+        side: BorderSide(color: Theme.of(context).dividerColor),
       ),
       child: InkWell(
         onTap: onTap,
@@ -209,12 +222,12 @@ class ContactScreen extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: (color ?? Colors.blue).withOpacity(0.1),
+                  color: (color ?? Theme.of(context).colorScheme.primary).withOpacity(0.12),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   icon,
-                  color: color ?? Colors.blue,
+                  color: color ?? Theme.of(context).colorScheme.primary,
                 ),
               ),
               const SizedBox(width: 16),
@@ -234,13 +247,13 @@ class ContactScreen extends StatelessWidget {
                       subtitle,
                       style: TextStyle(
                         fontSize: 14,
-                        color: Colors.grey.shade600,
+                        color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey.shade600,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey.shade400),
+              Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).iconTheme.color ?? Colors.grey.shade400),
             ],
           ),
         ),
@@ -248,7 +261,7 @@ class ContactScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHoursRow(String day, String hours) {
+  Widget _buildHoursRow(BuildContext context, String day, String hours) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
@@ -256,14 +269,14 @@ class ContactScreen extends StatelessWidget {
         children: [
           Text(
             day,
-            style: const TextStyle(fontSize: 14),
+            style: TextStyle(fontSize: 14, color: Theme.of(context).textTheme.bodyMedium?.color),
           ),
           Text(
             hours,
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade700,
+              color: Theme.of(context).textTheme.bodyMedium?.color,
             ),
           ),
         ],

@@ -36,6 +36,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     'READY',
     'DELIVERED',
     'CANCELLED',
+    'NOTED',
   ];
 
   @override
@@ -213,6 +214,21 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           .where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED')
           .toList();
     }
+    // NOTED filter should show orders that have delivery notes or unread notes
+    if (_selectedFilter == 'NOTED') {
+      return _orders.where((o) {
+        final assignments = _ensureList(o['order_delivery_assignments']);
+        return assignments.any((a) {
+          try {
+            final note = a['delivery_notes'] as String?;
+            final unread = a['delivery_notes_unread'] == true;
+            return (note != null && note.trim().isNotEmpty) || unread;
+          } catch (_) {
+            return false;
+          }
+        });
+      }).toList();
+    }
     return _orders.where((o) => o['status'] == _selectedFilter).toList();
   }
 
@@ -229,6 +245,21 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       return _orders
           .where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED')
           .length;
+    }
+    // NOTED filter: count orders that have delivery notes or unread delivery notes
+    if (filter == 'NOTED') {
+      return _orders.where((o) {
+        final assignments = _ensureList(o['order_delivery_assignments']);
+        return assignments.any((a) {
+          try {
+            final note = a['delivery_notes'] as String?;
+            final unread = a['delivery_notes_unread'] == true;
+            return (note != null && note.trim().isNotEmpty) || unread;
+          } catch (_) {
+            return false;
+          }
+        });
+      }).length;
     }
     return _orders.where((o) => o['status'] == filter).length;
   }
@@ -329,23 +360,25 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
 
     String? selectedDeliveryId = currentDeliveryId;
     double selectedDistance = 50.0; // Default distance
-    List<Map<String, dynamic>> dialogDeliveryAccounts = List.from(_deliveryAccounts);
+    List<Map<String, dynamic>> dialogDeliveryAccounts = List.from(
+      _deliveryAccounts,
+    );
     bool isLoadingAccounts = false;
 
     Future<void> loadDeliveryAccountsForDistance(StateSetter setState) async {
       setState(() => isLoadingAccounts = true);
-      
+
       final accounts = await _orderService.getDeliveryAccounts(
         orgLocationLat: _orgLocationLat,
         orgLocationLng: _orgLocationLng,
         maxDistanceKm: selectedDistance,
       );
-      
+
       setState(() {
         dialogDeliveryAccounts = accounts;
         isLoadingAccounts = false;
         // Reset selection if current delivery not in filtered list
-        if (selectedDeliveryId != null && 
+        if (selectedDeliveryId != null &&
             !accounts.any((a) => a['id'] == selectedDeliveryId)) {
           selectedDeliveryId = null;
         }
@@ -356,12 +389,13 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: Theme.of(context).dialogBackgroundColor,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
           title: Row(
             children: [
-              Icon(Icons.delivery_dining, color: Colors.blue.shade600),
+              Icon(Icons.delivery_dining, color: Theme.of(context).colorScheme.primary),
               const SizedBox(width: 12),
               const Text('Assign Delivery'),
             ],
@@ -372,30 +406,34 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             children: [
               Text(
                 'Order #${orderId.substring(0, 8)}',
-                style: TextStyle(color: Colors.grey.shade600),
+                style: Theme.of(context).textTheme.bodySmall,
               ),
               const SizedBox(height: 16),
-              
-              // Distance selector
-              Container(
+
+                    // Distance selector
+                    Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
+                  color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blue.shade100),
+                  border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.12)),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.location_on, size: 18, color: Colors.blue.shade700),
+                        Icon(
+                          Icons.location_on,
+                          size: 18,
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
                         const SizedBox(width: 8),
                         Text(
                           'Search Distance',
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w600,
-                            color: Colors.blue.shade700,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
                         ),
                       ],
@@ -412,13 +450,19 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                           onSelected: (selected) async {
                             if (selected) {
                               setDialogState(() => selectedDistance = distance);
-                              await loadDeliveryAccountsForDistance(setDialogState);
+                              await loadDeliveryAccountsForDistance(
+                                setDialogState,
+                              );
                             }
                           },
-                          selectedColor: Colors.blue.shade600,
+                          selectedColor: Theme.of(context).colorScheme.primary,
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : Colors.blue.shade700,
-                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.onPrimary
+                                : Theme.of(context).colorScheme.primary,
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         );
                       }).toList(),
@@ -428,15 +472,15 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       'Showing delivery accounts within ${selectedDistance.toInt()}km',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: Theme.of(context).textTheme.bodySmall?.color,
                       ),
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              
-              if (isLoadingAccounts)
+
+                    if (isLoadingAccounts)
                 const Center(
                   child: Padding(
                     padding: EdgeInsets.all(16),
@@ -444,20 +488,21 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                   ),
                 )
               else if (dialogDeliveryAccounts.isEmpty)
-              // else if (dialogDeliveryAccounts.isEmpty)
+                // else if (dialogDeliveryAccounts.isEmpty)
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.orange.shade50,
+                    color: Theme.of(context).colorScheme.errorContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.warning, color: Colors.orange.shade700),
+                      Icon(Icons.warning, color: Theme.of(context).colorScheme.error),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
                           'No delivery accounts within ${selectedDistance.toInt()}km. Try increasing the distance.',
+                          style: Theme.of(context).textTheme.bodyMedium,
                         ),
                       ),
                     ],
@@ -497,7 +542,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () async {
+              onPressed: selectedDeliveryId == null
+                  ? null
+                  : () async {
                 Navigator.pop(context);
 
                 final currentStatus = order['status'] as String? ?? '';
@@ -604,8 +651,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 // Or use a callback mechanism if implemented
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                backgroundColor: selectedDeliveryId == null
+                    ? null
+                    : Theme.of(context).colorScheme.primary,
+                foregroundColor: selectedDeliveryId == null
+                    ? Theme.of(context).disabledColor
+                    : Theme.of(context).colorScheme.onPrimary,
               ),
               child: const Text('Save'),
             ),
@@ -685,8 +736,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 }
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
               child: const Text('Update'),
             ),
@@ -842,11 +893,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-          ElevatedButton(
+            ElevatedButton(
             onPressed: () => Navigator.pop(context, noteController.text.trim()),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orange,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              foregroundColor: Theme.of(context).colorScheme.onSecondary,
             ),
             child: const Text('Save'),
           ),
@@ -920,8 +971,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
             ),
             child: const Text('Yes, Cancel'),
           ),
@@ -976,20 +1027,26 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor:
+            Theme.of(context).appBarTheme.backgroundColor ??
+            Theme.of(context).colorScheme.surface,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
+          icon: Icon(
+            Icons.arrow_back,
+            color:
+                Theme.of(context).appBarTheme.iconTheme?.color ??
+                Theme.of(context).iconTheme.color,
+          ),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Orders Management',
-          style: TextStyle(
-            color: Color(0xFF1A1A1A),
-            fontWeight: FontWeight.bold,
-          ),
+          style: Theme.of(
+            context,
+          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         // actions: [
         //   IconButton(
@@ -1002,19 +1059,19 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
         children: [
           // Filter chips
           Container(
-            color: Colors.white,
+            color: Theme.of(context).cardColor,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: _filters.map((filter) {
                   final count = _countForFilter(filter);
-                  final labelText = filter == 'ALL'
+                    final labelText = filter == 'ALL'
                       ? 'All'
-                      : Order.getStatusLabel(filter);
-                  final badgeColor = filter == 'ALL'
+                      : (filter == 'NOTED' ? 'Noted' : Order.getStatusLabel(filter));
+                    final badgeColor = filter == 'ALL'
                       ? Colors.blue
-                      : _getStatusColor(filter);
+                      : (filter == 'NOTED' ? Colors.pinkAccent : _getStatusColor(filter));
 
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -1028,10 +1085,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                             setState(() => _selectedFilter = filter);
                           },
                           selectedColor: filter == 'ALL'
-                              ? Colors.blue.shade100
+                              ? Theme.of(
+                                  context,
+                                ).colorScheme.primary.withOpacity(0.12)
                               : _getStatusColor(filter).withValues(alpha: 0.2),
                           checkmarkColor: filter == 'ALL'
-                              ? Colors.blue
+                              ? Theme.of(context).colorScheme.primary
                               : _getStatusColor(filter),
                         ),
                         if (count > 0)
@@ -1141,14 +1200,19 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
         assignments.isNotEmpty &&
         (assignments.first['delivery_notes_unread'] == true);
 
+    // Show visual alert (border / header tint) only when waiting too long
+    // or there is an unread delivery note — but do NOT show these when
+    // the order status is `READY` (user requested no red/exclamation on Ready).
+    final bool showAlert = (isWaitingTooLong || hasUnreadNote) && status != 'READY';
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: isWaitingTooLong ? 4 : 2,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: (isWaitingTooLong || hasUnreadNote)
-            ? BorderSide(color: Colors.red.shade300, width: 2)
-            : BorderSide.none,
+        side: showAlert
+          ? BorderSide(color: Theme.of(context).colorScheme.error.withOpacity(0.6), width: 2)
+          : BorderSide.none,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1157,9 +1221,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: (isWaitingTooLong || hasUnreadNote)
-                  ? Colors.red.shade50
-                  : _getStatusColor(status).withValues(alpha: 0.1),
+              color: showAlert
+                  ? Theme.of(context).colorScheme.errorContainer
+                  : _getStatusColor(status).withOpacity(0.1),
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(16),
                 topRight: Radius.circular(16),
@@ -1167,13 +1231,13 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             ),
             child: Row(
               children: [
-                // Warning indicator if waiting too long
-                if (isWaitingTooLong)
+                // Warning indicator if waiting too long (but not for READY)
+                if (isWaitingTooLong && status != 'READY')
                   Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: Icon(
                       Icons.warning_amber_rounded,
-                      color: Colors.red.shade600,
+                      color: Theme.of(context).colorScheme.error,
                       size: 24,
                     ),
                   ),
@@ -1203,9 +1267,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: (isWaitingTooLong || hasUnreadNote)
-                        ? Colors.red.shade100
-                        : Colors.grey.shade200,
+                    color: showAlert
+                        ? Theme.of(context).colorScheme.errorContainer
+                        : Theme.of(context).colorScheme.surfaceVariant,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -1215,8 +1279,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                         Icons.access_time,
                         size: 14,
                         color: isWaitingTooLong
-                            ? Colors.red.shade700
-                            : Colors.grey.shade700,
+                            ? Theme.of(context).colorScheme.error
+                            : Theme.of(context).textTheme.bodyMedium?.color,
                       ),
                       const SizedBox(width: 4),
                       Text(
@@ -1225,8 +1289,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                           color: isWaitingTooLong
-                              ? Colors.red.shade700
-                              : Colors.grey.shade700,
+                              ? Theme.of(context).colorScheme.error
+                              : Theme.of(context).textTheme.bodyMedium?.color,
                         ),
                       ),
                     ],
@@ -1288,9 +1352,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade50,
+                          color: Theme.of(context).colorScheme.surfaceVariant,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade200),
+                          border: Border.all(color: Theme.of(context).dividerColor),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1447,109 +1511,109 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.blue.shade50,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Colors.blue.shade100),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.person,
-                                    size: 18,
-                                    color: Colors.blue.shade700,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Customer Delivery Info',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                  ),
-                                ],
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.15)),
                               ),
-                              if (contactName != null ||
-                                  deliveryPhone != null ||
-                                  deliveryAddress != null) ...[
-                                const SizedBox(height: 12),
-                                const Divider(height: 1),
-                                const SizedBox(height: 12),
-                              ],
-                              if (contactName != null)
-                                Row(
-                                  children: [
-                                    Icon(
-                                      Icons.account_circle,
-                                      size: 16,
-                                      color: Colors.grey.shade600,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        contactName,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              if (deliveryPhone != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
                                       Icon(
-                                        Icons.phone,
-                                        size: 16,
-                                        color: Colors.grey.shade600,
+                                        Icons.person,
+                                        size: 18,
+                                        color: Theme.of(context).colorScheme.primary,
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        deliveryPhone,
-                                        style: TextStyle(
-                                          color: Colors.grey.shade700,
-                                          fontSize: 14,
-                                        ),
+                                        'Customer Delivery Info',
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 14,
+                                              color: Theme.of(context).colorScheme.primary,
+                                            ),
                                       ),
                                     ],
                                   ),
-                                ),
-                              if (deliveryAddress != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Icon(
-                                        Icons.location_on,
-                                        size: 16,
-                                        color: Colors.grey.shade600,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          deliveryAddress,
-                                          style: TextStyle(
-                                            color: Colors.grey.shade700,
-                                            fontSize: 14,
+                                  if (contactName != null ||
+                                      deliveryPhone != null ||
+                                      deliveryAddress != null) ...[
+                                    const SizedBox(height: 12),
+                                    Divider(height: 1, color: Theme.of(context).dividerColor),
+                                    const SizedBox(height: 12),
+                                  ],
+                                  if (contactName != null)
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.account_circle,
+                                          size: 16,
+                                          color: Theme.of(context).disabledColor,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            contactName,
+                                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 15,
+                                            ),
                                           ),
                                         ),
+                                      ],
+                                    ),
+                                  if (deliveryPhone != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Row(
+                                        children: [
+                                          Icon(
+                                            Icons.phone,
+                                            size: 16,
+                                            color: Theme.of(context).disabledColor,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Text(
+                                            deliveryPhone,
+                                            style: TextStyle(
+                                              color: Theme.of(context).textTheme.bodySmall?.color,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
+                                    ),
+                                  if (deliveryAddress != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 8),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Icon(
+                                            Icons.location_on,
+                                            size: 16,
+                                            color: Theme.of(context).disabledColor,
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: Text(
+                                              deliveryAddress,
+                                              style: TextStyle(
+                                                color: Theme.of(context).textTheme.bodySmall?.color,
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                         const SizedBox(height: 16),
                       ],
                     );
@@ -2062,12 +2126,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
+        color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: imageUrl == null
-          ? Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 24)
+          ? Icon(Icons.image_outlined, color: Theme.of(context).disabledColor, size: 24)
           : ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
@@ -2092,7 +2156,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 errorBuilder: (context, error, stackTrace) {
                   return Icon(
                     Icons.broken_image_outlined,
-                    color: Colors.grey.shade400,
+                    color: Theme.of(context).disabledColor,
                     size: 24,
                   );
                 },
@@ -2118,12 +2182,12 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       width: 70,
       height: 70,
       decoration: BoxDecoration(
-        color: Colors.grey.shade200,
+        color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: imageUrl == null
-          ? Icon(Icons.image_outlined, color: Colors.grey.shade400, size: 32)
+          ? Icon(Icons.image_outlined, color: Theme.of(context).disabledColor, size: 32)
           : ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(

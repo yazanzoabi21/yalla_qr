@@ -133,21 +133,21 @@ class _MealsScreenState extends State<MealsScreen> {
     showDialog(
       context: scaffoldContext,
       barrierDismissible: false,
-      builder: (context) {
+        builder: (context) {
         _loadingContext = context;
         return AlertDialog(
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.deepOrange),
+              CircularProgressIndicator(
+                valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
               ),
               const SizedBox(height: 16),
               Text('$action $categoryName...'),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'This may take a few seconds',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
+                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey),
               ),
             ],
           ),
@@ -377,7 +377,7 @@ class _MealsScreenState extends State<MealsScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: Navbar(
           categoryId: mealsCategory?.id,
           showMenuButton: false, // Hide menu in sub-category
@@ -396,19 +396,19 @@ class _MealsScreenState extends State<MealsScreen> {
 
   Widget _buildBody() {
     if (isLoading) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.deepOrange),
+              valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Loading categories...',
               style: TextStyle(
                 fontSize: 16,
-                color: Colors.grey,
+                color: Theme.of(context).textTheme.bodyMedium?.color ?? Colors.grey,
               ),
             ),
           ],
@@ -424,7 +424,7 @@ class _MealsScreenState extends State<MealsScreen> {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: Colors.red.shade300,
+              color: Theme.of(context).colorScheme.error.withOpacity(0.75),
             ),
             const SizedBox(height: 16),
             Text(
@@ -432,7 +432,7 @@ class _MealsScreenState extends State<MealsScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: Colors.red.shade700,
+                color: Theme.of(context).colorScheme.error,
               ),
             ),
             const SizedBox(height: 8),
@@ -441,9 +441,9 @@ class _MealsScreenState extends State<MealsScreen> {
               child: Text(
                 errorMessage!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey,
+                  color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey,
                 ),
               ),
             ),
@@ -453,8 +453,8 @@ class _MealsScreenState extends State<MealsScreen> {
               icon: const Icon(Icons.refresh),
               label: const Text('Retry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepOrange,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.primary,
+                foregroundColor: Theme.of(context).colorScheme.onPrimary,
               ),
             ),
             const SizedBox(height: 16),
@@ -463,8 +463,8 @@ class _MealsScreenState extends State<MealsScreen> {
               icon: const Icon(Icons.bug_report),
               label: const Text('Debug Info'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue,
-                foregroundColor: Colors.white,
+                backgroundColor: Theme.of(context).colorScheme.secondary,
+                foregroundColor: Theme.of(context).colorScheme.onSecondary,
               ),
             ),
           ],
@@ -489,16 +489,13 @@ class _MealsScreenState extends State<MealsScreen> {
               child: Icon(
                 Icons.arrow_back,
                 size: 25,
-                color: Colors.grey.shade700,
+                color: Theme.of(context).iconTheme.color?.withOpacity(0.85),
               ),
             ),
             SizedBox(width: 12),
-            const Text(
+            Text(
               'Meals',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 22, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -576,12 +573,11 @@ class _MealsScreenState extends State<MealsScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Categories',
-                  style: TextStyle(
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
                     fontSize: 20,
                     fontWeight: FontWeight.w700,
-                    color: Color(0xFF1A1A1A),
                     letterSpacing: 0.3,
                   ),
                 ),
@@ -622,27 +618,27 @@ class _MealsScreenState extends State<MealsScreen> {
                     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 20),
                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
                     decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(24),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 25,
-                          offset: const Offset(0, 10),
-                          spreadRadius: 0,
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Theme.of(context).shadowColor.withOpacity(0.06),
+                            blurRadius: 25,
+                            offset: const Offset(0, 10),
+                            spreadRadius: 0,
+                          ),
+                          BoxShadow(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.04),
+                            blurRadius: 15,
+                            offset: const Offset(0, 5),
+                            spreadRadius: 0,
+                          ),
+                        ],
+                        border: Border.all(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                          width: 1,
                         ),
-                        BoxShadow(
-                          color: Colors.deepOrange.withValues(alpha: 0.05),
-                          blurRadius: 15,
-                          offset: const Offset(0, 5),
-                          spreadRadius: 0,
-                        ),
-                      ],
-                      border: Border.all(
-                        color: Colors.deepOrange.withValues(alpha: 0.08),
-                        width: 1,
                       ),
-                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -669,9 +665,8 @@ class _MealsScreenState extends State<MealsScreen> {
                         const SizedBox(height: 20),
                         Text(
                           'No categories found',
-                          style: TextStyle(
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                             fontSize: 18,
-                            color: Colors.grey.shade800,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 0.3,
                           ),
@@ -684,9 +679,8 @@ class _MealsScreenState extends State<MealsScreen> {
                           padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Text(
                             'Start by adding your first category',
-                            style: TextStyle(
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               fontSize: 14,
-                              color: Colors.grey.shade600,
                               fontWeight: FontWeight.w500,
                               letterSpacing: 0.1,
                               height: 1.4,
@@ -719,17 +713,17 @@ class _MealsScreenState extends State<MealsScreen> {
                             duration: const Duration(milliseconds: 200),
                             padding: const EdgeInsets.all(18),
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: Theme.of(context).cardColor,
                               borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Theme.of(context).shadowColor.withOpacity(0.06),
                                 blurRadius: 25,
                                 offset: const Offset(0, 10),
                                 spreadRadius: 0,
                               ),
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.02),
+                                color: Theme.of(context).shadowColor.withOpacity(0.02),
                                 blurRadius: 45,
                                 offset: const Offset(0, 20),
                                 spreadRadius: 0,
@@ -742,8 +736,8 @@ class _MealsScreenState extends State<MealsScreen> {
                               ),
                             ],
                             border: Border.all(
-                              color: Colors.deepOrange.withValues(alpha: 0.08),
-                              width: 1,
+                              color: childCategory.color.withValues(alpha: 0.18),
+                              width: 2,
                             ),
                           ),
                           child: Stack(
@@ -768,8 +762,8 @@ class _MealsScreenState extends State<MealsScreen> {
                                   ),
                                   borderRadius: BorderRadius.circular(18),
                                   border: Border.all(
-                                    color: childCategory.color.withValues(alpha: 0.2),
-                                    width: 1,
+                                    color: childCategory.color.withValues(alpha: 0.28),
+                                    width: 2,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
@@ -789,10 +783,9 @@ class _MealsScreenState extends State<MealsScreen> {
                               const SizedBox(height: 14),
                               Text(
                                 childCategory.name,
-                                style: const TextStyle(
+                                style: Theme.of(context).textTheme.titleSmall?.copyWith(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
-                                  color: Color(0xFF1A1A1A),
                                   letterSpacing: 0.3,
                                   height: 1.1,
                                 ),
@@ -804,13 +797,12 @@ class _MealsScreenState extends State<MealsScreen> {
                               Center(
                                 child: Text(
                                   childCategory.description ?? 'No description',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.grey.shade600,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.3,
-                                    letterSpacing: 0.1,
-                                  ),
+                                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.3,
+                                      letterSpacing: 0.1,
+                                    ),
                                   textAlign: TextAlign.center,
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,

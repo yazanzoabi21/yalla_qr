@@ -338,7 +338,9 @@ class _NavbarState extends State<Navbar> {
     final bool hasInlineSearch = widget.onSearchChanged != null;
 
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).brightness == Brightness.light
+          ? Colors.white
+          : (Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface),
       elevation: 0,
       automaticallyImplyLeading: false,
       toolbarHeight: kToolbarHeight + 10,
@@ -347,7 +349,7 @@ class _NavbarState extends State<Navbar> {
         children: [
           Container(
             decoration: BoxDecoration(
-              color: Colors.grey[200],
+              color: Theme.of(context).colorScheme.surfaceVariant,
               borderRadius: BorderRadius.circular(12),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -355,7 +357,7 @@ class _NavbarState extends State<Navbar> {
               children: [
                 if (widget.showBackButton)
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.grey),
+                    icon: Icon(Icons.arrow_back, color: Theme.of(context).iconTheme.color?.withOpacity(0.85)),
                     onPressed: () {
                       Navigator.pop(context);
                     },
@@ -378,9 +380,9 @@ class _NavbarState extends State<Navbar> {
                               : (isClientMode
                                     ? 'Search products...'
                                     : 'Search')),
-                      hintStyle: const TextStyle(color: Colors.grey),
+                      hintStyle: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6)),
                       border: InputBorder.none,
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      prefixIcon: Icon(Icons.search, color: Theme.of(context).iconTheme.color?.withOpacity(0.7)),
                       contentPadding: const EdgeInsets.symmetric(vertical: 0),
                       suffixIcon: _buildSearchSuffixIcon(
                         isClientMode || isClientHomePage || hasInlineSearch,
@@ -417,7 +419,7 @@ class _NavbarState extends State<Navbar> {
                 ),
                 if (widget.showScanButton && widget.onScanPressed != null)
                   IconButton(
-                    icon: const Icon(Icons.qr_code_scanner, color: Colors.grey),
+                    icon: Icon(Icons.qr_code_scanner, color: Theme.of(context).iconTheme.color?.withOpacity(0.85)),
                     onPressed: widget.onScanPressed,
                     tooltip: 'Scan QR Code',
                   ),
@@ -426,7 +428,7 @@ class _NavbarState extends State<Navbar> {
                     icon: Stack(
                       clipBehavior: Clip.none,
                       children: [
-                        const Icon(Icons.menu, color: Colors.grey),
+                        Icon(Icons.menu, color: Theme.of(context).iconTheme.color?.withOpacity(0.85)),
                         if (_orgOrdersCount > 0)
                           Positioned(
                             right: -2,
@@ -435,9 +437,9 @@ class _NavbarState extends State<Navbar> {
                               width: 10,
                               height: 10,
                               decoration: BoxDecoration(
-                                color: Colors.red,
+                                color: Theme.of(context).colorScheme.error,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 1.5),
+                                border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 1.5),
                               ),
                             ),
                           ),                        // Show red dot if there are unread delivery notes
@@ -449,9 +451,9 @@ class _NavbarState extends State<Navbar> {
                               width: 10,
                               height: 10,
                               decoration: BoxDecoration(
-                                color: Colors.red,
+                                color: Theme.of(context).colorScheme.error,
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white, width: 1.5),
+                                border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 1.5),
                               ),
                             ),
                           ),                      ],
@@ -486,8 +488,18 @@ class _NavbarState extends State<Navbar> {
                             PopupMenuItem<String>(
                               value: 'orders',
                               child: ListTile(
-                                leading: const Icon(Icons.receipt_long),
-                                title: const Text('Orders'),
+                                leading: Icon(Icons.receipt_long, color: Theme.of(context).iconTheme.color),
+                                title: Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Orders',
+                                        style: Theme.of(context).textTheme.bodyMedium,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                                 trailing: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -495,12 +507,12 @@ class _NavbarState extends State<Navbar> {
                                       Container(
                                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                          color: Colors.red,
+                                          color: Theme.of(context).colorScheme.error,
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
                                           '$_orgOrdersCount',
-                                          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onError, fontWeight: FontWeight.bold),
                                         ),
                                       ),
                                     if (_orgNotesCount > 0)
@@ -510,9 +522,9 @@ class _NavbarState extends State<Navbar> {
                                           width: 10,
                                           height: 10,
                                           decoration: BoxDecoration(
-                                            color: Colors.red,
+                                            color: Theme.of(context).colorScheme.error,
                                             shape: BoxShape.circle,
-                                            border: Border.all(color: Colors.white, width: 1.5),
+                                            border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 1.5),
                                           ),
                                         ),
                                       ),
@@ -532,13 +544,13 @@ class _NavbarState extends State<Navbar> {
                           ],                          
                           if (_isAuthenticated) ...[
                             const PopupMenuDivider(),
-                            const PopupMenuItem<String>(
+                            PopupMenuItem<String>(
                               value: 'logout',
                               child: ListTile(
-                                leading: Icon(Icons.logout, color: Colors.red),
+                                leading: Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
                                 title: Text(
                                   'Logout',
-                                  style: TextStyle(color: Colors.red),
+                                  style: TextStyle(color: Theme.of(context).colorScheme.error),
                                 ),
                               ),
                             ),
@@ -566,13 +578,13 @@ class _NavbarState extends State<Navbar> {
               child: Material(
                 elevation: 8,
                 borderRadius: BorderRadius.circular(12),
-                shadowColor: Colors.black26,
+                shadowColor: Theme.of(context).shadowColor ?? Colors.black26,
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 280),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: Theme.of(context).dividerColor),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
@@ -582,7 +594,7 @@ class _NavbarState extends State<Navbar> {
                       itemCount: _productHints.length,
                       separatorBuilder: (context, index) => Divider(
                         height: 1,
-                        color: Colors.grey.shade100,
+                        color: Theme.of(context).dividerColor.withOpacity(0.6),
                         indent: 60,
                       ),
                       itemBuilder: (context, index) {
@@ -611,7 +623,7 @@ class _NavbarState extends State<Navbar> {
     }
     if (_searchController.text.isNotEmpty && isClientMode) {
       return IconButton(
-        icon: Icon(Icons.close, color: Colors.grey[600], size: 20),
+        icon: Icon(Icons.close, color: Theme.of(context).iconTheme.color?.withOpacity(0.8), size: 20),
         onPressed: _clearSearch,
       );
     }
@@ -634,7 +646,7 @@ class _NavbarState extends State<Navbar> {
               width: 44,
               height: 44,
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: Theme.of(context).colorScheme.surfaceVariant,
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
                   BoxShadow(
@@ -654,7 +666,7 @@ class _NavbarState extends State<Navbar> {
                           return Center(
                             child: Icon(
                               Icons.shopping_bag_outlined,
-                              color: Colors.grey[400],
+                              color: Theme.of(context).disabledColor,
                               size: 22,
                             ),
                           );
@@ -663,7 +675,7 @@ class _NavbarState extends State<Navbar> {
                     : Center(
                         child: Icon(
                           Icons.shopping_bag_outlined,
-                          color: Colors.grey[400],
+                          color: Theme.of(context).disabledColor,
                           size: 22,
                         ),
                       ),
@@ -677,11 +689,7 @@ class _NavbarState extends State<Navbar> {
                 children: [
                   Text(
                     product.name,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600, fontSize: 14),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -689,11 +697,7 @@ class _NavbarState extends State<Navbar> {
                   if (product.priceLbp != null || product.priceUsd != null)
                     Text(
                       product.formattedPrice,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.grey[700],
-                      ),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -704,27 +708,23 @@ class _NavbarState extends State<Navbar> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: isInStock
-                    ? const Color(0xFF00B86F).withOpacity(0.12)
-                    : Colors.red.withOpacity(0.1),
+              color: isInStock
+                ? Theme.of(context).colorScheme.secondary.withOpacity(0.12)
+                : Theme.of(context).colorScheme.error.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: Row(
+                child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
                     isInStock ? Icons.check_circle : Icons.cancel,
                     size: 12,
-                    color: isInStock ? const Color(0xFF00B86F) : Colors.red,
+                    color: isInStock ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.error,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     isInStock ? 'In Stock' : 'Out',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isInStock ? const Color(0xFF00B86F) : Colors.red,
-                    ),
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 11, fontWeight: FontWeight.w600, color: isInStock ? Theme.of(context).colorScheme.secondary : Theme.of(context).colorScheme.error),
                   ),
                 ],
               ),
@@ -759,7 +759,7 @@ class _NavbarState extends State<Navbar> {
           product: product,
           organizationId: widget.organizationAccountId!,
           organizationName: widget.organizationName ?? 'Organization',
-          accentColor: widget.accentColor ?? Colors.blue,
+          accentColor: widget.accentColor ?? Theme.of(context).colorScheme.primary,
         ),
       ),
     );
@@ -832,7 +832,7 @@ class _NavbarState extends State<Navbar> {
                     padding: const EdgeInsets.all(20),
                     constraints: const BoxConstraints(maxWidth: 140),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: Theme.of(context).cardColor,
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
@@ -851,7 +851,7 @@ class _NavbarState extends State<Navbar> {
                           child: CircularProgressIndicator(
                             strokeWidth: 3,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.blue.shade600,
+                              Theme.of(context).colorScheme.primary,
                             ),
                           ),
                         ),
@@ -861,7 +861,7 @@ class _NavbarState extends State<Navbar> {
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.w500,
-                            color: Colors.grey.shade800,
+                            color: Theme.of(context).textTheme.bodyMedium?.color,
                           ),
                         ),
                       ],

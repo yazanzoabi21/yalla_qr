@@ -36,8 +36,10 @@ class _OrganizationCategoriesScreenState extends State<OrganizationCategoriesScr
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: const Color(0xFFEFF0F3),
+      backgroundColor: theme.scaffoldBackgroundColor,
       // appBar: Navbar(
       //   showMenuButton: false,
       //   organizationAccountId: widget.account.id,
@@ -52,12 +54,12 @@ class _OrganizationCategoriesScreenState extends State<OrganizationCategoriesScr
           children: [
             // Custom header with back button and title
             Container(
-              color: Colors.white,
+              color: theme.cardColor,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
+                    icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const SizedBox(width: 8),
@@ -67,8 +69,8 @@ class _OrganizationCategoriesScreenState extends State<OrganizationCategoriesScr
                       children: [
                         Text(
                           widget.account.name ?? 'Organization',
-                          style: const TextStyle(
-                            color: Color(0xFF1A1A1A),
+                          style: TextStyle(
+                            color: theme.colorScheme.onSurface,
                             fontSize: 20,
                             fontWeight: FontWeight.w800,
                           ),
@@ -76,7 +78,7 @@ class _OrganizationCategoriesScreenState extends State<OrganizationCategoriesScr
                         Text(
                           '${widget.categories.length} ${widget.categories.length == 1 ? 'category' : 'categories'}',
                           style: TextStyle(
-                            color: Colors.grey.shade600,
+                            color: theme.textTheme.bodyMedium?.color,
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
                           ),
@@ -92,13 +94,13 @@ class _OrganizationCategoriesScreenState extends State<OrganizationCategoriesScr
             Expanded(
               child: widget.categories.isEmpty
             ? Center(
-                child: Column(
+                    child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
                       Icons.inventory_2_outlined,
                       size: 64,
-                      color: Colors.grey.shade400,
+                      color: theme.colorScheme.onSurface.withOpacity(0.4),
                     ),
                     const SizedBox(height: 16),
                     Text(
@@ -106,7 +108,7 @@ class _OrganizationCategoriesScreenState extends State<OrganizationCategoriesScr
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey.shade700,
+                        color: theme.textTheme.bodyMedium?.color,
                       ),
                     ),
                   ],

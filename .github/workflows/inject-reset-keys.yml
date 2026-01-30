@@ -1,0 +1,41 @@
+name: Inject Supabase Keys and Deploy Hosting
+
+on:
+  push:
+    branches: [ "yazan" ]
+  workflow_dispatch:
+
+jobs:
+  inject-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Replace placeholders in web reset page
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          if [ -f web/reset_password.html ]; then
+            sed -i "s|https://YOUR_PROJECT.supabase.co|${SUPABASE_URL}|g" web/reset_password.html || true
+            sed -i "s|YOUR_ANON_KEY|${SUPABASE_ANON_KEY}|g" web/reset_password.html || true
+            # copy to hosting folder used by Firebase deploy
+            mkdir -p hosting/public
+            cp web/reset_password.html hosting/public/reset_password.html
+          else
+            echo "web/reset_password.html not found"
+          fi
+
+      - name: Deploy to Firebase Hosting
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_YALLQR }}
+          channelId: live
+          projectId: yallqr

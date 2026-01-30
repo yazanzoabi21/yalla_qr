@@ -89,8 +89,8 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Feedback'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        // foregroundColor: Colors.black,
         elevation: 0,
       ),
       body: SingleChildScrollView(

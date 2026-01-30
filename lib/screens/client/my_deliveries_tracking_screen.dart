@@ -22,14 +22,15 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     debugPrint('🔍 [MyDeliveriesTrackingScreen] Building with ${widget.activeDeliveries.length} deliveries');
     
     if (widget.activeDeliveries.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           title: const Text('My Deliveries'),
-          backgroundColor: Colors.green,
-          foregroundColor: Colors.white,
+          backgroundColor: theme.colorScheme.primary,
+          foregroundColor: theme.colorScheme.onPrimary,
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
             onPressed: () => Navigator.of(context).pop(),
@@ -42,7 +43,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
               Icon(
                 Icons.local_shipping_outlined,
                 size: 80,
-                color: Colors.grey.shade400,
+                color: theme.colorScheme.onSurface.withOpacity(0.4),
               ),
               const SizedBox(height: 16),
               Text(
@@ -50,7 +51,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
-                  color: Colors.grey.shade600,
+                  color: theme.textTheme.bodyMedium?.color,
                 ),
               ),
               const SizedBox(height: 8),
@@ -58,7 +59,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                 'Your orders will appear here once\nthey are assigned for delivery',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Colors.grey.shade500,
+                  color: theme.textTheme.bodyMedium?.color,
                 ),
               ),
             ],
@@ -117,11 +118,11 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
     debugPrint('🖼️ [MyDeliveriesTrackingScreen] Order Image URL: $orderImageUrl');
 
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Track My Delivery'),
-        backgroundColor: Colors.green,
-        foregroundColor: Colors.white,
+        backgroundColor: theme.colorScheme.primary,
+        foregroundColor: theme.colorScheme.onPrimary,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -140,9 +141,9 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                 padding: const EdgeInsets.all(12),
                 margin: const EdgeInsets.only(bottom: 16),
                 decoration: BoxDecoration(
-                  color: Colors.amber.shade100,
+                  color: theme.colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.amber),
+                  border: Border.all(color: theme.colorScheme.primary),
                 ),
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -163,12 +164,12 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                         width: 60,
                         height: 60,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: theme.cardColor,
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.amber.shade700, width: 2),
+                          border: Border.all(color: theme.colorScheme.primary, width: 2),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
+                              color: theme.shadowColor.withOpacity(0.1),
                               blurRadius: 4,
                               offset: const Offset(0, 2),
                             ),
@@ -177,7 +178,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                         child: orderImageUrl == null
                             ? Icon(
                                 Icons.image_not_supported_outlined,
-                                color: Colors.grey.shade400,
+                                color: theme.colorScheme.onSurface.withOpacity(0.4),
                                 size: 24,
                               )
                             : ClipRRect(
@@ -258,6 +259,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                     scrollDirection: Axis.horizontal,
                     itemCount: widget.activeDeliveries.length,
                     itemBuilder: (context, index) {
+                      final theme = Theme.of(context);
                       final delivery = widget.activeDeliveries[index];
                       final deliveryOrder = Order.fromJson(delivery);
                       final isSelected = index == _selectedIndex;
@@ -283,19 +285,21 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                           width: 160,
                           margin: const EdgeInsets.only(right: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: theme.cardColor,
                             borderRadius: BorderRadius.circular(12),
                             border: Border.all(
-                              color: isSelected ? Colors.green : Colors.grey.shade300,
+                              color: isSelected ? theme.colorScheme.primary : theme.dividerColor,
                               width: isSelected ? 2 : 1,
                             ),
-                            boxShadow: isSelected ? [
-                              BoxShadow(
-                                color: Colors.green.withOpacity(0.3),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ] : null,
+                            boxShadow: isSelected
+                                ? [
+                                    BoxShadow(
+                                      color: theme.colorScheme.primary.withOpacity(0.22),
+                                      blurRadius: 8,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ]
+                                : null,
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,7 +309,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                                 width: double.infinity,
                                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 decoration: BoxDecoration(
-                                  color: isSelected ? Colors.green : Colors.grey.shade100,
+                                  color: isSelected ? theme.colorScheme.primary : theme.colorScheme.surfaceVariant,
                                   borderRadius: const BorderRadius.only(
                                     topLeft: Radius.circular(11),
                                     topRight: Radius.circular(11),
@@ -314,7 +318,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                                 child: Text(
                                   '#${deliveryOrder.id.substring(0, 7)}',
                                   style: TextStyle(
-                                    color: isSelected ? Colors.white : Colors.grey.shade800,
+                                    color: isSelected ? theme.colorScheme.onPrimary : theme.colorScheme.onSurface,
                                     fontWeight: FontWeight.bold,
                                     fontSize: 13,
                                   ),
@@ -332,13 +336,13 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                                         width: 50,
                                         height: 50,
                                         decoration: BoxDecoration(
-                                          color: Colors.grey.shade200,
+                                          color: theme.colorScheme.surface,
                                           borderRadius: BorderRadius.circular(8),
                                         ),
                                         child: imageUrl == null
                                             ? Icon(
                                                 Icons.shopping_bag_outlined,
-                                                color: Colors.grey.shade400,
+                                                color: theme.colorScheme.onSurface.withOpacity(0.5),
                                                 size: 24,
                                               )
                                             : ClipRRect(
@@ -368,7 +372,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
                                                     debugPrint('🖼️ Order card image error: $error');
                                                     return Icon(
                                                       Icons.broken_image_outlined,
-                                                      color: Colors.grey.shade400,
+                                                      color: theme.colorScheme.onSurface.withOpacity(0.5),
                                                       size: 24,
                                                     );
                                                   },
@@ -632,7 +636,7 @@ class _MyDeliveriesTrackingScreenState extends State<MyDeliveriesTrackingScreen>
       case 'CONFIRMED':
         return Colors.blue;
       case 'READY':
-        return Colors.purple;
+        return Colors.green.shade600;
       case 'IN_TRANSIT':
         return Colors.green;
       case 'DELIVERED':

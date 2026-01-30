@@ -377,7 +377,7 @@ class _SignupScreenState extends State<SignupScreen> {
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: Colors.black38,
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -611,35 +611,37 @@ class _SignupScreenState extends State<SignupScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        // Name Field
+                        // Name Field (force light input style)
                         TextFormField(
                           controller: _nameController,
                           keyboardType: TextInputType.name,
                           decoration: InputDecoration(
                             labelText: 'Full Name',
+                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
                             hintText: 'Enter your full name',
+                            hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.person,
-                              color: _nameError ? Colors.red : Colors.green,
+                              color: _nameError ? Colors.red : const Color(0xFF2E7D32),
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: const Color(0xFFECEFF1),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _nameError
-                                    ? Colors.red
-                                    : Colors.grey.shade300,
+                                color: _nameError ? Colors.red : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _nameError ? Colors.red : Colors.green,
+                                color: _nameError ? Colors.red : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -658,7 +660,9 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _nameErrorText,
+                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
                           ),
+                          style: TextStyle(color: Colors.black87),
                           validator: _validateName,
                           onChanged: (value) {
                             // Safe error clearing with null checks
@@ -673,35 +677,37 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Email Field
+                        // Email Field (force light input style)
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
                             labelText: 'Email',
+                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
                             hintText: 'Enter your email',
+                            hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.email,
-                              color: _emailError ? Colors.red : Colors.green,
+                              color: _emailError ? Colors.red : const Color(0xFF2E7D32),
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: const Color(0xFFECEFF1),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _emailError
-                                    ? Colors.red
-                                    : Colors.grey.shade300,
+                                color: _emailError ? Colors.red : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _emailError ? Colors.red : Colors.green,
+                                color: _emailError ? Colors.red : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -720,7 +726,9 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _emailErrorText,
+                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
                           ),
+                          style: TextStyle(color: Colors.black87),
                           validator: _validateEmail,
                           onChanged: (value) {
                             // Safe error clearing with null checks
@@ -735,23 +743,23 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Password Field
+                        // Password Field (force light input style)
                         TextFormField(
                           controller: _passwordController,
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
                             labelText: 'Password',
+                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
                             hintText: 'Enter your password',
+                            hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.lock,
-                              color: _passwordError ? Colors.red : Colors.green,
+                              color: _passwordError ? Colors.red : const Color(0xFF2E7D32),
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscurePassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                                color: Colors.grey,
+                                _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                color: const Color(0xFF757575),
                               ),
                               onPressed: () {
                                 setState(() {
@@ -759,26 +767,24 @@ class _SignupScreenState extends State<SignupScreen> {
                                 });
                               },
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: const Color(0xFFECEFF1),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _passwordError
-                                    ? Colors.red
-                                    : Colors.grey.shade300,
+                                color: _passwordError ? Colors.red : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _passwordError
-                                    ? Colors.red
-                                    : Colors.green,
+                                color: _passwordError ? Colors.red : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -797,7 +803,9 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _passwordErrorText,
+                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
                           ),
+                          style: TextStyle(color: Colors.black87),
                           validator: _validatePassword,
                           onChanged: (value) {
                             // Safe error clearing with null checks
@@ -812,53 +820,48 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 8),
 
-                        // Confirm Password Field
+                        // Confirm Password Field (force light input style)
                         TextFormField(
                           controller: _confirmPasswordController,
                           obscureText: _obscureConfirmPassword,
                           decoration: InputDecoration(
                             labelText: 'Confirm Password',
+                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
                             hintText: 'Confirm your password',
+                            hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.lock_outline,
-                              color: _confirmPasswordError
-                                  ? Colors.red
-                                  : Colors.green,
+                              color: _confirmPasswordError ? Colors.red : const Color(0xFF2E7D32),
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureConfirmPassword
-                                    ? Icons.visibility
-                                    : Icons.visibility_off,
-                                color: Colors.grey,
+                                _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                                color: const Color(0xFF757575),
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _obscureConfirmPassword =
-                                      !_obscureConfirmPassword;
+                                  _obscureConfirmPassword = !_obscureConfirmPassword;
                                 });
                               },
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: const Color(0xFFECEFF1),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _confirmPasswordError
-                                    ? Colors.red
-                                    : Colors.grey.shade300,
+                                color: _confirmPasswordError ? Colors.red : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _confirmPasswordError
-                                    ? Colors.red
-                                    : Colors.green,
+                                color: _confirmPasswordError ? Colors.red : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -877,13 +880,13 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _confirmPasswordErrorText,
+                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
                           ),
+                          style: TextStyle(color: Colors.black87),
                           validator: _validateConfirmPassword,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted &&
-                                _confirmPasswordError &&
-                                value.isNotEmpty) {
+                            if (mounted && _confirmPasswordError && value.isNotEmpty) {
                               setState(() {
                                 _confirmPasswordError = false;
                                 _confirmPasswordErrorText = null;
@@ -906,23 +909,24 @@ class _SignupScreenState extends State<SignupScreen> {
                                     color: Colors.red.shade200,
                                   ),
                                 ),
-                                child: const Column(
+                                child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
                                       'Password Requirements:',
                                       style: TextStyle(
                                         fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.red,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.red.shade700,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Text(
                                       '• At least 6 characters\n• Must contain a special character (!@#\$%^&*...)',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: Colors.red,
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.red.shade700,
                                       ),
                                     ),
                                   ],
@@ -938,35 +942,37 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Phone Number Field
+                        // Phone Number Field (force light input style)
                         TextFormField(
                           controller: _phoneController,
                           keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
                             labelText: 'Phone Number',
+                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
                             hintText: 'Enter your phone number',
+                            hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.phone,
-                              color: _phoneError ? Colors.red : Colors.green,
+                              color: _phoneError ? Colors.red : const Color(0xFF2E7D32),
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: const Color(0xFFECEFF1),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _phoneError
-                                    ? Colors.red
-                                    : Colors.grey.shade300,
+                                color: _phoneError ? Colors.red : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _phoneError ? Colors.red : Colors.green,
+                                color: _phoneError ? Colors.red : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -985,8 +991,13 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _phoneErrorText,
+                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
                           ),
-                          validator: _validatePhone,
+                          style: TextStyle(color: Colors.black87),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) return 'Please enter your phone number.';
+                            return _validatePhone(value);
+                          },
                           onChanged: (value) {
                             // Safe error clearing with null checks
                             if (mounted && _phoneError && value.isNotEmpty) {
@@ -1000,39 +1011,37 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Description Field
+                        // Description Field (force light input style)
                         TextFormField(
                           controller: _descriptionController,
                           maxLines: 3,
                           decoration: InputDecoration(
                             labelText: 'Description',
+                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
                             hintText: 'Describe your business',
+                            hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.description,
-                              color: _descriptionError
-                                  ? Colors.red
-                                  : Colors.green,
+                              color: _descriptionError ? Colors.red : const Color(0xFF2E7D32),
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: const Color(0xFFECEFF1),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _descriptionError
-                                    ? Colors.red
-                                    : Colors.grey.shade300,
+                                color: _descriptionError ? Colors.red : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _descriptionError
-                                    ? Colors.red
-                                    : Colors.green,
+                                color: _descriptionError ? Colors.red : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -1051,13 +1060,13 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _descriptionErrorText,
+                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
                           ),
+                          style: TextStyle(color: Colors.black87),
                           validator: _validateDescription,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted &&
-                                _descriptionError &&
-                                value.isNotEmpty) {
+                            if (mounted && _descriptionError && value.isNotEmpty) {
                               setState(() {
                                 _descriptionError = false;
                                 _descriptionErrorText = null;
@@ -1068,38 +1077,36 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 20),
 
-                        // Location Address Field
+                        // Location Address Field (force light input style)
                         TextFormField(
                           controller: _locationAddressController,
                           decoration: InputDecoration(
                             labelText: 'Location Address',
+                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
                             hintText: 'Enter your address',
+                            hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.location_on,
-                              color: _locationAddressError
-                                  ? Colors.red
-                                  : Colors.green,
+                              color: _locationAddressError ? Colors.red : const Color(0xFF2E7D32),
                             ),
+                            filled: true,
+                            fillColor: Colors.white,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: Colors.grey.shade300,
+                                color: const Color(0xFFECEFF1),
                               ),
                             ),
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _locationAddressError
-                                    ? Colors.red
-                                    : Colors.grey.shade300,
+                                color: _locationAddressError ? Colors.red : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _locationAddressError
-                                    ? Colors.red
-                                    : Colors.green,
+                                color: _locationAddressError ? Colors.red : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -1118,13 +1125,13 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _locationAddressErrorText,
+                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
                           ),
+                          style: TextStyle(color: Colors.black87),
                           validator: _validateLocationAddress,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted &&
-                                _locationAddressError &&
-                                value.isNotEmpty) {
+                            if (mounted && _locationAddressError && value.isNotEmpty) {
                               setState(() {
                                 _locationAddressError = false;
                                 _locationAddressErrorText = null;
@@ -1138,17 +1145,23 @@ class _SignupScreenState extends State<SignupScreen> {
                         // Signup Button
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignup,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                          style: ButtonStyle(
+                            backgroundColor: MaterialStateProperty.resolveWith<Color?>(
+                              (states) => Colors.green,
                             ),
-                            elevation: 3,
+                            foregroundColor: MaterialStateProperty.resolveWith<Color?>(
+                              (states) => Colors.white,
+                            ),
+                            padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 16)),
+                            shape: MaterialStateProperty.all(
+                              RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            elevation: MaterialStateProperty.all(3),
                           ),
                           child: _isLoading
-                              ? const Row(
+                              ? Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     SizedBox(
@@ -1156,14 +1169,19 @@ class _SignupScreenState extends State<SignupScreen> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.white,
-                                            ),
+                                        valueColor: AlwaysStoppedAnimation<Color>(
+                                          Colors.white,
+                                        ),
                                       ),
                                     ),
-                                    SizedBox(width: 12),
-                                    Text('Creating Account...'),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      'Creating Account...',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
                                   ],
                                 )
                               : const Text(
@@ -1182,7 +1200,7 @@ class _SignupScreenState extends State<SignupScreen> {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             const Text(
-                              "Already have an account? ",
+                              "Already have an account?",
                               style: TextStyle(color: Colors.grey),
                             ),
                             TextButton(
@@ -1215,6 +1233,9 @@ class _SignupScreenState extends State<SignupScreen> {
 
   Widget _buildCountryDropdown() {
     return DropdownButtonFormField<Map<String, String>>(
+      style: TextStyle(color: Colors.black87),
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
       value: _countries.firstWhere(
         (country) => country['isoCode'] == _selectedCountry['isoCode'],
         orElse: () => _countries.first,
@@ -1230,7 +1251,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     style: const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(width: 8),
-                  Text(country['name'] ?? ''),
+                  Text(country['name'] ?? '', style: const TextStyle(color: Colors.black87)),
                 ],
               ),
             ),
@@ -1243,18 +1264,22 @@ class _SignupScreenState extends State<SignupScreen> {
       },
       decoration: InputDecoration(
         labelText: 'Country',
-        prefixIcon: const Icon(Icons.public, color: Colors.green),
+        labelStyle: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+        prefixIcon: const Icon(Icons.public, color: Color(0xFF2E7D32)),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: const Color(0xFFECEFF1)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderSide: BorderSide(color: const Color(0xFFECEFF1)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.green, width: 2),
+          borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
         ),
       ),
     );
@@ -1326,9 +1351,17 @@ class _SignupScreenState extends State<SignupScreen> {
 
     // Validate phone using phone_numbers_parser
     String normalizedPhone = _phoneController.text.trim();
-    if (_phoneController.text.trim().isNotEmpty) {
+
+    // If phone is empty, mark error immediately so it shows alongside other field errors
+    if (normalizedPhone.isEmpty) {
+      setState(() {
+        _phoneError = true;
+        _phoneErrorText = 'Please enter your phone number';
+      });
+      hasErrors = true;
+    } else {
       try {
-        String phoneNumber = _phoneController.text.trim();
+        String phoneNumber = normalizedPhone;
         String isoCode = _selectedCountry['isoCode'] as String;
 
         // Parse the phone number

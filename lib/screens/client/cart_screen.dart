@@ -224,10 +224,11 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final cartService = CartService();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: theme.scaffoldBackgroundColor,
       // appBar: Navbar(
       //   showMenuButton: false,
       //   organizationAccountId: organizationId,
@@ -243,12 +244,12 @@ class _CartScreenState extends State<CartScreen> {
             children: [
               // Header
               Container(
-                color: Colors.white,
+                color: theme.cardColor,
                 padding: const EdgeInsets.only(top: 60, bottom: 16),
                 child: Row(
                   children: [
                     IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Color(0xFF1A1A1A)),
+                      icon: Icon(Icons.arrow_back, color: theme.colorScheme.onSurface),
                       onPressed: () => Navigator.pop(context),
                     ),
                     const SizedBox(width: 8),
@@ -256,10 +257,10 @@ class _CartScreenState extends State<CartScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text(
+                          Text(
                             'Shopping Cart',
                             style: TextStyle(
-                              color: Color(0xFF1A1A1A),
+                              color: theme.colorScheme.onSurface,
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
                             ),
@@ -268,7 +269,7 @@ class _CartScreenState extends State<CartScreen> {
                           Text(
                             widget.organizationName,
                             style: TextStyle(
-                              color: Colors.grey.shade600,
+                              color: theme.textTheme.bodyMedium?.color,
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
                             ),
@@ -308,7 +309,7 @@ class _CartScreenState extends State<CartScreen> {
                       ),
               ),
 
-              // Bottom Summary
+                  // Bottom Summary
               // ...existing code...
 
               // Bottom Summary
@@ -317,10 +318,10 @@ class _CartScreenState extends State<CartScreen> {
                   // reduced top padding and keep comfortable bottom padding
                   padding: const EdgeInsets.fromLTRB(15, 20, 15, 20),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.cardColor,
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
+                        color: theme.shadowColor.withOpacity(0.1),
                         blurRadius: 10,
                         offset: const Offset(0, -5),
                       ),
@@ -334,12 +335,12 @@ class _CartScreenState extends State<CartScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            const Text(
+                            Text(
                               'Total Items:',
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1A1A1A),
+                                color: theme.colorScheme.onSurface,
                               ),
                             ),
                             Text(
@@ -384,7 +385,7 @@ class _CartScreenState extends State<CartScreen> {
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              disabledBackgroundColor: Colors.grey.shade400,
+                              disabledBackgroundColor: theme.disabledColor,
                             ),
                             child: _isCheckingOut
                                 ? Row(
@@ -629,20 +630,20 @@ class _CartScreenState extends State<CartScreen> {
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: Colors.red.withValues(alpha: 0.1),
+                        color: Colors.red.shade600.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(6),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.cancel, size: 14, color: Colors.red),
-                          SizedBox(width: 4),
+                          Icon(Icons.cancel, size: 14, color: Colors.red.shade600),
+                          const SizedBox(width: 4),
                           Text(
                             'Out of Stock',
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Colors.red,
+                              color: Colors.red.shade600,
                             ),
                           ),
                         ],

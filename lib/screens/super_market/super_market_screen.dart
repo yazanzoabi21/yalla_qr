@@ -135,11 +135,11 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const SizedBox(height: 20),
-              const SizedBox(
+              SizedBox(
                 width: 50,
                 height: 50,
                 child: CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.deepOrange),
+                  valueColor: AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
                   strokeWidth: 4,
                 ),
               ),
@@ -157,7 +157,7 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                 'This may take a few seconds',
                 style: TextStyle(
                   fontSize: 12,
-                  color: Colors.grey.shade600,
+                  color: Theme.of(context).textTheme.bodySmall?.color,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -233,17 +233,17 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: isSelected
+                            color: isSelected
                               ? selectedColor.withOpacity(0.2)
-                              : Colors.grey.shade100,
+                              : Theme.of(context).cardColor,
                           borderRadius: BorderRadius.circular(8),
                           border: isSelected
                               ? Border.all(color: selectedColor, width: 2)
-                              : Border.all(color: Colors.grey.shade300),
+                              : Border.all(color: Theme.of(context).dividerColor),
                         ),
-                        child: Icon(
+                          child: Icon(
                           icon,
-                          color: isSelected ? selectedColor : Colors.grey.shade600,
+                          color: isSelected ? selectedColor : Theme.of(context).iconTheme.color?.withOpacity(0.8),
                           size: 24,
                         ),
                       ),
@@ -274,88 +274,54 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
     Color selectedColor = currentColor;
     double hue = HSVColor.fromColor(currentColor).hue;
     double saturation = HSVColor.fromColor(currentColor).saturation;
-    double value = HSVColor.fromColor(currentColor).value;
+    double lightness = HSVColor.fromColor(currentColor).value;
 
     return showDialog<Color>(
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (context, setState) {
-            selectedColor = HSVColor.fromAHSV(1.0, hue, saturation, value).toColor();
-            
+            selectedColor = HSVColor.fromAHSV(1.0, hue, saturation, lightness).toColor();
+
             return AlertDialog(
               title: const Text('Choose Custom Color'),
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Color preview
                     Container(
-                      width: double.infinity,
-                      height: 80,
+                      width: 64,
+                      height: 64,
                       decoration: BoxDecoration(
                         color: selectedColor,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300, width: 2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Theme.of(context).dividerColor),
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    // Hue slider
-                    Row(
-                      children: [
-                        const Text('Hue:', style: TextStyle(fontWeight: FontWeight.w600)),
-                        Expanded(
-                          child: Slider(
-                            value: hue,
-                            min: 0,
-                            max: 360,
-                            divisions: 360,
-                            onChanged: (value) {
-                              setState(() {
-                                hue = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 12),
+                    const Align(alignment: Alignment.centerLeft, child: Text('Hue', style: TextStyle(fontWeight: FontWeight.w600))),
+                    Slider(
+                      value: hue,
+                      min: 0,
+                      max: 360,
+                      divisions: 360,
+                      onChanged: (v) => setState(() => hue = v),
                     ),
-                    // Saturation slider
-                    Row(
-                      children: [
-                        const Text('Saturation:', style: TextStyle(fontWeight: FontWeight.w600)),
-                        Expanded(
-                          child: Slider(
-                            value: saturation,
-                            min: 0,
-                            max: 1,
-                            divisions: 100,
-                            onChanged: (value) {
-                              setState(() {
-                                saturation = value;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    const Align(alignment: Alignment.centerLeft, child: Text('Saturation', style: TextStyle(fontWeight: FontWeight.w600))),
+                    Slider(
+                      value: saturation,
+                      min: 0,
+                      max: 1,
+                      divisions: 100,
+                      onChanged: (v) => setState(() => saturation = v),
                     ),
-                    // Value/Brightness slider
-                    Row(
-                      children: [
-                        const Text('Brightness:', style: TextStyle(fontWeight: FontWeight.w600)),
-                        Expanded(
-                          child: Slider(
-                            value: value,
-                            min: 0,
-                            max: 1,
-                            divisions: 100,
-                            onChanged: (newValue) {
-                              setState(() {
-                                value = newValue;
-                              });
-                            },
-                          ),
-                        ),
-                      ],
+                    const Align(alignment: Alignment.centerLeft, child: Text('Brightness', style: TextStyle(fontWeight: FontWeight.w600))),
+                    Slider(
+                      value: lightness,
+                      min: 0,
+                      max: 1,
+                      divisions: 100,
+                      onChanged: (v) => setState(() => lightness = v),
                     ),
                   ],
                 ),
@@ -480,11 +446,16 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                   color: color,
                                   shape: BoxShape.circle,
                                   border: selectedColor == color
-                                      ? Border.all(color: Colors.black, width: 2)
+                                      ? Border.all(
+                                          color: Theme.of(context).brightness == Brightness.light
+                                              ? Colors.black
+                                              : Theme.of(context).dividerColor,
+                                          width: 2,
+                                        )
                                       : null,
                                 ),
                               ),
-                            );
+                              );
                           }).toList(),
                           // More colors button
                           GestureDetector(
@@ -513,11 +484,11 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                   end: Alignment.bottomRight,
                                 ),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.grey.shade400, width: 1),
+                                border: Border.all(color: Theme.of(context).dividerColor, width: 1),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.add,
-                                color: Colors.white,
+                                color: Theme.of(context).colorScheme.onPrimary,
                                 size: 16,
                               ),
                             ),
@@ -567,18 +538,16 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                               height: 36,
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? selectedColor.withOpacity(0.2)
-                                    : Colors.grey.shade100,
+                                  ? selectedColor.withOpacity(0.2)
+                                  : Theme.of(context).cardColor,
                                 borderRadius: BorderRadius.circular(8),
                                 border: isSelected
                                     ? Border.all(color: selectedColor, width: 2)
                                     : null,
                               ),
-                              child: Icon(
+                                child: Icon(
                                 icon,
-                                color: isSelected
-                                    ? selectedColor
-                                    : Colors.grey,
+                                color: selectedColor,
                                 size: 20,
                               ),
                             ),
@@ -599,18 +568,18 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                           margin: const EdgeInsets.only(top: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: Theme.of(context).dividerColor),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.apps, size: 16, color: Colors.grey.shade700),
+                              Icon(Icons.apps, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
                               const SizedBox(width: 6),
                               Text(
                                 'More icons...',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color),
                               ),
                             ],
                           ),
@@ -938,18 +907,18 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                           margin: const EdgeInsets.only(top: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: Theme.of(context).dividerColor),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.palette, size: 16, color: Colors.grey.shade700),
+                              Icon(Icons.palette, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
                               const SizedBox(width: 6),
                               Text(
                                 'More colors...',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color),
                               ),
                             ],
                           ),
@@ -1030,18 +999,18 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                           margin: const EdgeInsets.only(top: 8),
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
+                            color: Theme.of(context).cardColor,
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.grey.shade300),
+                            border: Border.all(color: Theme.of(context).dividerColor),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(Icons.apps, size: 16, color: Colors.grey.shade700),
+                              Icon(Icons.apps, size: 16, color: Theme.of(context).textTheme.bodyMedium?.color),
                               const SizedBox(width: 6),
                               Text(
                                 'More icons...',
-                                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                                style: TextStyle(fontSize: 12, color: Theme.of(context).textTheme.bodyMedium?.color),
                               ),
                             ],
                           ),
@@ -1165,7 +1134,7 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFEFF0F3),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: Navbar(
           showMenuButton: false,
         ),
@@ -1279,12 +1248,11 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                     child: Row(
                                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                       children: [
-                                        const Text(
+                                        Text(
                                           'Categories',
-                                          style: TextStyle(
+                                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
                                             fontSize: 20,
                                             fontWeight: FontWeight.w700,
-                                            color: Color(0xFF1A1A1A),
                                           ),
                                         ),
                                         FloatingActionButton(
@@ -1330,6 +1298,17 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                                     color.withOpacity(0.65),
                                                   ],
                                                 ),
+                                                border: Border.all(
+                                                  color: Theme.of(context).dividerColor.withOpacity(0.18),
+                                                  width: 1.2,
+                                                ),
+                                                boxShadow: [
+                                                  BoxShadow(
+                                                    color: Theme.of(context).shadowColor.withOpacity(0.22),
+                                                    blurRadius: 12,
+                                                    offset: const Offset(0, 6),
+                                                  ),
+                                                ],
                                               ),
                                               child: Stack(
                                                 children: [
@@ -1361,7 +1340,7 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                                             Container(
                                                               padding: const EdgeInsets.all(10),
                                                               decoration: BoxDecoration(
-                                                                color: Colors.white.withOpacity(0.95),
+                                                                color: Theme.of(context).cardColor,
                                                                 borderRadius: BorderRadius.circular(10),
                                                               ),
                                                               child: Icon(
@@ -1375,12 +1354,12 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                                               child: Container(
                                                                 padding: const EdgeInsets.all(8),
                                                                 decoration: BoxDecoration(
-                                                                  color: Colors.white.withOpacity(0.2),
+                                                                  color: Theme.of(context).cardColor.withOpacity(0.15),
                                                                   borderRadius: BorderRadius.circular(8),
                                                                 ),
                                                                 child: Icon(
                                                                   Icons.edit,
-                                                                  color: Colors.white,
+                                                                  color: Theme.of(context).iconTheme.color,
                                                                   size: 18,
                                                                 ),
                                                               ),
@@ -1394,9 +1373,8 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                                               category.name,
                                                               maxLines: 2,
                                                               overflow: TextOverflow.ellipsis,
-                                                              style: const TextStyle(
-                                                                color: Colors.white,
-                                                                fontSize: 16,
+                                                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                                                color: Theme.of(context).colorScheme.onPrimary,
                                                                 fontWeight: FontWeight.bold,
                                                               ),
                                                             ),
@@ -1407,7 +1385,7 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                                                 vertical: 4,
                                                               ),
                                                               decoration: BoxDecoration(
-                                                                color: Colors.white.withOpacity(0.95),
+                                                                color: Theme.of(context).cardColor,
                                                                 borderRadius: BorderRadius.circular(6),
                                                               ),
                                                               child: Text(
@@ -1439,28 +1417,11 @@ class _SuperMarketScreenState extends State<SuperMarketScreen> {
                                       child: Column(
                                         mainAxisAlignment: MainAxisAlignment.center,
                                         children: [
-                                          Icon(
-                                            Icons.shopping_bag_outlined,
-                                            size: 80,
-                                            color: Colors.grey.shade300,
-                                          ),
+                                          Icon(Icons.shopping_bag_outlined, size: 80, color: Theme.of(context).disabledColor.withOpacity(0.6)),
                                           const SizedBox(height: 16),
-                                          Text(
-                                            'No Categories Yet',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                              color: Colors.grey.shade600,
-                                            ),
-                                          ),
+                                          Text('No Categories Yet', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)),
                                           const SizedBox(height: 8),
-                                          Text(
-                                            'Create categories to get started',
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: Colors.grey.shade500,
-                                            ),
-                                          ),
+                                          Text('Create categories to get started', style: Theme.of(context).textTheme.bodySmall),
                                         ],
                                       ),
                                     ),

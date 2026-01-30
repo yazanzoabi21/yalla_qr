@@ -257,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFFEFF0F3),
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: const Navbar(),
         body: Padding(padding: const EdgeInsets.all(12.0), child: _buildBody()),
         floatingActionButton: _orgAccountId != null
@@ -363,9 +363,11 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       barrierDismissible: true,
       barrierLabel: 'QR Code',
-      barrierColor: Colors.black.withValues(alpha: 0.7),
+      barrierColor: Colors.black.withOpacity(0.7),
       transitionDuration: const Duration(milliseconds: 350),
       pageBuilder: (context, animation, secondaryAnimation) {
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
         return Center(
           child: Material(
             color: Colors.transparent,
@@ -380,11 +382,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   margin: const EdgeInsets.symmetric(horizontal: 20),
                   constraints: const BoxConstraints(maxWidth: 400),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.dialogBackgroundColor,
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.2),
+                        color: Colors.black.withOpacity(0.2),
                         blurRadius: 30,
                         spreadRadius: 0,
                         offset: const Offset(0, 15),
@@ -400,39 +402,52 @@ class _HomeScreenState extends State<HomeScreen> {
                           vertical: 20,
                           horizontal: 24,
                         ),
-                        decoration: const BoxDecoration(
+                        decoration: BoxDecoration(
                           gradient: LinearGradient(
-                            colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6)],
+                            colors: isDark
+                                ? [const Color(0xFF1E3A8A), const Color(0xFF3B82F6)]
+                                : [const Color(0xFF3B82F6), const Color(0xFF60A5FA)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
-                          borderRadius: BorderRadius.only(
+                          borderRadius: const BorderRadius.only(
                             topLeft: Radius.circular(24),
                             topRight: Radius.circular(24),
                           ),
+                          boxShadow: !isDark
+                              ? [
+                                  BoxShadow(
+                                    color: Colors.blue.withOpacity(0.08),
+                                    blurRadius: 12,
+                                    offset: const Offset(0, 2),
+                                  ),
+                                ]
+                              : null,
                         ),
                         child: Row(
                           children: [
                             Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
+                                color: isDark
+                                    ? Colors.white.withOpacity(0.10)
+                                    : const Color(0xFF1E3A8A).withOpacity(0.13),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.qr_code_2_rounded,
                                 color: Colors.white,
                                 size: 26,
                               ),
                             ),
                             const SizedBox(width: 14),
-                            const Expanded(
+                            Expanded(
                               child: Text(
                                 'Your QR Code',
-                                style: TextStyle(
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   color: Colors.white,
-                                  fontSize: 20,
                                   fontWeight: FontWeight.w600,
+                                  fontSize: 20,
                                   letterSpacing: 0.2,
                                 ),
                               ),
@@ -454,12 +469,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         padding: const EdgeInsets.all(28),
                         child: Column(
                           children: [
-                            const Text(
+                            Text(
                               'Share this code with your clients',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 15,
-                                color: Color(0xFF64748B),
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.85),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -479,10 +493,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: 0.3,
+                                    color: Colors.white,
                                   ),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF1E3A8A),
+                                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                                      ? Color(0xFF1E3A8A)
+                                      : Color(0xFF3B82F6),
                                   foregroundColor: Colors.white,
                                   elevation: 0,
                                   shape: RoundedRectangleBorder(
@@ -866,7 +883,7 @@ class _QRCodeOnlyWidgetState extends State<_QRCodeOnlyWidget> {
           child: QrImageView(
             data: _qrCode!.code,
             version: QrVersions.auto,
-            size: 200,
+            // size: 200,
             backgroundColor: Colors.white,
             errorCorrectionLevel: QrErrorCorrectLevel.H,
             eyeStyle: const QrEyeStyle(
