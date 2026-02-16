@@ -5,6 +5,7 @@ import '../../widgets/qr_code_widget.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../widgets/theme_selector.dart';
+import 'notification.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String? categoryName;
@@ -490,76 +491,74 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
-      appBar: const Navbar(showLoginButton: false),
+      // appBar: const Navbar(showLoginButton: false),
+      appBar: AppBar(
+        title: Row(
+          children: [
+            const Text('Settings'),
+            const SizedBox(width: 10),
+            // Role Badge
+            if (_userRole != null)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: _userRole == 'ORG'
+                      ? Colors.purple.withValues(alpha: 0.2)
+                      : Colors.green.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                  ),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      _userRole == 'ORG' ? Icons.business : Icons.person,
+                      size: 14,
+                      color: _userRole == 'ORG' ? Colors.purple : Colors.green,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      _userRole!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                        color: _userRole == 'ORG'
+                            ? Colors.purple
+                            : Colors.green,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: theme.colorScheme.onSurface,
+        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
+        titleTextStyle: theme.textTheme.titleLarge?.copyWith(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
+        ),
+        elevation: 0,
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header with category context and role
-                  Row(
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.arrow_back),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                      const Text(
-                        'Settings',
-                        style: TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      // Role Badge
-                      if (_userRole != null)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: _userRole == 'ORG'
-                                ? Colors.purple.withValues(alpha: 0.2)
-                                : Colors.green.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: _userRole == 'ORG'
-                                  ? Colors.purple
-                                  : Colors.green,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                _userRole == 'ORG'
-                                    ? Icons.business
-                                    : Icons.person,
-                                size: 14,
-                                color: _userRole == 'ORG'
-                                    ? Colors.purple
-                                    : Colors.green,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                _userRole!,
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: _userRole == 'ORG'
-                                      ? Colors.purple
-                                      : Colors.green,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      if (_categoryInfo != null) ...[
-                        const SizedBox(width: 10),
+                  // Header with category context
+                  if (_categoryInfo != null)
+                    Row(
+                      children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 12,
@@ -580,10 +579,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           ),
                         ),
                       ],
-                    ],
-                  ),
+                    ),
+                  if (_categoryInfo != null) 
                   const SizedBox(height: 20),
-
                   // Admin Profile Section
                   Card(
                     elevation: 4,
@@ -605,7 +603,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               IconButton(
                                 icon: Icon(
                                   _isEditing ? Icons.check_circle : Icons.edit,
-                                  color: _isEditing ? _getCategoryColor() : null,
+                                  color: _isEditing
+                                      ? _getCategoryColor()
+                                      : null,
                                 ),
                                 onPressed: _isEditing
                                     ? _saveProfile
@@ -809,59 +809,60 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             isEditable: _isEditing,
                           ),
 
-                            if (_isEditing) ...[
+                          if (_isEditing) ...[
                             const SizedBox(height: 20),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                               children: [
-                              ElevatedButton(
-                                onPressed: () {
-                                setState(() {
-                                  _isEditing = false;
-                                  _populateControllers(); // Reset to original values
-                                });
-                                },
-                                style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.grey,
-                                foregroundColor: Colors.black, // Text color
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _isEditing = false;
+                                      _populateControllers(); // Reset to original values
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.grey,
+                                    foregroundColor: Colors.black, // Text color
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 14,
+                                    ),
+                                    textStyle: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  child: const Text('Cancel'),
                                 ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 14,
+                                ElevatedButton.icon(
+                                  onPressed: _saveProfile,
+                                  icon: const Icon(Icons.save, size: 20),
+                                  label: const Text(
+                                    'Save Changes',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _getCategoryColor(),
+                                    foregroundColor: Colors.white,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(24),
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 20,
+                                      vertical: 12,
+                                    ),
+                                    elevation: 4,
+                                    shadowColor: _getCategoryColor()
+                                        .withOpacity(0.4),
+                                  ),
                                 ),
-                                textStyle: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                                ),
-                                child: const Text('Cancel'),
-                              ),
-                              ElevatedButton.icon(
-                                onPressed: _saveProfile,
-                                icon: const Icon(Icons.save, size: 20),
-                                label: const Text(
-                                'Save Changes',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                                ),
-                                style: ElevatedButton.styleFrom(
-                                backgroundColor: _getCategoryColor(),
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 12,
-                                ),
-                                elevation: 4,
-                                shadowColor: _getCategoryColor().withOpacity(0.4),
-                                ),
-                              ),
                               ],
                             ),
                           ],
@@ -911,27 +912,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       'Notifications',
                       Icons.notifications,
                       () {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Notifications settings coming soon'),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) =>
+                                const NotificationSettingsScreen(),
                           ),
                         );
                       },
                     ),
-                    _buildSettingsTile('Privacy', Icons.privacy_tip, () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Privacy settings coming soon'),
-                        ),
-                      );
-                    }),
-                    _buildSettingsTile('Security', Icons.security, () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Security settings coming soon'),
-                        ),
-                      );
-                    }),
+                    // _buildSettingsTile('Privacy', Icons.privacy_tip, () {
+                    //   ScaffoldMessenger.of(context).showSnackBar(
+                    //     const SnackBar(
+                    //       content: Text('Privacy settings coming soon'),
+                    //     ),
+                    //   );
+                    // }),
+                    // _buildSettingsTile('Security', Icons.security, () {
+                    //   ScaffoldMessenger.of(context).showSnackBar(
+                    //     const SnackBar(
+                    //       content: Text('Security settings coming soon'),
+                    //     ),
+                    //   );
+                    // }),
                   ]),
 
                   const SizedBox(height: 20),
@@ -984,7 +987,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: isEditable ? theme.colorScheme.primary : theme.dividerColor,
+                color: isEditable
+                    ? theme.colorScheme.primary
+                    : theme.dividerColor,
                 width: isEditable ? 1.6 : 1,
               ),
               color: isEditable
@@ -996,7 +1001,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Icon(
                   icon,
                   size: 20,
-                  color: isEditable ? theme.colorScheme.primary : theme.iconTheme.color,
+                  color: isEditable
+                      ? theme.colorScheme.primary
+                      : theme.iconTheme.color,
                 ),
                 const SizedBox(width: 8),
                 Expanded(

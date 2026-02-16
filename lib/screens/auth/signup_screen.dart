@@ -46,6 +46,7 @@ class _SignupScreenState extends State<SignupScreen> {
   bool _phoneError = false;
   bool _descriptionError = false;
   bool _locationAddressError = false;
+  bool _categoriesError = false;
   String? _nameErrorText;
   String? _emailErrorText;
   String? _passwordErrorText;
@@ -56,6 +57,11 @@ class _SignupScreenState extends State<SignupScreen> {
   String _selectedRole = 'USER'; // Role: 'USER', 'ORG', or 'DELIVERY'
   File? _selectedImage; // Selected profile image
   final ImagePicker _imagePicker = ImagePicker();
+
+  // Category management
+  List<Map<String, dynamic>> _availableCategories = [];
+  List<String> _selectedCategoryIds = [];
+  bool _isCategoriesLoading = false;
 
   // List of countries with ISO codes and flags
   final List<Map<String, String>> _countries = [
@@ -85,6 +91,9 @@ class _SignupScreenState extends State<SignupScreen> {
       '   📁 widget.intendedDestination = ${widget.intendedDestination}',
     );
     debugPrint('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+
+    // Load parent categories
+    _loadCategories();
   }
 
   void _clearFields() {
@@ -103,6 +112,7 @@ class _SignupScreenState extends State<SignupScreen> {
       _phoneError = false;
       _descriptionError = false;
       _locationAddressError = false;
+      _categoriesError = false;
       _nameErrorText = null;
       _emailErrorText = null;
       _passwordErrorText = null;
@@ -204,6 +214,193 @@ class _SignupScreenState extends State<SignupScreen> {
       return 'Address must be at least 5 characters';
     }
     return null;
+  }
+
+  /// Load parent categories from Supabase (where parent_id is null)
+  Future<void> _loadCategories() async {
+    setState(() {
+      _isCategoriesLoading = true;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('categories')
+          .select('id, name, icon_code, color_value')
+          .is_('parent_id', null)
+          .order('name');
+
+      if (response.isNotEmpty) {
+        setState(() {
+          _availableCategories = List<Map<String, dynamic>>.from(
+            response as List,
+          );
+          debugPrint(
+            '📂 Loaded ${_availableCategories.length} parent categories',
+          );
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading categories: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load categories: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isCategoriesLoading = false;
+      });
+    }
+  }
+
+  /// Save account categories with appropriate is_hidden values
+  Future<void> _saveAccountCategories(String accountId) async {
+    if (_availableCategories.isEmpty) {
+      debugPrint('📂 No categories to save');
+      return;
+    }
+
+    try {
+      // Verify account exists before inserting
+      final accountCheck = await Supabase.instance.client
+          .from('accounts')
+          .select('id')
+          .eq('id', accountId)
+          .maybeSingle();
+
+      if (accountCheck == null) {
+        throw Exception('Account $accountId does not exist in database');
+      }
+
+      debugPrint('📂 Clearing existing account_categories for: $accountId');
+
+      // Delete any existing account_categories first (in case AuthService already created them)
+      try {
+        await Supabase.instance.client
+            .from('account_categories')
+            .delete()
+            .eq('account_id', accountId);
+        debugPrint('✅ Cleared existing categories');
+      } catch (e) {
+        debugPrint('⚠️ Could not clear existing categories: $e');
+      }
+
+      // Prepare data for all categories
+      final categoriesToInsert = <Map<String, dynamic>>[];
+
+      for (var category in _availableCategories) {
+        final categoryId = category['id'] as String;
+        final isSelected = _selectedCategoryIds.contains(categoryId);
+
+        categoriesToInsert.add({
+          'account_id': accountId,
+          'category_id': categoryId,
+          'is_hidden': !isSelected, // If selected: is_hidden = false, else true
+        });
+      }
+
+      debugPrint(
+        '📂 Saving ${categoriesToInsert.length} categories for account: $accountId',
+      );
+      debugPrint('   Selected categories: ${_selectedCategoryIds.length}');
+      debugPrint('   Selected category IDs: $_selectedCategoryIds');
+
+      // Batch insert all account_categories records
+      await Supabase.instance.client
+          .from('account_categories')
+          .insert(categoriesToInsert);
+
+      debugPrint(
+        '✅ Saved ${categoriesToInsert.length} account category associations',
+      );
+      debugPrint(
+        '   Visible: ${_selectedCategoryIds.length}, Hidden: ${_availableCategories.length - _selectedCategoryIds.length}',
+      );
+    } catch (e) {
+      debugPrint('❌ Error saving account categories: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Warning: Failed to save category preferences: $e'),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+      // Don't rethrow - allow signup to continue even if category save fails
+    }
+  }
+
+  /// Show multi-select category dialog
+  Future<void> _showCategorySelectDialog() async {
+    await showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text('Select Categories'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: _isCategoriesLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _availableCategories.isEmpty
+                ? const Center(child: Text('No categories available'))
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _availableCategories.length,
+                    itemBuilder: (context, index) {
+                      final category = _availableCategories[index];
+                      final categoryId = category['id'] as String;
+                      final categoryName = category['name'] as String;
+                      final isSelected = _selectedCategoryIds.contains(
+                        categoryId,
+                      );
+
+                      return CheckboxListTile(
+                        title: Text(categoryName),
+                        value: isSelected,
+                        onChanged: (value) {
+                          setDialogState(() {
+                            if (value == true) {
+                              if (!_selectedCategoryIds.contains(categoryId)) {
+                                _selectedCategoryIds.add(categoryId);
+                              }
+                            } else {
+                              _selectedCategoryIds.remove(categoryId);
+                            }
+                          });
+                        },
+                        activeColor: const Color(0xFF2E7D32),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                setState(
+                  () {},
+                ); // Update parent widget with selected categories
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2E7D32),
+              ),
+              child: const Text('Done'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _pickImage() async {
@@ -617,12 +814,17 @@ class _SignupScreenState extends State<SignupScreen> {
                           keyboardType: TextInputType.name,
                           decoration: InputDecoration(
                             labelText: 'Full Name',
-                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
+                            labelStyle: TextStyle(
+                              color: Colors.black38,
+                              fontWeight: FontWeight.w600,
+                            ),
                             hintText: 'Enter your full name',
                             hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.person,
-                              color: _nameError ? Colors.red : const Color(0xFF2E7D32),
+                              color: _nameError
+                                  ? Colors.red
+                                  : const Color(0xFF2E7D32),
                             ),
                             filled: true,
                             fillColor: Colors.white,
@@ -635,13 +837,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _nameError ? Colors.red : const Color(0xFFECEFF1),
+                                color: _nameError
+                                    ? Colors.red
+                                    : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _nameError ? Colors.red : const Color(0xFF2E7D32),
+                                color: _nameError
+                                    ? Colors.red
+                                    : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -660,7 +866,10 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _nameErrorText,
-                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: TextStyle(color: Colors.black87),
                           validator: _validateName,
@@ -683,12 +892,17 @@ class _SignupScreenState extends State<SignupScreen> {
                           keyboardType: TextInputType.emailAddress,
                           decoration: InputDecoration(
                             labelText: 'Email',
-                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
+                            labelStyle: TextStyle(
+                              color: Colors.black38,
+                              fontWeight: FontWeight.w600,
+                            ),
                             hintText: 'Enter your email',
                             hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.email,
-                              color: _emailError ? Colors.red : const Color(0xFF2E7D32),
+                              color: _emailError
+                                  ? Colors.red
+                                  : const Color(0xFF2E7D32),
                             ),
                             filled: true,
                             fillColor: Colors.white,
@@ -701,13 +915,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _emailError ? Colors.red : const Color(0xFFECEFF1),
+                                color: _emailError
+                                    ? Colors.red
+                                    : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _emailError ? Colors.red : const Color(0xFF2E7D32),
+                                color: _emailError
+                                    ? Colors.red
+                                    : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -726,7 +944,10 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _emailErrorText,
-                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: TextStyle(color: Colors.black87),
                           validator: _validateEmail,
@@ -749,16 +970,23 @@ class _SignupScreenState extends State<SignupScreen> {
                           obscureText: _obscurePassword,
                           decoration: InputDecoration(
                             labelText: 'Password',
-                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
+                            labelStyle: TextStyle(
+                              color: Colors.black38,
+                              fontWeight: FontWeight.w600,
+                            ),
                             hintText: 'Enter your password',
                             hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.lock,
-                              color: _passwordError ? Colors.red : const Color(0xFF2E7D32),
+                              color: _passwordError
+                                  ? Colors.red
+                                  : const Color(0xFF2E7D32),
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscurePassword ? Icons.visibility : Icons.visibility_off,
+                                _obscurePassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                                 color: const Color(0xFF757575),
                               ),
                               onPressed: () {
@@ -778,13 +1006,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _passwordError ? Colors.red : const Color(0xFFECEFF1),
+                                color: _passwordError
+                                    ? Colors.red
+                                    : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _passwordError ? Colors.red : const Color(0xFF2E7D32),
+                                color: _passwordError
+                                    ? Colors.red
+                                    : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -803,7 +1035,10 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _passwordErrorText,
-                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: TextStyle(color: Colors.black87),
                           validator: _validatePassword,
@@ -826,21 +1061,29 @@ class _SignupScreenState extends State<SignupScreen> {
                           obscureText: _obscureConfirmPassword,
                           decoration: InputDecoration(
                             labelText: 'Confirm Password',
-                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
+                            labelStyle: TextStyle(
+                              color: Colors.black38,
+                              fontWeight: FontWeight.w600,
+                            ),
                             hintText: 'Confirm your password',
                             hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.lock_outline,
-                              color: _confirmPasswordError ? Colors.red : const Color(0xFF2E7D32),
+                              color: _confirmPasswordError
+                                  ? Colors.red
+                                  : const Color(0xFF2E7D32),
                             ),
                             suffixIcon: IconButton(
                               icon: Icon(
-                                _obscureConfirmPassword ? Icons.visibility : Icons.visibility_off,
+                                _obscureConfirmPassword
+                                    ? Icons.visibility
+                                    : Icons.visibility_off,
                                 color: const Color(0xFF757575),
                               ),
                               onPressed: () {
                                 setState(() {
-                                  _obscureConfirmPassword = !_obscureConfirmPassword;
+                                  _obscureConfirmPassword =
+                                      !_obscureConfirmPassword;
                                 });
                               },
                             ),
@@ -855,13 +1098,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _confirmPasswordError ? Colors.red : const Color(0xFFECEFF1),
+                                color: _confirmPasswordError
+                                    ? Colors.red
+                                    : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _confirmPasswordError ? Colors.red : const Color(0xFF2E7D32),
+                                color: _confirmPasswordError
+                                    ? Colors.red
+                                    : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -880,13 +1127,18 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _confirmPasswordErrorText,
-                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: TextStyle(color: Colors.black87),
                           validator: _validateConfirmPassword,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted && _confirmPasswordError && value.isNotEmpty) {
+                            if (mounted &&
+                                _confirmPasswordError &&
+                                value.isNotEmpty) {
                               setState(() {
                                 _confirmPasswordError = false;
                                 _confirmPasswordErrorText = null;
@@ -948,12 +1200,17 @@ class _SignupScreenState extends State<SignupScreen> {
                           keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
                             labelText: 'Phone Number',
-                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
+                            labelStyle: TextStyle(
+                              color: Colors.black38,
+                              fontWeight: FontWeight.w600,
+                            ),
                             hintText: 'Enter your phone number',
                             hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.phone,
-                              color: _phoneError ? Colors.red : const Color(0xFF2E7D32),
+                              color: _phoneError
+                                  ? Colors.red
+                                  : const Color(0xFF2E7D32),
                             ),
                             filled: true,
                             fillColor: Colors.white,
@@ -966,13 +1223,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _phoneError ? Colors.red : const Color(0xFFECEFF1),
+                                color: _phoneError
+                                    ? Colors.red
+                                    : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _phoneError ? Colors.red : const Color(0xFF2E7D32),
+                                color: _phoneError
+                                    ? Colors.red
+                                    : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -991,11 +1252,15 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _phoneErrorText,
-                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: TextStyle(color: Colors.black87),
                           validator: (value) {
-                            if (value == null || value.trim().isEmpty) return 'Please enter your phone number.';
+                            if (value == null || value.trim().isEmpty)
+                              return 'Please enter your phone number.';
                             return _validatePhone(value);
                           },
                           onChanged: (value) {
@@ -1017,12 +1282,17 @@ class _SignupScreenState extends State<SignupScreen> {
                           maxLines: 3,
                           decoration: InputDecoration(
                             labelText: 'Description',
-                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
+                            labelStyle: TextStyle(
+                              color: Colors.black38,
+                              fontWeight: FontWeight.w600,
+                            ),
                             hintText: 'Describe your business',
                             hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.description,
-                              color: _descriptionError ? Colors.red : const Color(0xFF2E7D32),
+                              color: _descriptionError
+                                  ? Colors.red
+                                  : const Color(0xFF2E7D32),
                             ),
                             filled: true,
                             fillColor: Colors.white,
@@ -1035,13 +1305,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _descriptionError ? Colors.red : const Color(0xFFECEFF1),
+                                color: _descriptionError
+                                    ? Colors.red
+                                    : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _descriptionError ? Colors.red : const Color(0xFF2E7D32),
+                                color: _descriptionError
+                                    ? Colors.red
+                                    : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -1060,13 +1334,18 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _descriptionErrorText,
-                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: TextStyle(color: Colors.black87),
                           validator: _validateDescription,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted && _descriptionError && value.isNotEmpty) {
+                            if (mounted &&
+                                _descriptionError &&
+                                value.isNotEmpty) {
                               setState(() {
                                 _descriptionError = false;
                                 _descriptionErrorText = null;
@@ -1082,12 +1361,17 @@ class _SignupScreenState extends State<SignupScreen> {
                           controller: _locationAddressController,
                           decoration: InputDecoration(
                             labelText: 'Location Address',
-                            labelStyle: TextStyle(color: Colors.black38, fontWeight: FontWeight.w600),
+                            labelStyle: TextStyle(
+                              color: Colors.black38,
+                              fontWeight: FontWeight.w600,
+                            ),
                             hintText: 'Enter your address',
                             hintStyle: TextStyle(color: Colors.black38),
                             prefixIcon: Icon(
                               Icons.location_on,
-                              color: _locationAddressError ? Colors.red : const Color(0xFF2E7D32),
+                              color: _locationAddressError
+                                  ? Colors.red
+                                  : const Color(0xFF2E7D32),
                             ),
                             filled: true,
                             fillColor: Colors.white,
@@ -1100,13 +1384,17 @@ class _SignupScreenState extends State<SignupScreen> {
                             enabledBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _locationAddressError ? Colors.red : const Color(0xFFECEFF1),
+                                color: _locationAddressError
+                                    ? Colors.red
+                                    : const Color(0xFFECEFF1),
                               ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide(
-                                color: _locationAddressError ? Colors.red : const Color(0xFF2E7D32),
+                                color: _locationAddressError
+                                    ? Colors.red
+                                    : const Color(0xFF2E7D32),
                                 width: 2,
                               ),
                             ),
@@ -1125,13 +1413,18 @@ class _SignupScreenState extends State<SignupScreen> {
                               ),
                             ),
                             errorText: _locationAddressErrorText,
-                            errorStyle: TextStyle(color: Colors.red.shade700, fontWeight: FontWeight.w700),
+                            errorStyle: TextStyle(
+                              color: Colors.red.shade700,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           style: TextStyle(color: Colors.black87),
                           validator: _validateLocationAddress,
                           onChanged: (value) {
                             // Safe error clearing with null checks
-                            if (mounted && _locationAddressError && value.isNotEmpty) {
+                            if (mounted &&
+                                _locationAddressError &&
+                                value.isNotEmpty) {
                               setState(() {
                                 _locationAddressError = false;
                                 _locationAddressErrorText = null;
@@ -1142,17 +1435,153 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 20),
 
+                        // Categories Multi-Select with Label
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            // Label with red star
+                            Row(
+                              children: [
+                                // Text(
+                                //   'Select Categories',
+                                //   style: TextStyle(
+                                //     color: Colors.black38,
+                                //     fontWeight: FontWeight.w600,
+                                //     fontSize: 14,
+                                //   ),
+                                // ),
+                                // const SizedBox(width: 4),
+                                // const Text(
+                                //   '*',
+                                //   style: TextStyle(
+                                //     color: Colors.red,
+                                //     fontWeight: FontWeight.bold,
+                                //     fontSize: 16,
+                                //   ),
+                                // ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            // Categories selector
+                            GestureDetector(
+                              onTap: _showCategorySelectDialog,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  border: Border.all(
+                                    color: _categoriesError
+                                        ? Colors.red
+                                        : const Color(0xFFECEFF1),
+                                    width: _categoriesError ? 2 : 1,
+                                  ),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.category,
+                                      color: _categoriesError
+                                          ? Colors.red
+                                          : const Color(0xFF2E7D32),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: _selectedCategoryIds.isEmpty
+                                          ? Text(
+                                              'Choose categories',
+                                              style: TextStyle(
+                                                color: Colors.black38,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                            )
+                                          : Wrap(
+                                              spacing: 8,
+                                              children: _availableCategories
+                                                  .where(
+                                                    (cat) =>
+                                                        _selectedCategoryIds
+                                                            .contains(
+                                                              cat['id'],
+                                                            ),
+                                                  )
+                                                  .map(
+                                                    (cat) => Chip(
+                                                      label: Text(
+                                                        cat['name'],
+                                                        style: const TextStyle(
+                                                          color: Colors.white,
+                                                          fontSize: 12,
+                                                        ),
+                                                      ),
+                                                      backgroundColor:
+                                                          const Color(
+                                                            0xFF2E7D32,
+                                                          ),
+                                                      deleteIcon: const Icon(
+                                                        Icons.close,
+                                                        size: 18,
+                                                        color: Colors.white,
+                                                      ),
+                                                      onDeleted: () {
+                                                        setState(() {
+                                                          _selectedCategoryIds
+                                                              .remove(
+                                                                cat['id'],
+                                                              );
+                                                          _categoriesError =
+                                                              false;
+                                                        });
+                                                      },
+                                                    ),
+                                                  )
+                                                  .toList(),
+                                            ),
+                                    ),
+                                    Icon(
+                                      Icons.arrow_drop_down,
+                                      color: Colors.black54,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Error message
+                            if (_categoriesError)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Please select at least one category',
+                                  style: TextStyle(
+                                    color: Colors.red.shade700,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
                         // Signup Button
                         ElevatedButton(
                           onPressed: _isLoading ? null : _handleSignup,
                           style: ButtonStyle(
-                            backgroundColor: MaterialStateProperty.resolveWith<Color?>(
-                              (states) => Colors.green,
+                            backgroundColor:
+                                MaterialStateProperty.resolveWith<Color?>(
+                                  (states) => Colors.green,
+                                ),
+                            foregroundColor:
+                                MaterialStateProperty.resolveWith<Color?>(
+                                  (states) => Colors.white,
+                                ),
+                            padding: MaterialStateProperty.all(
+                              const EdgeInsets.symmetric(vertical: 16),
                             ),
-                            foregroundColor: MaterialStateProperty.resolveWith<Color?>(
-                              (states) => Colors.white,
-                            ),
-                            padding: MaterialStateProperty.all(const EdgeInsets.symmetric(vertical: 16)),
                             shape: MaterialStateProperty.all(
                               RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -1169,9 +1598,10 @@ class _SignupScreenState extends State<SignupScreen> {
                                       height: 20,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          Colors.white,
-                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white,
+                                            ),
                                       ),
                                     ),
                                     const SizedBox(width: 12),
@@ -1193,7 +1623,7 @@ class _SignupScreenState extends State<SignupScreen> {
                                 ),
                         ),
 
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 10),
 
                         // Login Link
                         Row(
@@ -1251,7 +1681,10 @@ class _SignupScreenState extends State<SignupScreen> {
                     style: const TextStyle(fontSize: 16),
                   ),
                   const SizedBox(width: 8),
-                  Text(country['name'] ?? '', style: const TextStyle(color: Colors.black87)),
+                  Text(
+                    country['name'] ?? '',
+                    style: const TextStyle(color: Colors.black87),
+                  ),
                 ],
               ),
             ),
@@ -1264,11 +1697,17 @@ class _SignupScreenState extends State<SignupScreen> {
       },
       decoration: InputDecoration(
         labelText: 'Country',
-        labelStyle: TextStyle(color: Colors.black87, fontWeight: FontWeight.w600),
+        labelStyle: TextStyle(
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+        ),
         prefixIcon: const Icon(Icons.public, color: Color(0xFF2E7D32)),
         filled: true,
         fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(color: const Color(0xFFECEFF1)),
@@ -1295,6 +1734,7 @@ class _SignupScreenState extends State<SignupScreen> {
       _phoneError = false;
       _descriptionError = false;
       _locationAddressError = false;
+      _categoriesError = false;
       _nameErrorText = null;
       _emailErrorText = null;
       _passwordErrorText = null;
@@ -1417,6 +1857,14 @@ class _SignupScreenState extends State<SignupScreen> {
       hasErrors = true;
     }
 
+    // Validate categories
+    if (_selectedCategoryIds.isEmpty) {
+      setState(() {
+        _categoriesError = true;
+      });
+      hasErrors = true;
+    }
+
     // If there are errors, don't proceed
     if (hasErrors) {
       return;
@@ -1495,6 +1943,39 @@ class _SignupScreenState extends State<SignupScreen> {
           throw Exception(
             'Authentication failed after signup - no valid session created',
           );
+        }
+
+        // Fetch the account ID that was just created with retry logic
+        final accountResponse = await Supabase.instance.client
+            .from('accounts')
+            .select('id')
+            .eq('owner_id', currentUser.id)
+            .maybeSingle();
+
+        if (accountResponse == null) {
+          // Add small delay and retry once - account might not be committed yet
+          await Future.delayed(const Duration(milliseconds: 500));
+          final retryResponse = await Supabase.instance.client
+              .from('accounts')
+              .select('id')
+              .eq('owner_id', currentUser.id)
+              .maybeSingle();
+
+          if (retryResponse == null) {
+            throw Exception('Account was not created properly during signup');
+          }
+
+          final accountId = retryResponse['id'] as String;
+          debugPrint('📝 Account ID fetched on retry: $accountId');
+
+          // Save account categories with is_hidden values
+          await _saveAccountCategories(accountId);
+        } else {
+          final accountId = accountResponse['id'] as String;
+          debugPrint('📝 Account ID fetched: $accountId');
+
+          // Save account categories with is_hidden values
+          await _saveAccountCategories(accountId);
         }
 
         setState(() {
@@ -1584,7 +2065,9 @@ class _SignupScreenState extends State<SignupScreen> {
             );
           }
           return;
-        } else if (error.toString().contains('location_permission_permanently_denied')) {
+        } else if (error.toString().contains(
+          'location_permission_permanently_denied',
+        )) {
           errorMessage =
               'Location permission is permanently denied. Please enable it in app settings.';
           if (mounted) {

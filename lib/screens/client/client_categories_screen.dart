@@ -16,7 +16,7 @@ import '../../models/account.dart';
 import '../../models/category.dart';
 import '../../services/category_service.dart';
 import '../auth/login_screen.dart';
-import 'organization_categories_screen.dart';
+import '../org/org_home_screen.dart';
 
 class ClientCategoriesScreen extends StatefulWidget {
   const ClientCategoriesScreen({super.key});
@@ -491,6 +491,41 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     });
   }
 
+  void _showLogoPreview(String imageUrl) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: InteractiveViewer(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Image.network(
+                imageUrl,
+                fit: BoxFit.contain,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    color: Colors.black54,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.all(24),
+                    child: const Icon(
+                      Icons.broken_image,
+                      color: Colors.white70,
+                      size: 48,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Show filter dialog
   Future<void> _showFilterDialog() async {
     // Get all unique categories from all organizations
@@ -578,11 +613,11 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
 
       if (!mounted) return;
 
-      // Navigate to organization categories screen (showing category cards)
+      // Navigate to organization home screen with bottom navigation
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => OrganizationCategoriesScreen(
+          builder: (context) => OrgHomeScreen(
             account: account,
             categories: categories,
           ),
@@ -1037,9 +1072,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                 // Header Row
                 Row(
                   children: [
-                    // Category Icon
+                    // Category Icon / Organization Logo
                     Container(
-                      padding: const EdgeInsets.all(14),
+                      width: 60,
+                      height: 60,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
                           colors: [
@@ -1055,7 +1091,36 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                           width: 2,
                         ),
                       ),
-                      child: Icon(categoryIcon, color: categoryColor, size: 32),
+                      child: account?.logoUrl != null &&
+                              account!.logoUrl!.isNotEmpty
+                          ? GestureDetector(
+                              onTap: () => _showLogoPreview(account!.logoUrl!),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.network(
+                                  account!.logoUrl!,
+                                  width: 60,
+                                  height: 60,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) {
+                                    return Center(
+                                      child: Icon(
+                                        categoryIcon,
+                                        color: categoryColor,
+                                        size: 32,
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            )
+                          : Center(
+                              child: Icon(
+                                categoryIcon,
+                                color: categoryColor,
+                                size: 32,
+                              ),
+                            ),
                     ),
                     const SizedBox(width: 16),
                     Expanded(

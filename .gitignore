@@ -49,3 +49,40 @@ ios/Flutter/engine/
 # Local secret configs
 notification_config.json
 .env
+
+# Keys and credentials
+# Android
+android/app/google-services.json
+android/key.properties
+android/*.keystore
+android/*.jks
+key.properties
+keystore.properties
+
+# iOS
+ios/GoogleService-Info.plist
+
+# Firebase / service account keys
+serviceAccountKey.json
+service-account.json
+service-account-*.json
+
+# General secret files
+*.pem
+*.p12
+*.pfx
+*.key
+*.crt
+*.asc
+secrets.json
+.env.*
+
+# Fastlane / metadata
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/
+fastlane/metadata/
+
+# IDE / local settings
+.gradle/
+.vscode/settings.json

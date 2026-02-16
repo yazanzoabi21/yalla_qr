@@ -696,8 +696,13 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
   Widget _buildEmptyState(String message, IconData icon) {
     final theme = Theme.of(context);
     final circleColor = theme.colorScheme.surfaceVariant;
-    final iconColor = theme.colorScheme.onSurface.withOpacity(0.4);
-    final textColor = theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface;
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final iconColor = isDarkMode 
+        ? Colors.yellow[700]! 
+        : theme.colorScheme.onSurface.withOpacity(0.4);
+    final textColor = isDarkMode 
+        ? Colors.yellow[700]! 
+        : (theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface);
 
     return Center(
       child: Column(

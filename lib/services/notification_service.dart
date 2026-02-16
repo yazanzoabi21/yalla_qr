@@ -65,30 +65,17 @@ class NotificationService {
       // This will fire again when OneSignal backend responds with subscription ID
       OneSignal.User.pushSubscription.addObserver((state) async {
         final timestamp = DateTime.now().toIso8601String();
-        debugPrint('🔔 [NotificationService] Push subscription changed at $timestamp');
-        debugPrint('   optedIn: ${state.current.optedIn}');
-        debugPrint('   token: ${state.current.token}');
         final id = state.current.id;
-        debugPrint('   id: $id');
         if (id != null && id.isNotEmpty) {
           _playerId = id;
-          debugPrint('✅ [NotificationService] Player ID received from OneSignal backend!');
           await _updatePlayerIdInDatabase();
         } else if (state.current.optedIn) {
-          // ID not available yet, but user is opted in - poll for it
-          debugPrint('⏳ [NotificationService] Subscription opted in but no ID yet');
-          debugPrint('   Waiting for OneSignal backend response...');
           _pollForPlayerId();
         }
       });
 
-      debugPrint('?? [NotificationService] Player ID: $_playerId');
-
       // Listen to foreground notifications
       OneSignal.Notifications.addForegroundWillDisplayListener((event) {
-        debugPrint('?? [NotificationService] Foreground notification received');
-        debugPrint('   Title: ${event.notification.title}');
-        debugPrint('   Body: ${event.notification.body}');
 
         if (enableInAppNotifications) {
           event.notification.display();
@@ -97,16 +84,12 @@ class NotificationService {
 
       // Listen to notification clicks
       OneSignal.Notifications.addClickListener((event) {
-        debugPrint('?? [NotificationService] Notification clicked');
-        debugPrint('   Data: ${event.notification.additionalData}');
 
         _handleNotificationClick(event.notification);
       });
 
       _isInitialized = true;
-      debugPrint('? [NotificationService] OneSignal initialized successfully');
     } catch (e) {
-      debugPrint('? [NotificationService] Initialization error: $e');
       rethrow;
     }
   }
@@ -118,18 +101,12 @@ class NotificationService {
     try {
       final user = _supabase.auth.currentUser;
       if (user == null || _playerId == null) {
-        debugPrint('⚠️ [NotificationService] Cannot update: user=${user?.id}, playerId=$_playerId');
         return;
       }
 
-      debugPrint('🔔 [NotificationService] Saving player ID for user: ${user.id}');
-      debugPrint('   Player ID: $_playerId');
-
       final deviceType = _getDeviceType();
-      debugPrint('   Device Type: $deviceType');
 
-      // Use upsert with onConflict to handle both insert and update
-      // This will insert if new, or update existing record if player_id already exists
+      // 1. Update user_player_ids table (new structure - supports multiple devices)
       try {
         await _supabase
             .from('user_player_ids')
@@ -144,8 +121,6 @@ class NotificationService {
               onConflict: 'player_id',
               ignoreDuplicates: false, // Always update if exists
             );
-
-        debugPrint('✅ [NotificationService] Player ID saved successfully');
         
         // Log all active devices for this user (for debugging)
         try {
@@ -156,17 +131,12 @@ class NotificationService {
               .eq('is_active', true)
               .order('created_at', ascending: false);
           
-          debugPrint('📱 [NotificationService] Total active devices: ${userDevices.length}');
           for (var i = 0; i < userDevices.length; i++) {
             final device = userDevices[i];
-            debugPrint('   Device ${i + 1}: ${device['device_type']} - ${device['player_id']?.substring(0, 8)}...');
           }
         } catch (queryError) {
-          debugPrint('⚠️ [NotificationService] Could not query user devices: $queryError');
         }
       } catch (upsertError) {
-        debugPrint('❌ [NotificationService] Upsert failed: $upsertError');
-        debugPrint('   This might be an RLS policy issue. Trying direct insert...');
         
         // Fallback: try direct insert (will fail if duplicate)
         try {
@@ -180,11 +150,30 @@ class NotificationService {
                 'created_at': DateTime.now().toUtc().toIso8601String(),
                 'updated_at': DateTime.now().toUtc().toIso8601String(),
               });
-          debugPrint('✅ [NotificationService] Fallback insert succeeded');
         } catch (insertError) {
-          debugPrint('❌ [NotificationService] Fallback insert also failed: $insertError');
-          rethrow;
+          // Don't rethrow - continue to accounts table update
         }
+      }
+
+      // 2. CRITICAL: Update accounts table (legacy structure - for backward compatibility)
+      // This is the FIX for notifications not working when sent from app!
+      // Many parts of the app (and edge functions) read from accounts.onesignal_player_id
+      try {
+        final updateResult = await _supabase
+            .from('accounts')
+            .update({
+              'onesignal_player_id': _playerId,
+              'updated_at': DateTime.now().toUtc().toIso8601String(),
+            })
+            .eq('owner_id', user.id)
+            .select();
+        
+        if (updateResult.isEmpty) {
+        } else {
+        }
+      } catch (accountError) {
+        debugPrint('❌ [NotificationService] Error updating accounts table: $accountError');
+        debugPrint('   Notifications sent via app may not work!');
       }
     } catch (e, stackTrace) {
       debugPrint('❌ [NotificationService] Fatal error updating player ID: $e');
@@ -207,21 +196,13 @@ class NotificationService {
       await Future.delayed(const Duration(seconds: 2));
       var playerId = OneSignal.User.pushSubscription.id;
       var token = OneSignal.User.pushSubscription.token;
-      // If pushSubscription hasn't populated yet, continue polling until listener or SDK populates it
-      // debugPrint('⏳ [NotificationService] Poll attempt $attempt/30:');
-      debugPrint('   Player ID: ${playerId ?? "null"}');
-      debugPrint('   Token available: ${token != null && token.isNotEmpty}');
       
       if (playerId != null && playerId.isNotEmpty) {
         _playerId = playerId;
-        debugPrint('✅ [NotificationService] Player ID acquired after $attempt attempts (${attempt * 2} seconds)');
         await _updatePlayerIdInDatabase();
         return; // Success, stop polling
       }
     }
-    
-    debugPrint('❌ [NotificationService] Failed to get player ID after 30 attempts (60 seconds)');
-    debugPrint('   This device may have network issues or OneSignal backend delays');
   }
 
   /// Set external user ID (typically your user ID from Supabase)
@@ -261,6 +242,23 @@ class NotificationService {
       debugPrint('✅ [NotificationService] External user ID set');
     } catch (e) {
       debugPrint('❌ [NotificationService] Error setting external user ID: $e');
+    }
+  }
+
+  /// Enable or disable push notifications for this device
+  Future<void> setPushEnabled(bool enabled) async {
+    try {
+      if (enabled) {
+        final hasPermission = await OneSignal.Notifications.requestPermission(true);
+        debugPrint('🔔 [NotificationService] Push permission: $hasPermission');
+        await OneSignal.User.pushSubscription.optIn();
+        debugPrint('✅ [NotificationService] Push subscription opted-in');
+      } else {
+        await OneSignal.User.pushSubscription.optOut();
+        debugPrint('🚫 [NotificationService] Push subscription opted-out');
+      }
+    } catch (e) {
+      debugPrint('❌ [NotificationService] Error setting push enabled=$enabled: $e');
     }
   }
 
@@ -329,6 +327,7 @@ class NotificationService {
 
   /// Send notification to a specific user (by external user ID)
   /// Uses Supabase Edge Function to securely call OneSignal REST API
+  /// Falls back to direct OneSignal API if edge function not deployed
   Future<void> sendToUser({
     required String userId,
     required String title,
@@ -340,28 +339,41 @@ class NotificationService {
       debugPrint('   Title: $title');
       debugPrint('   Message: $message');
 
-      // Call Supabase Edge Function to send notification
-      // This is the CORRECT way - backend sends to OneSignal, not client
-      final response = await _supabase.functions.invoke(
-        'send-notification',
-        body: {
-          'type': 'user',
-          'userId': userId,
-          'title': title,
-          'message': message,
-          if (data != null) 'data': data,
-        },
-      );
+      // Try Supabase Edge Function first (secure, recommended)
+      try {
+        final response = await _supabase.functions.invoke(
+          'send-notification',
+          body: {
+            'type': 'user',
+            'userId': userId,
+            'title': title,
+            'message': message,
+            if (data != null) 'data': data,
+          },
+        );
 
-      final status = response.status ?? 500;
-      if (status >= 200 && status < 300) {
-        debugPrint('✅ [NotificationService] Notification sent successfully');
-        debugPrint('   Response: ${response.data}');
-      } else {
-        debugPrint('❌ [NotificationService] Failed to send notification');
-        debugPrint('   Status: $status');
-        debugPrint('   Error: ${response.data}');
+        final status = response.status ?? 500;
+        if (status >= 200 && status < 300) {
+          debugPrint('✅ [NotificationService] Notification sent via Edge Function');
+          debugPrint('   Response: ${response.data}');
+          return;
+        } else {
+          debugPrint('⚠️ [NotificationService] Edge Function failed (status $status)');
+          debugPrint('   Will try direct OneSignal API as fallback...');
+        }
+      } catch (edgeFunctionError) {
+        debugPrint('⚠️ [NotificationService] Edge Function error: $edgeFunctionError');
+        debugPrint('   Will try direct OneSignal API as fallback...');
       }
+
+      // Fallback: Call OneSignal API directly (requires REST API key in .env)
+      await _sendDirectToOneSignal(
+        type: 'user',
+        userId: userId,
+        title: title,
+        message: message,
+        data: data,
+      );
     } catch (e) {
       debugPrint('❌ [NotificationService] Error sending notification: $e');
       rethrow;
@@ -370,6 +382,7 @@ class NotificationService {
 
   /// Send notification to users with specific tags (e.g., role: 'DELIVERY')
   /// Uses Supabase Edge Function to securely call OneSignal REST API
+  /// Falls back to direct OneSignal API if edge function not deployed
   Future<void> sendToTag({
     required String tagKey,
     required String tagValue,
@@ -382,28 +395,43 @@ class NotificationService {
       debugPrint('   Title: $title');
       debugPrint('   Message: $message');
 
-      // Call Supabase Edge Function to send notification
-      final response = await _supabase.functions.invoke(
-        'send-notification',
-        body: {
-          'type': 'tag',
-          'tagKey': tagKey,
-          'tagValue': tagValue,
-          'title': title,
-          'message': message,
-          if (data != null) 'data': data,
-        },
-      );
+      // Try Supabase Edge Function first (secure, recommended)
+      try {
+        final response = await _supabase.functions.invoke(
+          'send-notification',
+          body: {
+            'type': 'tag',
+            'tagKey': tagKey,
+            'tagValue': tagValue,
+            'title': title,
+            'message': message,
+            if (data != null) 'data': data,
+          },
+        );
 
-      final status = response.status ?? 500;
-      if (status >= 200 && status < 300) {
-        debugPrint('✅ [NotificationService] Notification sent to tag successfully');
-        debugPrint('   Response: ${response.data}');
-      } else {
-        debugPrint('❌ [NotificationService] Failed to send notification to tag');
-        debugPrint('   Status: $status');
-        debugPrint('   Error: ${response.data}');
+        final status = response.status ?? 500;
+        if (status >= 200 && status < 300) {
+          debugPrint('✅ [NotificationService] Notification sent via Edge Function');
+          debugPrint('   Response: ${response.data}');
+          return;
+        } else {
+          debugPrint('⚠️ [NotificationService] Edge Function failed (status $status)');
+          debugPrint('   Will try direct OneSignal API as fallback...');
+        }
+      } catch (edgeFunctionError) {
+        debugPrint('⚠️ [NotificationService] Edge Function error: $edgeFunctionError');
+        debugPrint('   Will try direct OneSignal API as fallback...');
       }
+
+      // Fallback: Call OneSignal API directly
+      await _sendDirectToOneSignal(
+        type: 'tag',
+        tagKey: tagKey,
+        tagValue: tagValue,
+        title: title,
+        message: message,
+        data: data,
+      );
     } catch (e) {
       debugPrint('❌ [NotificationService] Error sending notification to tag: $e');
       rethrow;
@@ -440,7 +468,7 @@ class NotificationService {
       }
 
       final title = 'New Order: #$orderNumber';
-      final message = '$customerName placed an order totalling ${totalAmount.toStringAsFixed(2)}${currency != null ? ' $currency' : ''}';
+      final message = '$customerName placed an order totalling \$${totalAmount.toStringAsFixed(2)}${currency != null ? ' $currency' : ''}';
 
       await sendToUser(
         userId: ownerId,
@@ -533,4 +561,131 @@ class NotificationService {
 
   /// Check if OneSignal is initialized
   bool get isInitialized => _isInitialized;
+
+  /// Direct OneSignal API call (fallback when edge function not deployed)
+  /// ⚠️ WARNING: This exposes REST API key in client - use only for development!
+  /// In production, always use Supabase Edge Function instead.
+  Future<void> _sendDirectToOneSignal({
+    required String type,
+    String? userId,
+    String? tagKey,
+    String? tagValue,
+    required String title,
+    required String message,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final apiKey = await dotenv.env['ONESIGNAL_REST_API_KEY'];
+      final appId = await dotenv.env['ONESIGNAL_APP_ID'];
+
+      if (apiKey == null || appId == null) {
+        throw Exception('OneSignal credentials not found in .env file');
+      }
+
+      debugPrint('📡 [NotificationService] Calling OneSignal API directly (FALLBACK)');
+      debugPrint('   ⚠️ This is insecure - deploy edge function for production!');
+
+      // Build OneSignal payload
+      final Map<String, dynamic> payload = {
+        'app_id': appId,
+        'headings': {'en': title},
+        'contents': {'en': message},
+      };
+
+      if (data != null) {
+        payload['data'] = data;
+      }
+
+      // Set target based on type
+      if (type == 'user' && userId != null) {
+        payload['include_external_user_ids'] = [userId];
+      } else if (type == 'tag' && tagKey != null && tagValue != null) {
+        payload['filters'] = [
+          {
+            'field': 'tag',
+            'key': tagKey,
+            'relation': '=',
+            'value': tagValue,
+          }
+        ];
+      } else {
+        throw Exception('Invalid notification target parameters');
+      }
+
+      debugPrint('   Payload: ${jsonEncode(payload)}');
+
+      // Call OneSignal REST API
+      final response = await http.post(
+        Uri.parse('https://onesignal.com/api/v1/notifications'),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Authorization': 'Basic $apiKey',
+        },
+        body: jsonEncode(payload),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        final result = jsonDecode(response.body);
+        final recipients = result['recipients'] ?? 0;
+        
+        debugPrint('✅ [NotificationService] Notification sent directly to OneSignal');
+        debugPrint('   Recipients: $recipients');
+        debugPrint('   Response: ${response.body}');
+
+        if (recipients == 0) {
+          debugPrint('⚠️ [NotificationService] 0 recipients - possible reasons:');
+          debugPrint('   - User not logged in with setExternalUserId()');
+          debugPrint('   - Device not subscribed to push notifications');
+          debugPrint('   - Player ID not synced to database');
+        }
+      } else {
+        debugPrint('❌ [NotificationService] OneSignal API error');
+        debugPrint('   Status: ${response.statusCode}');
+        debugPrint('   Body: ${response.body}');
+        throw Exception('OneSignal API error: ${response.statusCode}');
+      }
+    } catch (e) {
+      debugPrint('❌ [NotificationService] Direct OneSignal call failed: $e');
+      rethrow;
+    }
+  }
+
+  /// Enable or disable ALL notifications for this device
+  /// When disabled, device opts out of OneSignal push subscription
+  Future<void> setNotificationsEnabled(bool enabled) async {
+    try {
+      if (enabled) {
+        final hasPermission = await OneSignal.Notifications.requestPermission(true);
+        debugPrint('🔔 [NotificationService] Push permission: $hasPermission');
+        await OneSignal.User.pushSubscription.optIn();
+        debugPrint('✅ [NotificationService] Notifications enabled - push subscription opted-in');
+      } else {
+        await OneSignal.User.pushSubscription.optOut();
+        debugPrint('🚫 [NotificationService] Notifications disabled - push subscription opted-out');
+      }
+      
+      // Save preference to database
+      await _saveNotificationPreference(enabled);
+    } catch (e) {
+      debugPrint('❌ [NotificationService] Error setting notifications enabled=$enabled: $e');
+      rethrow;
+    }
+  }
+
+  /// Save notification preference to database
+  Future<void> _saveNotificationPreference(bool enabled) async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user == null) return;
+
+      await _supabase
+          .from('accounts')
+          .update({'notifications_enabled': enabled})
+          .eq('owner_id', user.id);
+      
+      debugPrint('� [NotificationService] Notification preference saved: $enabled');
+    } catch (e) {
+      debugPrint('⚠️ [NotificationService] Could not save preference: $e');
+    }
+  }
 }

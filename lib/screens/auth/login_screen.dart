@@ -634,6 +634,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
           if (accountsResponse.isNotEmpty) {
             // Check what roles this user has
+            final hasSuperAdminRole = accountsResponse.any(
+              (acc) => acc['role'] == 'SUPER ADMIN',
+            );
             final hasOrgRole = accountsResponse.any(
               (acc) => acc['role'] == 'ORG',
             );
@@ -644,12 +647,15 @@ class _LoginScreenState extends State<LoginScreen> {
               (acc) => acc['role'] == 'DELIVERY',
             );
 
+            debugPrint('   👤 Has SUPER ADMIN role: $hasSuperAdminRole');
             debugPrint('   👤 Has ORG role: $hasOrgRole');
             debugPrint('   👤 Has USER role: $hasUserRole');
             debugPrint('   👤 Has DELIVERY role: $hasDeliveryRole');
 
             // Set login context based on role priority
-            if (hasDeliveryRole && !hasOrgRole && !hasUserRole) {
+            if (hasSuperAdminRole) {
+              loginContext = 'SUPER_ADMIN';
+            } else if (hasDeliveryRole && !hasOrgRole && !hasUserRole) {
               loginContext = 'DELIVERY';
             } else if (hasUserRole && !hasOrgRole) {
               loginContext = 'CLIENT';
@@ -703,7 +709,9 @@ class _LoginScreenState extends State<LoginScreen> {
         final prefs = await SharedPreferences.getInstance();
         final loginContext = prefs.getString('login_context');
 
-        if (loginContext == 'CLIENT') {
+        if (loginContext == 'SUPER_ADMIN') {
+          Navigator.pushReplacementNamed(context, '/super-admin');
+        } else if (loginContext == 'CLIENT') {
           // Navigate to CLIENT page
           Navigator.pushReplacementNamed(context, '/client');
         } else if (loginContext == 'DELIVERY') {

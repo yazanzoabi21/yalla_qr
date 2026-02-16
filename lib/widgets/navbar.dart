@@ -59,6 +59,7 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
 class _NavbarState extends State<Navbar> {
   bool _isAuthenticated = false;
   bool _isOrgUser = false;
+  bool _isSuperAdmin = false;
   late final AuthService _authService;
   late final StreamSubscription<AuthState> _authSubscription;
   final TextEditingController _searchController = TextEditingController();
@@ -228,6 +229,7 @@ class _NavbarState extends State<Navbar> {
     if (mounted) {
       setState(() {
         _isOrgUser = loginContext == 'ORG';
+        _isSuperAdmin = loginContext == 'SUPER_ADMIN';
       });
     }
 
@@ -511,7 +513,7 @@ class _NavbarState extends State<Navbar> {
                                           borderRadius: BorderRadius.circular(12),
                                         ),
                                         child: Text(
-                                          '$_orgOrdersCount',
+                                          _formatCount(_orgOrdersCount),
                                           style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onError, fontWeight: FontWeight.bold),
                                         ),
                                       ),
@@ -530,6 +532,15 @@ class _NavbarState extends State<Navbar> {
                                       ),
                                   ],
                                 ),
+                              ),
+                            ),
+                          ],
+                          if (_isAuthenticated && _isSuperAdmin) ...[
+                            const PopupMenuItem<String>(
+                              value: 'super-admin',
+                              child: ListTile(
+                                leading: Icon(Icons.admin_panel_settings),
+                                title: Text('Super Admin'),
                               ),
                             ),
                           ],
@@ -803,6 +814,15 @@ class _NavbarState extends State<Navbar> {
           );
         }
         break;
+      case 'super-admin':
+        if (_isAuthenticated && _isSuperAdmin) {
+          Navigator.pushNamed(context, '/super-admin');
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Access denied')),
+          );
+        }
+        break;
       case 'about':
         Navigator.push(
           context,
@@ -974,6 +994,16 @@ class _NavbarState extends State<Navbar> {
         }
         break;
     }
+  }
+
+  String _formatCount(int count) {
+    if (count < 1000) return count.toString();
+    final value = count / 1000.0;
+    final formatted = value.toStringAsFixed(1);
+    final trimmed = formatted.endsWith('.0')
+        ? formatted.substring(0, formatted.length - 2)
+        : formatted;
+    return '${trimmed}k';
   }
 
   /// Determine the current category based on the current route

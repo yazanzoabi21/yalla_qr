@@ -9,6 +9,7 @@ import 'screens/auth/welcome_screen.dart';
 import 'screens/home/home_screen.dart';
 import 'screens/client/client_categories_screen.dart';
 import 'screens/delivery/delivery_home_screen.dart';
+import 'screens/super_admin/super_admin_home_screen.dart';
 import 'services/cart_service.dart';
 import 'services/notification_service.dart';
 import 'utils/supabase_setup.dart';
@@ -285,6 +286,7 @@ class _MyAppState extends State<MyApp> {
             '/home': (context) => const HomeScreen(),
             '/client': (context) => const ClientCategoriesScreen(),
             '/delivery': (context) => const DeliveryHomeScreen(),
+            '/super-admin': (context) => const SuperAdminHomeScreen(),
           },
         );
       },

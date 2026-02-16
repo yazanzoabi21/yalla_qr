@@ -1026,27 +1026,21 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor:
-            Theme.of(context).appBarTheme.backgroundColor ??
-            Theme.of(context).colorScheme.surface,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color:
-                Theme.of(context).appBarTheme.iconTheme?.color ??
-                Theme.of(context).iconTheme.color,
-          ),
-          onPressed: () => Navigator.pop(context),
+        backgroundColor: theme.scaffoldBackgroundColor,
+        foregroundColor: theme.colorScheme.onSurface,
+        iconTheme: IconThemeData(color: theme.colorScheme.onSurface),
+        titleTextStyle: theme.textTheme.titleLarge?.copyWith(
+          color: theme.colorScheme.onSurface,
+          fontWeight: FontWeight.w600,
         ),
+        elevation: 0,
         title: Text(
           'Orders Management',
-          style: Theme.of(
-            context,
-          ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         // actions: [
         //   IconButton(
@@ -2111,6 +2105,66 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     );
   }
 
+  void _showImagePreview(String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: GestureDetector(
+          onTap: () => Navigator.pop(context),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: const EdgeInsets.all(12),
+            child: Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 4.0,
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return const Center(child: CircularProgressIndicator());
+                      },
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(Icons.broken_image_outlined, color: Colors.white70, size: 48),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: InkWell(
+                    onTap: () => Navigator.pop(context),
+                    borderRadius: BorderRadius.circular(18),
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.6),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.close, color: Colors.white, size: 18),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   /// Build small order image thumbnail from first item (55x55)
   Widget _buildOrderImageSmall(List<dynamic> items) {
     String? imageUrl;
@@ -2124,7 +2178,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       }
     }
 
-    return Container(
+    final content = Container(
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceVariant,
         borderRadius: BorderRadius.circular(8),
@@ -2163,6 +2217,13 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               ),
             ),
     );
+
+    if (imageUrl == null) return content;
+    return InkWell(
+      onTap: () => _showImagePreview(imageUrl!),
+      borderRadius: BorderRadius.circular(8),
+      child: content,
+    );
   }
 
   /// Build order image thumbnail from first item
@@ -2178,7 +2239,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       }
     }
 
-    return Container(
+    final content = Container(
       width: 70,
       height: 70,
       decoration: BoxDecoration(
@@ -2220,6 +2281,13 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                 },
               ),
             ),
+    );
+
+    if (imageUrl == null) return content;
+    return InkWell(
+      onTap: () => _showImagePreview(imageUrl!),
+      borderRadius: BorderRadius.circular(12),
+      child: content,
     );
   }
 }

@@ -12,9 +12,11 @@ import 'home_item.dart';
 import '../../widgets/navbar.dart';
 import '../../models/category.dart';
 import '../../models/qr_code.dart';
+import '../../models/account.dart';
 import '../../services/category_service.dart';
 import '../../services/qr_code_service.dart';
 import '../../utils/navigation_helper.dart';
+import '../org/org_statistics_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,8 +31,10 @@ class _HomeScreenState extends State<HomeScreen> {
   bool isLoadingCategories = true;
   String? errorMessage;
   String? _orgAccountId; // Store ORG account ID for QR code display
+  Account? _orgAccount; // Store full org account for statistics
   bool _showQRButton = false; // Control QR button visibility
   DateTime? _lastBackPress; // Track last back button press for double-tap exit
+  int _currentNavIndex = 0; // For bottom navigation
 
   @override
   void initState() {
@@ -83,7 +87,7 @@ class _HomeScreenState extends State<HomeScreen> {
       if (user != null) {
         final orgAccount = await Supabase.instance.client
             .from('accounts')
-            .select('id')
+            .select()
             .eq('owner_id', user.id)
             .eq('role', 'ORG')
             .maybeSingle();
@@ -91,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (orgAccount != null && mounted) {
           setState(() {
             _orgAccountId = orgAccount['id'] as String;
+            _orgAccount = Account.fromJson(orgAccount);
             _showQRButton = true; // Show button initially
           });
           debugPrint('✅ [HomeScreen] Found ORG account ID: $_orgAccountId');
@@ -257,10 +262,15 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       },
       child: Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: const Navbar(),
-        body: Padding(padding: const EdgeInsets.all(12.0), child: _buildBody()),
-        floatingActionButton: _orgAccountId != null
+        body: _currentNavIndex == 0
+            ? Padding(padding: const EdgeInsets.all(12.0), child: _buildBody())
+            : (_orgAccount != null
+                ? OrgStatisticsScreen(account: _orgAccount!)
+                : Padding(padding: const EdgeInsets.all(12.0), child: _buildBody())),
+        bottomNavigationBar: _orgAccount != null ? _buildBottomNav() : null,
+        floatingActionButton: _orgAccountId != null && _currentNavIndex == 0
             ? AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 height: 60,
@@ -742,6 +752,51 @@ class _HomeScreenState extends State<HomeScreen> {
         isHidden: category.isHidden,
       );
     }).toList();
+  }
+
+  Widget _buildBottomNav() {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        boxShadow: [
+          BoxShadow(
+            color: theme.shadowColor.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: BottomNavigationBar(
+        currentIndex: _currentNavIndex,
+        onTap: (index) {
+          setState(() {
+            _currentNavIndex = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: theme.cardColor,
+        selectedItemColor: theme.colorScheme.primary,
+        unselectedItemColor: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
+        selectedFontSize: 14,
+        unselectedFontSize: 12,
+        selectedLabelStyle: const TextStyle(
+          fontWeight: FontWeight.w600,
+        ),
+        elevation: 0,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home_outlined, size: 26),
+            activeIcon: Icon(Icons.home, size: 26),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.analytics_outlined, size: 26),
+            activeIcon: Icon(Icons.analytics, size: 26),
+            label: 'Statistics',
+          ),
+        ],
+      ),
+    );
   }
 }
 
