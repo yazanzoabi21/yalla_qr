@@ -16,6 +16,10 @@ class Account {
   // Optional: QR code associated with this account
   final String? qrCode;
   
+  // Zone and City
+  final String? zoneId;
+  final String? cityId;
+  
   // Optional: Categories associated with this account (loaded via join)
   final List<String>? categoryIds;
 
@@ -35,6 +39,8 @@ class Account {
     this.role = 'USER',
     this.qrCode,
     this.categoryIds,
+    this.zoneId,
+    this.cityId,
   });
 
   factory Account.fromJson(Map<String, dynamic> json) {
@@ -60,6 +66,8 @@ class Account {
       categoryIds: json['category_ids'] != null
           ? List<String>.from(json['category_ids'])
           : null,
+      zoneId: json['zone_id'] as String?,
+      cityId: json['city_id'] as String?,
     );
   }
 
@@ -75,6 +83,8 @@ class Account {
       'location_lat': locationLat,
       'location_lng': locationLng,
       'logo_url': logoUrl,
+      'zone_id': zoneId,
+      'city_id': cityId,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
       'role': role,
@@ -99,6 +109,8 @@ class Account {
     String? role,
     String? qrCode,
     List<String>? categoryIds,
+    String? zoneId,
+    String? cityId,
   }) {
     return Account(
       id: id ?? this.id,
@@ -116,6 +128,8 @@ class Account {
       role: role ?? this.role,
       qrCode: qrCode ?? this.qrCode,
       categoryIds: categoryIds ?? this.categoryIds,
+      zoneId: zoneId ?? this.zoneId,
+      cityId: cityId ?? this.cityId,
     );
   }
 }

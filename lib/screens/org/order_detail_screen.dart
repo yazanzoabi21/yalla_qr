@@ -5,6 +5,7 @@ import '../../models/order_delivery_assignment.dart';
 import '../../services/order_service.dart';
 import '../../services/delivery_location_service.dart';
 import '../../services/delivery_tracking_service.dart';
+import '../../services/currency_service.dart';
 import '../../widgets/delivery_tracking_widget.dart';
 import '../../utils/event_bus.dart';
 
@@ -12,10 +13,7 @@ import '../../utils/event_bus.dart';
 class OrderDetailScreen extends StatefulWidget {
   final Map<String, dynamic> order;
 
-  const OrderDetailScreen({
-    super.key,
-    required this.order,
-  });
+  const OrderDetailScreen({super.key, required this.order});
 
   @override
   State<OrderDetailScreen> createState() => _OrderDetailScreenState();
@@ -29,26 +27,94 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   bool _isLoading = false;
   String? _currentAssignmentId;
 
+  // Delivery fee values for breakdown display
+  double _deliveryFeeLbp = 0.0;
+  double _deliveryFeeUsd = 0.0;
+  double? _usdRate;
+  String? _deliveryCityName; // human-readable city name (for display)
+
+
   @override
   void initState() {
     super.initState();
     _order = Map<String, dynamic>.from(widget.order);
     _extractAssignmentId();
+    _loadDeliveryFee();
+    _loadUsdRate();
+  }
+
+  Future<void> _loadUsdRate() async {
+    try {
+      _usdRate = await CurrencyService.getUsdRate();
+      if (mounted) setState(() {});
+    } catch (e) {
+      debugPrint('Could not fetch USD rate in OrderDetailScreen: $e');
+      _usdRate = null;
+    }
+  }
+
+  Future<void> _loadDeliveryFee() async {
+    try {
+      final accountId = _order['account_id'] as String?;
+      String? cityId =
+          _order['delivery_city_id'] as String? ?? _order['city_id'] as String?;
+
+      // fallback to customer's saved account location when order has no city
+      if (cityId == null && _order['customer_id'] != null) {
+        try {
+          final acct = await Supabase.instance.client
+              .from('accounts')
+              .select('city_id, zone_id')
+              .eq('owner_id', _order['customer_id'] as String)
+              .maybeSingle();
+          if (acct != null) cityId = acct['city_id'] as String?;
+        } catch (_) {}
+      }
+
+      if (accountId == null || cityId == null) return;
+
+      final pricing = await _orderService.getStoreDeliveryPrice(
+        accountId: accountId,
+        cityId: cityId,
+      );
+      if (pricing != null &&
+          (pricing['is_available'] == null ||
+              pricing['is_available'] == true)) {
+        // also try to resolve city name for display
+        String? cityName;
+        try {
+          final c = await Supabase.instance.client
+              .from('cities')
+              .select('name_en')
+              .eq('id', cityId)
+              .maybeSingle();
+          if (c != null) cityName = c['name_en'] as String?;
+        } catch (_) {}
+
+        setState(() {
+          _deliveryFeeLbp = (pricing['price_lbp'] as num?)?.toDouble() ?? 0.0;
+          _deliveryFeeUsd = (pricing['price_usd'] as num?)?.toDouble() ?? 0.0;
+          _deliveryCityName = cityName;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading delivery fee for order detail: $e');
+    }
   }
 
   void _extractAssignmentId() {
     final assignmentsData = _order['order_delivery_assignments'];
-    
+
     // Handle both Map (single object) and List (array) cases
     if (assignmentsData != null) {
       Map<String, dynamic>? assignment;
-      
+
       if (assignmentsData is List && assignmentsData.isNotEmpty) {
         assignment = assignmentsData.first as Map<String, dynamic>;
       } else if (assignmentsData is Map<String, dynamic>) {
         assignment = assignmentsData;
       }
-      
+
       if (assignment != null) {
         _currentAssignmentId = assignment['id'] as String?;
       }
@@ -58,10 +124,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   Future<void> _updateOrderStatus(String newStatus) async {
     try {
       final orderId = _order['id'] as String;
-      final success = await _orderService.updateOrderStatus(
-        orderId,
-        newStatus,
-      );
+      final success = await _orderService.updateOrderStatus(orderId, newStatus);
 
       if (success && mounted) {
         setState(() {
@@ -145,11 +208,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         return Colors.blue;
       case 'DELIVERED':
         return Colors.green;
+      case 'ACCEPTED_BY_DELIVERY':
+        return Colors.green;
       case 'CANCELLED':
         return Colors.red;
       default:
         return Colors.grey;
     }
+  }
+
+  // Formatting helpers (local copy — kept simple and explicit)
+  String _formatNumber(double number) {
+    final formatted = number.toStringAsFixed(0);
+    final parts = <String>[];
+    for (int i = formatted.length - 1; i >= 0; i -= 3) {
+      final start = i - 2 >= 0 ? i - 2 : 0;
+      parts.insert(0, formatted.substring(start, i + 1));
+    }
+    return parts.join(',');
+  }
+
+  String _formatPrice(double amount, String? currency) {
+    if (currency == 'LBP') return '${_formatNumber(amount)} LBP';
+    return '\$${amount.toStringAsFixed(2)}';
   }
 
   @override
@@ -160,7 +241,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
     final currencyCode = _order['currency_code'] as String?;
     final createdAt = DateTime.parse(_order['created_at'] as String);
     final items = _order['order_items'] as List<dynamic>? ?? [];
-    
+
     // Get product image from first item
     String? productImageUrl;
     if (items.isNotEmpty) {
@@ -170,12 +251,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         productImageUrl = products?['image_url'] as String?;
       }
     }
-    
+
     // Handle both Map (single object) and List (array) cases for assignments
     final assignmentsData = _order['order_delivery_assignments'];
     bool hasAssignment = false;
     Map<String, dynamic>? assignmentMap;
-    
+
     if (assignmentsData != null) {
       if (assignmentsData is List && assignmentsData.isNotEmpty) {
         hasAssignment = true;
@@ -185,7 +266,7 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
         assignmentMap = assignmentsData;
       }
     }
-    
+
     OrderDeliveryAssignment? assignment;
     if (hasAssignment && assignmentMap != null) {
       try {
@@ -203,25 +284,36 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Theme.of(context).appBarTheme.backgroundColor ?? Theme.of(context).colorScheme.surface,
+          backgroundColor:
+              Theme.of(context).appBarTheme.backgroundColor ??
+              Theme.of(context).colorScheme.surface,
           elevation: 0,
           leading: IconButton(
-            icon: Icon(Icons.arrow_back, color: Theme.of(context).appBarTheme.iconTheme?.color ?? Theme.of(context).iconTheme.color),
+            icon: Icon(
+              Icons.arrow_back,
+              color:
+                  Theme.of(context).appBarTheme.iconTheme?.color ??
+                  Theme.of(context).iconTheme.color,
+            ),
             onPressed: () {
               if (mounted) Navigator.pop(context);
             },
           ),
           title: Text(
             'Order #${orderId.substring(0, 8)}',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           actions: [
             Padding(
               padding: const EdgeInsets.all(8.0),
               child: Center(
                 child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: _getStatusColor(status),
                     borderRadius: BorderRadius.circular(20),
@@ -318,24 +410,111 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 ),
                               ),
                               const SizedBox(height: 8),
+
+                              // Subtotal + Delivery Fee (clear labels as requested)
                               Text(
-                                '$totalAmount ${currencyCode ?? ""}',
+                                'Subtotal: ${_formatPrice((totalAmount as num).toDouble(), currencyCode)}',
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              if (_deliveryCityName == null && (_deliveryFeeLbp == 0 && _deliveryFeeUsd == 0))
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 2),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Icon(Icons.location_off, size: 14, color: Colors.grey.shade500),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          'Delivery city unknown — fee not applied',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                )
+                              else if ((_deliveryFeeLbp == 0 && _deliveryFeeUsd == 0) && _deliveryCityName != null)
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        'Delivery not configured for $_deliveryCityName',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.orange.shade300, fontSize: 13),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    TextButton(
+                                      onPressed: () {
+                                        Navigator.pushNamed(context, '/settings/delivery', arguments: {'accountId': _order['account_id'], 'cityId': null});
+                                      },
+                                      child: const Text('Add price', style: TextStyle(fontSize: 12)),
+                                    ),
+                                  ],
+                                )
+                              else
+                                Text(
+                                  'Delivery Fee (based on city${_deliveryCityName != null ? ': $_deliveryCityName' : ''}): ${_formatPrice(currencyCode == 'LBP' ? _deliveryFeeLbp : _deliveryFeeUsd, currencyCode)}',
+                                  style: TextStyle(
+                                    color: Colors.grey.shade700,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              const SizedBox(height: 8),
+
+                              Text(
+                                // Grand total = order total (stored subtotal) + delivery fee
+                                currencyCode == 'LBP'
+                                    ? '${_formatNumber((totalAmount + _deliveryFeeLbp).toDouble())} LBP'
+                                    : '\$${(totalAmount + _deliveryFeeUsd).toStringAsFixed(2)}',
                                 style: const TextStyle(
                                   fontWeight: FontWeight.bold,
                                   fontSize: 24,
                                   color: Colors.deepOrange,
                                 ),
                               ),
+
+                              // USD approximation + explicit breakdown in parentheses for LBP orders
                               if (currencyCode == 'LBP') ...[
                                 const SizedBox(height: 4),
-                                Text(
-                                  '\u2248 \$${(totalAmount.toDouble() / 89500).toStringAsFixed(2)}',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
+                                Builder(builder: (_) {
+                                  final usdSub = _order['total_amount_usd'] != null
+                                      ? (_order['total_amount_usd'] as num).toDouble()
+                                      : (_usdRate != null ? (totalAmount / _usdRate!) : null);
+                                  final usdDel = _deliveryFeeUsd > 0 ? _deliveryFeeUsd : (_usdRate != null ? (_deliveryFeeLbp / _usdRate!) : null);
+                                  final grandUsd = (usdSub != null ? usdSub : 0) + (usdDel != null ? usdDel : 0);
+
+                                  return Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _usdRate != null
+                                            ? '\u2248 \$${grandUsd.toStringAsFixed(2)}'
+                                            : '\u2248 \$${(totalAmount.toDouble() / 89500).toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      if (usdSub != null && usdDel != null)
+                                        Text(
+                                          '(Sub \$${usdSub.toStringAsFixed(2)} + Del \$${usdDel.toStringAsFixed(2)})',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey.shade500,
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                }),
                               ],
                             ],
                           ),
@@ -355,22 +534,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               child: Image.network(
                                 productImageUrl,
                                 fit: BoxFit.cover,
-                                loadingBuilder: (context, child, loadingProgress) {
-                                  if (loadingProgress == null) return child;
-                                  return Center(
-                                    child: SizedBox(
-                                      width: 24,
-                                      height: 24,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
-                                            : null,
-                                      ),
-                                    ),
-                                  );
-                                },
+                                loadingBuilder:
+                                    (context, child, loadingProgress) {
+                                      if (loadingProgress == null) return child;
+                                      return Center(
+                                        child: SizedBox(
+                                          width: 24,
+                                          height: 24,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            value:
+                                                loadingProgress
+                                                        .expectedTotalBytes !=
+                                                    null
+                                                ? loadingProgress
+                                                          .cumulativeBytesLoaded /
+                                                      loadingProgress
+                                                          .expectedTotalBytes!
+                                                : null,
+                                          ),
+                                        ),
+                                      );
+                                    },
                                 errorBuilder: (context, error, stackTrace) {
                                   return Icon(
                                     Icons.broken_image_outlined,
@@ -408,9 +593,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.15)),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.15),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -425,7 +616,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                           const SizedBox(width: 8),
                           Text(
                             'Delivery Assignment',
-                            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold, fontSize: 14, color: Theme.of(context).colorScheme.primary),
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                  color: Theme.of(context).colorScheme.primary,
+                                ),
                           ),
                         ],
                       ),
@@ -434,7 +630,10 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       const SizedBox(height: 12),
                       Text(
                         'Driver: ${assignment?.deliveryAccountName ?? 'Unknown'}',
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600, fontSize: 13),
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
                       ),
                       const SizedBox(height: 6),
                       Text(
@@ -459,9 +658,15 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.secondary.withOpacity(0.08),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.secondary.withOpacity(0.08),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Theme.of(context).colorScheme.secondary.withOpacity(0.15)),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.secondary.withOpacity(0.15),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -537,7 +742,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               const SizedBox(height: 16),
 
               // Live tracking widget (only if assigned and NOT delivered)
-              if (hasAssignment && _currentAssignmentId != null && status != 'DELIVERED')
+              if (hasAssignment &&
+                  _currentAssignmentId != null &&
+                  status != 'DELIVERED')
                 Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
@@ -558,18 +765,31 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.primary.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                    border: Border.all(
+                      color: Theme.of(
+                        context,
+                      ).colorScheme.primary.withOpacity(0.3),
+                    ),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary, size: 20),
+                      Icon(
+                        Icons.info_outline,
+                        color: Theme.of(context).colorScheme.primary,
+                        size: 20,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           'Location tracking is automatic. The delivery driver\'s location is updated in real-time on the map.',
-                          style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
                         ),
                       ),
                     ],
@@ -589,7 +809,9 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       label: const Text('Mark Ready'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Theme.of(context).colorScheme.primary,
-                        foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onPrimary,
                       ),
                     ),
                   ),
@@ -602,8 +824,12 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                       icon: const Icon(Icons.done_all),
                       label: const Text('Delivered'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
-                        foregroundColor: Theme.of(context).colorScheme.onSecondaryContainer,
+                        backgroundColor: Theme.of(
+                          context,
+                        ).colorScheme.secondaryContainer,
+                        foregroundColor: Theme.of(
+                          context,
+                        ).colorScheme.onSecondaryContainer,
                       ),
                     ),
                   ),

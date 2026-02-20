@@ -1027,6 +1027,8 @@ class _NavbarState extends State<Navbar> {
             return 'meals';
           } else if (routeName.contains('gym') || routeName.contains('Gym')) {
             return 'gym';
+          } else if (routeName.contains('electronics') || routeName.contains('Electronics')) {
+            return 'electronics';
           }
           break;
       }

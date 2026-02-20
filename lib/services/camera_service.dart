@@ -79,7 +79,7 @@ class CameraService {
   }
 
   /// Show bottom sheet to choose between camera and gallery
-  static Future<File?> showImageSourceDialog(BuildContext context) async {
+  static Future<File?> showImageSourceDialog(BuildContext context, {File? currentImageFile, String? currentImageUrl}) async {
     return await showModalBottomSheet<File?>(
       context: context,
       shape: const RoundedRectangleBorder(
@@ -158,6 +158,68 @@ class CameraService {
                     ),
                   ),
                   const SizedBox(width: 16),
+                  // Optional View button when there is an existing image
+                  if (currentImageFile != null || (currentImageUrl != null && currentImageUrl.isNotEmpty)) ...[
+                    Expanded(
+                      child: InkWell(
+                        onTap: () {
+                          // Show full-screen viewer dialog without closing the bottom sheet
+                          showDialog(
+                            context: context,
+                            builder: (context) {
+                              return Dialog(
+                                backgroundColor: Colors.transparent,
+                                insetPadding: EdgeInsets.zero,
+                                child: GestureDetector(
+                                  onTap: () => Navigator.of(context).pop(),
+                                  child: Container(
+                                    width: double.infinity,
+                                    height: double.infinity,
+                                    color: Colors.black,
+                                    child: Center(
+                                      child: InteractiveViewer(
+                                        minScale: 0.5,
+                                        maxScale: 5.0,
+                                        child: currentImageFile != null
+                                            ? Image.file(currentImageFile, fit: BoxFit.contain)
+                                            : Image.network(currentImageUrl!, fit: BoxFit.contain),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Column(
+                            children: [
+                              Icon(
+                                Icons.remove_red_eye,
+                                size: 40,
+                                color: Colors.purple,
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'View',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                  ],
                   Expanded(
                     child: InkWell(
                       onTap: () async {

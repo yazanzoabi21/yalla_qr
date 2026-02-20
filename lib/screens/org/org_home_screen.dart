@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/account.dart';
 import '../../models/category.dart';
 import '../client/organization_categories_screen.dart';
@@ -20,13 +21,44 @@ class OrgHomeScreen extends StatefulWidget {
 
 class _OrgHomeScreenState extends State<OrgHomeScreen> {
   int _currentIndex = 0;
+  bool _showStatistics = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLoginContext();
+  }
+
+  Future<void> _loadLoginContext() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final ctx = prefs.getString('login_context');
+      setState(() {
+        _showStatistics = ctx == 'ORG';
+      });
+    } catch (e) {
+      debugPrint('Error loading login context: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
-    // Build the screens for each tab
+    // If statistics shouldn't be shown (non-ORG users), render a simple scaffold
+    // with only the categories screen and no BottomNavigationBar. This avoids
+    // the BottomNavigationBar assertion which requires at least two items.
+    if (!_showStatistics) {
+      return Scaffold(
+        body: OrganizationCategoriesScreen(
+          account: widget.account,
+          categories: widget.categories,
+        ),
+      );
+    }
+
+    // Build the screens for each tab (Statistics only when account is ORG)
     final List<Widget> screens = [
       OrganizationCategoriesScreen(
         account: widget.account,
@@ -39,7 +71,7 @@ class _OrgHomeScreenState extends State<OrgHomeScreen> {
 
     return Scaffold(
       body: IndexedStack(
-        index: _currentIndex,
+        index: _currentIndex.clamp(0, screens.length - 1),
         children: screens,
       ),
       bottomNavigationBar: Container(
@@ -75,7 +107,7 @@ class _OrgHomeScreenState extends State<OrgHomeScreen> {
           ],
         ),
         child: BottomNavigationBar(
-          currentIndex: _currentIndex,
+          currentIndex: _currentIndex.clamp(0, screens.length - 1),
           onTap: (index) {
             setState(() {
               _currentIndex = index;

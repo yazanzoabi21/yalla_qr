@@ -75,8 +75,18 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // Load data (navbar will prompt for login)
-    loadLastClicked();
-    loadCategories();
+    await loadLastClicked();
+
+    // Ensure 'Electronics' exists and is linked to the current ORG account.
+    // This call is idempotent: it will create the category if missing and
+    // link it to the account if the relation doesn't exist.
+    try {
+      await CategoryService.createElectronicsForAccount();
+    } catch (e) {
+      debugPrint('⚠️ [HomeScreen] Could not ensure Electronics category: $e');
+    }
+
+    await loadCategories();
     _loadOrgAccount(); // Load ORG account for QR button
   }
 
@@ -741,8 +751,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   List<Widget> _buildGridItems() {
-    // Return only database categories (fully dynamic)
-    return categories.map((category) {
+    // Show enabled (visible) categories first, then hidden/disabled ones below
+    final enabled = categories.where((c) => !c.isHidden).toList();
+    final disabled = categories.where((c) => c.isHidden).toList();
+    final ordered = [...enabled, ...disabled];
+
+    return ordered.map((category) {
       return HomeItem(
         title: category.name,
         color: category.color,

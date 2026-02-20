@@ -63,6 +63,18 @@ class _SignupScreenState extends State<SignupScreen> {
   List<String> _selectedCategoryIds = [];
   bool _isCategoriesLoading = false;
 
+  // Zone / City management
+  List<Map<String, dynamic>> _zones = [];
+  List<Map<String, dynamic>> _cities = [];
+  String? _selectedZoneId;
+  String? _selectedCityId;
+  bool _isZonesLoading = false;
+  bool _isCitiesLoading = false;
+  bool _zoneError = false;
+  bool _cityError = false;
+  String? _zoneErrorText;
+  String? _cityErrorText;
+
   // List of countries with ISO codes and flags
   final List<Map<String, String>> _countries = [
     {'name': 'Lebanon', 'isoCode': 'LB', 'flag': '🇱🇧'},
@@ -94,6 +106,8 @@ class _SignupScreenState extends State<SignupScreen> {
 
     // Load parent categories
     _loadCategories();
+    // Load zones list
+    _loadZones();
   }
 
   void _clearFields() {
@@ -1356,6 +1370,22 @@ class _SignupScreenState extends State<SignupScreen> {
 
                         const SizedBox(height: 20),
 
+                        // Zone and City Dropdowns
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            _isZonesLoading
+                                ? const Center(child: CircularProgressIndicator())
+                                : _buildZoneDropdown(),
+                            const SizedBox(height: 12),
+                            _isCitiesLoading
+                                ? const Center(child: CircularProgressIndicator())
+                                : _buildCityDropdown(),
+                          ],
+                        ),
+
+                        const SizedBox(height: 20),
+
                         // Location Address Field (force light input style)
                         TextFormField(
                           controller: _locationAddressController,
@@ -1724,6 +1754,183 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
+  /// Load zones from Supabase
+  Future<void> _loadZones() async {
+    setState(() {
+      _isZonesLoading = true;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('zones')
+          .select('id, name_en, name_ar')
+          .order('name_en');
+
+      if (response != null) {
+        setState(() {
+          _zones = List<Map<String, dynamic>>.from(response as List);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading zones: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load zones: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isZonesLoading = false;
+      });
+    }
+  }
+
+  /// Load cities for a selected zone
+  Future<void> _loadCitiesForZone(String zoneId) async {
+    setState(() {
+      _isCitiesLoading = true;
+      _cities = [];
+      _selectedCityId = null;
+    });
+
+    try {
+      final response = await Supabase.instance.client
+          .from('cities')
+          .select('id, name_en, name_ar, zone_id')
+          .eq('zone_id', zoneId)
+          .order('name_en');
+
+      if (response != null) {
+        setState(() {
+          _cities = List<Map<String, dynamic>>.from(response as List);
+        });
+      }
+    } catch (e) {
+      debugPrint('❌ Error loading cities: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load cities: $e'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } finally {
+      setState(() {
+        _isCitiesLoading = false;
+      });
+    }
+  }
+
+  Widget _buildZoneDropdown() {
+    return DropdownButtonFormField<String>(
+      style: TextStyle(color: Colors.black87),
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+      value: _selectedZoneId,
+      items: _zones
+          .map(
+            (zone) => DropdownMenuItem<String>(
+              value: zone['id'] as String,
+              child: Text(zone['name_en'] ?? ''),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedZoneId = value;
+          _zoneError = false;
+          _zoneErrorText = null;
+        });
+
+        if (value != null) {
+          _loadCitiesForZone(value);
+        }
+      },
+      decoration: InputDecoration(
+        labelText: 'Zone',
+        labelStyle: TextStyle(
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIcon: const Icon(Icons.map, color: Color(0xFF2E7D32)),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: const Color(0xFFECEFF1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: const Color(0xFFECEFF1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
+        ),
+        errorText: _zoneErrorText,
+      ),
+    );
+  }
+
+  Widget _buildCityDropdown() {
+    return DropdownButtonFormField<String>(
+      style: TextStyle(color: Colors.black87),
+      dropdownColor: Colors.white,
+      icon: const Icon(Icons.arrow_drop_down, color: Colors.black54),
+      value: _selectedCityId,
+      items: _cities
+          .map(
+            (city) => DropdownMenuItem<String>(
+              value: city['id'] as String,
+              child: Text(city['name_en'] ?? ''),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        setState(() {
+          _selectedCityId = value;
+          _cityError = false;
+          _cityErrorText = null;
+        });
+      },
+      decoration: InputDecoration(
+        labelText: 'City',
+        labelStyle: TextStyle(
+          color: Colors.black87,
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIcon: const Icon(Icons.location_city, color: Color(0xFF2E7D32)),
+        filled: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 12,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: const Color(0xFFECEFF1)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: const Color(0xFFECEFF1)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
+        ),
+        errorText: _cityErrorText,
+      ),
+    );
+  }
+
   void _handleSignup() async {
     // Clear previous errors
     setState(() {
@@ -1865,6 +2072,23 @@ class _SignupScreenState extends State<SignupScreen> {
       hasErrors = true;
     }
 
+    // Validate zone & city
+    if (_selectedZoneId == null || _selectedZoneId!.isEmpty) {
+      setState(() {
+        _zoneError = true;
+        _zoneErrorText = 'Please select a zone';
+      });
+      hasErrors = true;
+    }
+
+    if (_selectedCityId == null || _selectedCityId!.isEmpty) {
+      setState(() {
+        _cityError = true;
+        _cityErrorText = 'Please select a city';
+      });
+      hasErrors = true;
+    }
+
     // If there are errors, don't proceed
     if (hasErrors) {
       return;
@@ -1931,6 +2155,8 @@ class _SignupScreenState extends State<SignupScreen> {
           categoryName: widget.intendedDestination, // Associate with category
           role: role, // USER for clients, ORG for organizations
           logoUrl: logoUrl, // Profile image URL
+          zoneId: _selectedZoneId,
+          cityId: _selectedCityId,
         );
 
         if (!mounted) return;

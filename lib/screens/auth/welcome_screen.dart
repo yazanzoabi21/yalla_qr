@@ -6,6 +6,7 @@ import 'signup_screen.dart';
 import '../home/home_screen.dart';
 import '../client/client_categories_screen.dart';
 import '../delivery/delivery_home_screen.dart';
+import '../super_admin/super_admin_home_screen.dart';
 
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
@@ -44,6 +45,12 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => const HomeScreen()),
+        );
+      } else if (loginContext == 'SUPER_ADMIN') {
+        // Navigate to Super Admin console
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const SuperAdminHomeScreen()),
         );
       } else if (loginContext == 'CLIENT') {
         // Navigate to CLIENT page

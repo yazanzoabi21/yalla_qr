@@ -24,6 +24,22 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   double? _orgLocationLng;
   double? _usdRate;
   String _selectedFilter = 'ALL';
+  // Zones / Cities for assignment
+  List<Map<String, dynamic>> _zones = [];
+  List<Map<String, dynamic>> _cities = [];
+  // Maps for quick name lookup
+  final Map<String, String> _zoneNamesById = {};
+  final Map<String, String> _cityNamesById = {};
+  // Map city IDs to their zone IDs for zone lookups
+  final Map<String, String> _cityZoneMap = {};
+  // Map to store customer location preferences (city/zone) from accounts table
+  final Map<String, Map<String, String?>> _customerLocationById = {};
+  // Delivery pricing map: cityId -> pricingMap {price_lbp, price_usd, etc.}
+  Map<String, Map<String, dynamic>> _deliveryPricingByCity = {};
+  String? _selectedZoneId;
+  String? _selectedCityId;
+  bool _isZonesLoading = false;
+  bool _isCitiesLoading = false;
 
   // Map to resolve account names (for delivery_notes_by)
   final Map<String, String> _accountNamesById = {};
@@ -33,6 +49,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   final List<String> _filters = [
     'ALL',
     'PREPARING',
+    'PENDING_DELIVERY_CONFIRMATION', // "Pending Confirmation"
     'READY',
     'DELIVERED',
     'CANCELLED',
@@ -42,7 +59,79 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   @override
   void initState() {
     super.initState();
+    _loadZones();
+    _loadAllCities();
     _loadData();
+  }
+
+  Future<void> _loadAllCities() async {
+    try {
+      // Load cities with zone_id to build city-to-zone mapping
+      final resp = await Supabase.instance.client
+          .from('cities')
+          .select('id, name_en, zone_id');
+      if (resp != null) {
+        final list = List<Map<String, dynamic>>.from(resp as List);
+        for (var c in list) {
+          final id = c['id'] as String?;
+          final name = c['name_en'] as String?;
+          final zoneId = c['zone_id'] as String?;
+          if (id != null && name != null) _cityNamesById[id] = name;
+          if (id != null && zoneId != null) _cityZoneMap[id] = zoneId;
+        }
+      }
+      // Zone names map
+      final zresp = await Supabase.instance.client
+          .from('zones')
+          .select('id, name_en');
+      if (zresp != null) {
+        final zlist = List<Map<String, dynamic>>.from(zresp as List);
+        for (var z in zlist) {
+          final id = z['id'] as String?;
+          final name = z['name_en'] as String?;
+          if (id != null && name != null) _zoneNamesById[id] = name;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading zone/city names: $e');
+    }
+  }
+
+  Future<void> _loadZones() async {
+    setState(() => _isZonesLoading = true);
+    try {
+      final resp = await Supabase.instance.client
+          .from('zones')
+          .select('id, name_en, name_ar')
+          .order('name_en');
+
+      if (resp != null) {
+        _zones = List<Map<String, dynamic>>.from(resp as List);
+      }
+    } catch (e) {
+      debugPrint('Error loading zones: $e');
+    } finally {
+      if (mounted) setState(() => _isZonesLoading = false);
+    }
+  }
+
+  Future<void> _loadCitiesForZone(String zoneId) async {
+    setState(() => _isCitiesLoading = true);
+    try {
+      final resp = await Supabase.instance.client
+          .from('cities')
+          .select('id, name_en, name_ar, zone_id')
+          .eq('zone_id', zoneId)
+          .order('name_en');
+
+      if (resp != null) {
+        _cities = List<Map<String, dynamic>>.from(resp as List);
+      }
+    } catch (e) {
+      debugPrint('Error loading cities for zone $zoneId: $e');
+    } finally {
+      if (mounted) setState(() => _isCitiesLoading = false);
+    }
   }
 
   Future<void> _markOrgNoteAsRead(
@@ -117,6 +206,14 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           _orgLocationLat = (orgAccount['location_lat'] as num?)?.toDouble();
           _orgLocationLng = (orgAccount['location_lng'] as num?)?.toDouble();
 
+          // Load delivery pricing for this store
+          final pricing = await _orderService.getDeliveryPricingForAccount(
+            _orgAccountId!,
+          );
+          _deliveryPricingByCity = {
+            for (var p in pricing) p['city_id'] as String: p,
+          };
+
           // Load orders with delivery info
           final orders = await _orderService.getOrganizationOrdersWithDelivery(
             _orgAccountId!,
@@ -138,6 +235,62 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                   ord['total_amount_usd'] = lbp / _usdRate!;
                 }
               } catch (_) {}
+            }
+          }
+
+          // Ensure each order has delivery fee populated (city -> price lookup).
+          for (var ord in orders) {
+            try {
+              final accountId = ord['account_id'] as String? ?? _orgAccountId;
+              String? cityId =
+                  ord['delivery_city_id'] as String? ??
+                  ord['city_id'] as String?;
+              final zoneId = ord['zone_id'] as String?;
+
+              // If order has no explicit city, try customer's saved location
+              if (cityId == null && ord['customer_id'] != null) {
+                final custLoc =
+                    _customerLocationById[ord['customer_id'] as String];
+                if (custLoc != null) {
+                  cityId = custLoc['city_id'];
+                }
+              }
+
+              // default values
+              ord['delivery_fee_lbp'] = 0;
+              ord['delivery_fee_usd'] = 0;
+
+              if (cityId != null && accountId != null) {
+                // First check pricing already loaded into _deliveryPricingByCity
+                final preload = _deliveryPricingByCity[cityId];
+                if (preload != null &&
+                    (preload['is_available'] == null ||
+                        preload['is_available'] == true)) {
+                  ord['delivery_fee_lbp'] =
+                      (preload['price_lbp'] as num?)?.toDouble() ?? 0;
+                  ord['delivery_fee_usd'] =
+                      (preload['price_usd'] as num?)?.toDouble() ?? 0;
+                } else {
+                  // Fallback: fetch single pricing for this account/city/zone (handles missing preload or zone fallbacks)
+                  final p = await _orderService.getStoreDeliveryPrice(
+                    accountId: accountId,
+                    cityId: cityId,
+                    zoneId: zoneId,
+                  );
+                  if (p != null &&
+                      (p['is_available'] == null ||
+                          p['is_available'] == true)) {
+                    ord['delivery_fee_lbp'] =
+                        (p['price_lbp'] as num?)?.toDouble() ?? 0;
+                    ord['delivery_fee_usd'] =
+                        (p['price_usd'] as num?)?.toDouble() ?? 0;
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint(
+                'Error populating delivery fee for order ${ord['id']}: $e',
+              );
             }
           }
 
@@ -176,6 +329,33 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               }
             }
 
+            // Fetch customer locations from accounts table if missing in orders
+            final customerIds = orders
+                .map((o) => o['customer_id'] as String?)
+                .whereType<String>()
+                .toSet();
+
+            if (customerIds.isNotEmpty) {
+              try {
+                final accountLocs = await Supabase.instance.client
+                    .from('accounts')
+                    .select('owner_id, zone_id, city_id')
+                    .in_('owner_id', customerIds.toList());
+
+                if (accountLocs != null) {
+                  for (var acc in (accountLocs as List)) {
+                    final ownerId = acc['owner_id'] as String;
+                    _customerLocationById[ownerId] = {
+                      'zone_id': acc['zone_id'] as String?,
+                      'city_id': acc['city_id'] as String?,
+                    };
+                  }
+                }
+              } catch (e) {
+                debugPrint('Error loading customer locations: $e');
+              }
+            }
+
             setState(() {
               _orders = orders;
               _deliveryAccounts = deliveryAccounts;
@@ -208,12 +388,21 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           .where((o) => o['status'] == 'PENDING' || o['status'] == 'PREPARING')
           .toList();
     }
+
+    // Pending Confirmation: orders assigned to a delivery person but not yet confirmed by driver
+    if (_selectedFilter == 'PENDING_DELIVERY_CONFIRMATION') {
+      return _orders
+          .where((o) => o['status'] == 'PENDING_DELIVERY_CONFIRMATION')
+          .toList();
+    }
+
     // READY filter should show CONFIRMED orders (assigned orders displayed as "Ready")
     if (_selectedFilter == 'READY') {
       return _orders
           .where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED')
           .toList();
     }
+
     // NOTED filter should show orders that have delivery notes or unread notes
     if (_selectedFilter == 'NOTED') {
       return _orders.where((o) {
@@ -240,12 +429,21 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           .where((o) => o['status'] == 'PENDING' || o['status'] == 'PREPARING')
           .length;
     }
+
+    // Pending Confirmation filter
+    if (filter == 'PENDING_DELIVERY_CONFIRMATION') {
+      return _orders
+          .where((o) => o['status'] == 'PENDING_DELIVERY_CONFIRMATION')
+          .length;
+    }
+
     // READY filter should count CONFIRMED orders
     if (filter == 'READY') {
       return _orders
           .where((o) => o['status'] == 'READY' || o['status'] == 'CONFIRMED')
           .length;
     }
+
     // NOTED filter: count orders that have delivery notes or unread delivery notes
     if (filter == 'NOTED') {
       return _orders.where((o) {
@@ -261,6 +459,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
         });
       }).length;
     }
+
     return _orders.where((o) => o['status'] == filter).length;
   }
 
@@ -333,6 +532,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     switch (status) {
       case 'PENDING':
         return Colors.purple; // PENDING displays as PREPARING (purple)
+      case 'PENDING_DELIVERY_CONFIRMATION':
+        return Colors.orange; // Waiting for confirmation (distinct color)
       case 'CONFIRMED':
         return Colors.teal; // CONFIRMED displays as READY (teal)
       case 'PREPARING':
@@ -341,6 +542,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
         return Colors.teal;
       case 'DELIVERED':
         return Colors.green;
+      case 'ACCEPTED_BY_DELIVERY':
+        return Colors.green.shade600;
       case 'CANCELLED':
         return Colors.red;
       default:
@@ -349,6 +552,14 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
   }
 
   Future<void> _showAssignDeliveryDialog(Map<String, dynamic> order) async {
+    // Ensure we have a USD rate available for conversions in the dialog
+    if (_usdRate == null) {
+      try {
+        _usdRate = await CurrencyService.getUsdRate();
+      } catch (_) {
+        _usdRate = null;
+      }
+    }
     final orderId = order['id'] as String;
     final existingAssignment = _ensureList(order['order_delivery_assignments']);
     String? currentDeliveryId;
@@ -364,6 +575,23 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       _deliveryAccounts,
     );
     bool isLoadingAccounts = false;
+
+    // Pre-set location for pricing based on order/customer data
+    _selectedCityId =
+        order['delivery_city_id'] as String? ?? order['city_id'] as String?;
+    _selectedZoneId = order['zone_id'] as String?;
+
+    if (_selectedCityId == null && _selectedZoneId == null) {
+      final custLoc = _customerLocationById[order['customer_id']];
+      if (custLoc != null) {
+        _selectedZoneId = custLoc['zone_id'];
+        _selectedCityId = custLoc['city_id'];
+      }
+    }
+
+    if (_selectedCityId != null && _selectedZoneId == null) {
+      _selectedZoneId = _cityZoneMap[_selectedCityId];
+    }
 
     Future<void> loadDeliveryAccountsForDistance(StateSetter setState) async {
       setState(() => isLoadingAccounts = true);
@@ -395,146 +623,170 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           ),
           title: Row(
             children: [
-              Icon(Icons.delivery_dining, color: Theme.of(context).colorScheme.primary),
+              Icon(
+                Icons.delivery_dining,
+                color: Theme.of(context).colorScheme.primary,
+              ),
               const SizedBox(width: 12),
               const Text('Assign Delivery'),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Order #${orderId.substring(0, 8)}',
-                style: Theme.of(context).textTheme.bodySmall,
+          content: SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.8,
               ),
-              const SizedBox(height: 16),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Order ID: #${orderId.substring(0, 8)}',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 16),
 
-                    // Distance selector
-                    Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Theme.of(context).colorScheme.outline.withOpacity(0.12)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+                  // Distance selector
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withOpacity(0.12),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.location_on,
-                          size: 18,
-                          color: Theme.of(context).colorScheme.primary,
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.location_on,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Search Distance',
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [10.0, 25.0, 50.0, 100.0].map((distance) {
+                            final isSelected = selectedDistance == distance;
+                            return ChoiceChip(
+                              label: Text('${distance.toInt()} km'),
+                              selected: isSelected,
+                              onSelected: (selected) async {
+                                if (selected) {
+                                  setDialogState(
+                                    () => selectedDistance = distance,
+                                  );
+                                  await loadDeliveryAccountsForDistance(
+                                    setDialogState,
+                                  );
+                                }
+                              },
+                              selectedColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              labelStyle: TextStyle(
+                                color: isSelected
+                                    ? Theme.of(context).colorScheme.onPrimary
+                                    : Theme.of(context).colorScheme.primary,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                        const SizedBox(height: 8),
                         Text(
-                          'Search Distance',
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: Theme.of(context).colorScheme.primary,
+                          'Showing delivery accounts within ${selectedDistance.toInt()}km',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Theme.of(context).textTheme.bodySmall?.color,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [10.0, 25.0, 50.0, 100.0].map((distance) {
-                        final isSelected = selectedDistance == distance;
-                        return ChoiceChip(
-                          label: Text('${distance.toInt()} km'),
-                          selected: isSelected,
-                          onSelected: (selected) async {
-                            if (selected) {
-                              setDialogState(() => selectedDistance = distance);
-                              await loadDeliveryAccountsForDistance(
-                                setDialogState,
-                              );
-                            }
-                          },
-                          selectedColor: Theme.of(context).colorScheme.primary,
-                          labelStyle: TextStyle(
-                            color: isSelected
-                                ? Theme.of(context).colorScheme.onPrimary
-                                : Theme.of(context).colorScheme.primary,
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Showing delivery accounts within ${selectedDistance.toInt()}km',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Theme.of(context).textTheme.bodySmall?.color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 16),
+                  ),
 
-                    if (isLoadingAccounts)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16),
-                    child: CircularProgressIndicator(),
-                  ),
-                )
-              else if (dialogDeliveryAccounts.isEmpty)
-                // else if (dialogDeliveryAccounts.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.errorContainer,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.warning, color: Theme.of(context).colorScheme.error),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'No delivery accounts within ${selectedDistance.toInt()}km. Try increasing the distance.',
-                          style: Theme.of(context).textTheme.bodyMedium,
+                  const SizedBox(height: 16),
+
+                  if (isLoadingAccounts)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (dialogDeliveryAccounts.isEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.errorContainer,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.warning,
+                            color: Theme.of(context).colorScheme.error,
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'No delivery accounts within ${selectedDistance.toInt()}km. Try increasing the distance.',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    DropdownButtonFormField<String>(
+                      value: selectedDeliveryId,
+                      decoration: InputDecoration(
+                        labelText: 'Select Delivery Person',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
                         ),
+                        prefixIcon: const Icon(Icons.person),
                       ),
-                    ],
-                  ),
-                )
-              else
-                DropdownButtonFormField<String>(
-                  value: selectedDeliveryId,
-                  decoration: InputDecoration(
-                    labelText: 'Select Delivery Person',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      items: [
+                        const DropdownMenuItem<String>(
+                          value: null,
+                          child: Text('-- No Assignment --'),
+                        ),
+                        ...dialogDeliveryAccounts.map(
+                          (d) => DropdownMenuItem<String>(
+                            value: d['id'] as String,
+                            child: Text(d['name'] as String? ?? 'Unknown'),
+                          ),
+                        ),
+                      ],
+                      onChanged: (value) {
+                        setDialogState(() => selectedDeliveryId = value);
+                      },
                     ),
-                    prefixIcon: const Icon(Icons.person),
-                  ),
-                  items: [
-                    const DropdownMenuItem<String>(
-                      value: null,
-                      child: Text('-- No Assignment --'),
-                    ),
-                    ...dialogDeliveryAccounts.map(
-                      (d) => DropdownMenuItem<String>(
-                        value: d['id'] as String,
-                        child: Text(d['name'] as String? ?? 'Unknown'),
-                      ),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    setDialogState(() => selectedDeliveryId = value);
-                  },
-                ),
-            ],
+                ],
+              ),
+            ),
           ),
           actions: [
             TextButton(
@@ -545,111 +797,98 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               onPressed: selectedDeliveryId == null
                   ? null
                   : () async {
-                Navigator.pop(context);
+                      Navigator.pop(context);
+                      final currentStatus = order['status'] as String? ?? '';
 
-                final currentStatus = order['status'] as String? ?? '';
-
-                if (selectedDeliveryId == null && currentDeliveryId != null) {
-                  // Remove assignment and revert status to PREPARING (unless final)
-                  final removed = await _orderService.removeDeliveryAssignment(
-                    orderId,
-                  );
-                  if (removed) {
-                    var statusUpdated = true;
-                    if (currentStatus != 'DELIVERED' &&
-                        currentStatus != 'CANCELLED') {
-                      statusUpdated = await _orderService.updateOrderStatus(
-                        orderId,
-                        'PREPARING',
-                      );
-                    }
-
-                    // Update local UI immediately
-                    if (mounted) {
-                      final idx = _orders.indexWhere((o) => o['id'] == orderId);
-                      if (idx >= 0) {
-                        _orders[idx]['order_delivery_assignments'] =
-                            <dynamic>[];
-                        if (statusUpdated &&
-                            currentStatus != 'DELIVERED' &&
-                            currentStatus != 'CANCELLED') {
-                          _orders[idx]['status'] = 'PREPARING';
+                      if (selectedDeliveryId == null &&
+                          currentDeliveryId != null) {
+                        final removed = await _orderService
+                            .removeDeliveryAssignment(orderId);
+                        if (removed) {
+                          var statusUpdated = true;
+                          if (currentStatus != 'DELIVERED' &&
+                              currentStatus != 'CANCELLED') {
+                            statusUpdated = await _orderService
+                                .updateOrderStatus(orderId, 'PREPARING');
+                          }
+                          if (mounted) {
+                            final idx = _orders.indexWhere(
+                              (o) => o['id'] == orderId,
+                            );
+                            if (idx >= 0) {
+                              _orders[idx]['order_delivery_assignments'] =
+                                  <dynamic>[];
+                              if (statusUpdated &&
+                                  currentStatus != 'DELIVERED' &&
+                                  currentStatus != 'CANCELLED') {
+                                _orders[idx]['status'] = 'PREPARING';
+                              }
+                              setState(() {});
+                              EventBus.emit('orders:updated');
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Delivery assignment removed. Order reverted to Preparing.',
+                                ),
+                              ),
+                            );
+                          }
                         }
-                        setState(() {});
-
-                        // Notify navbar to refresh counts
-                        EventBus.emit('orders:updated');
+                      } else if (selectedDeliveryId != null &&
+                          selectedDeliveryId != currentDeliveryId) {
+                        if (currentDeliveryId != null)
+                          await _orderService.removeDeliveryAssignment(orderId);
+                        final assignment = await _orderService
+                            .assignDeliveryToOrder(
+                              orderId: orderId,
+                              deliveryAccountId: selectedDeliveryId!,
+                              zoneId: _selectedZoneId,
+                              cityId: _selectedCityId,
+                            );
+                        if (assignment != null && mounted) {
+                          final idx = _orders.indexWhere(
+                            (o) => o['id'] == orderId,
+                          );
+                          if (idx >= 0) {
+                            final assignmentJson = {
+                              'id': assignment.id,
+                              'delivery_account_id':
+                                  assignment.deliveryAccountId,
+                              'assigned_at': assignment.assignedAt
+                                  .toIso8601String(),
+                              'completed_at': assignment.completedAt
+                                  ?.toIso8601String(),
+                              'delivery_account': {
+                                'id': assignment.deliveryAccountId,
+                                'name': assignment.deliveryAccountName,
+                                'phone': assignment.deliveryAccountPhone,
+                              },
+                            };
+                            _orders[idx]['order_delivery_assignments'] = [
+                              assignmentJson,
+                            ];
+                            _orders[idx]['status'] =
+                                'PENDING_DELIVERY_CONFIRMATION';
+                            await _orderService.updateOrderStatus(
+                              orderId,
+                              'PENDING_DELIVERY_CONFIRMATION',
+                            );
+                            setState(() {});
+                            EventBus.emit('orders:updated');
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Delivery assigned successfully. Waiting for driver confirmation.',
+                                ),
+                              ),
+                            );
+                          }
+                        }
                       }
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Delivery assignment removed. Order reverted to Preparing.',
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                } else if (selectedDeliveryId != null &&
-                    selectedDeliveryId != currentDeliveryId) {
-                  // Remove old assignment if exists
-                  if (currentDeliveryId != null) {
-                    await _orderService.removeDeliveryAssignment(orderId);
-                  }
-
-                  // Create new assignment and set status to READY
-                  final assignment = await _orderService.assignDeliveryToOrder(
-                    orderId: orderId,
-                    deliveryAccountId: selectedDeliveryId!,
-                  );
-
-                  if (assignment != null && mounted) {
-                    final idx = _orders.indexWhere((o) => o['id'] == orderId);
-                    if (idx >= 0) {
-                      // Build an assignment map similar to what the server returns
-                      final assignmentJson = {
-                        'id': assignment.id,
-                        'delivery_account_id': assignment.deliveryAccountId,
-                        'assigned_at': assignment.assignedAt.toIso8601String(),
-                        'completed_at': assignment.completedAt
-                            ?.toIso8601String(),
-                        'delivery_account': {
-                          'id': assignment.deliveryAccountId,
-                          'name': assignment.deliveryAccountName,
-                          'phone': assignment.deliveryAccountPhone,
-                        },
-                      };
-
-                      _orders[idx]['order_delivery_assignments'] = [
-                        assignmentJson,
-                      ];
-                      _orders[idx]['status'] = 'READY';
-
-                      // Update status in database
-                      await _orderService.updateOrderStatus(orderId, 'READY');
-
-                      setState(() {});
-
-                      // Notify other widgets (navbar) to refresh counts immediately
-                      EventBus.emit('orders:updated');
-
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Delivery assigned successfully. Order is READY.',
-                          ),
-                        ),
-                      );
-                    }
-                  }
-                }
-
-                // Reload data and notify navbar of count change
-                await _loadData();
-
-                // Trigger navbar refresh by navigating back and forth (if needed)
-                // Or use a callback mechanism if implemented
-              },
+                      await _loadData();
+                    },
               style: ElevatedButton.styleFrom(
                 backgroundColor: selectedDeliveryId == null
                     ? null
@@ -893,7 +1132,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text('Cancel'),
           ),
-            ElevatedButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, noteController.text.trim()),
             style: ElevatedButton.styleFrom(
               backgroundColor: Theme.of(context).colorScheme.secondary,
@@ -1039,9 +1278,7 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
           fontWeight: FontWeight.w600,
         ),
         elevation: 0,
-        title: Text(
-          'Orders Management',
-        ),
+        title: Text('Orders Management'),
         // actions: [
         //   IconButton(
         //     icon: const Icon(Icons.refresh, color: Color(0xFF1A1A1A)),
@@ -1060,12 +1297,16 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
               child: Row(
                 children: _filters.map((filter) {
                   final count = _countForFilter(filter);
-                    final labelText = filter == 'ALL'
+                  final labelText = filter == 'ALL'
                       ? 'All'
-                      : (filter == 'NOTED' ? 'Noted' : Order.getStatusLabel(filter));
-                    final badgeColor = filter == 'ALL'
+                      : (filter == 'NOTED'
+                            ? 'Noted'
+                            : Order.getStatusLabel(filter));
+                  final badgeColor = filter == 'ALL'
                       ? Colors.blue
-                      : (filter == 'NOTED' ? Colors.pinkAccent : _getStatusColor(filter));
+                      : (filter == 'NOTED'
+                            ? Colors.pinkAccent
+                            : _getStatusColor(filter));
 
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
@@ -1177,6 +1418,30 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     final items = _ensureList(order['order_items']);
     final assignments = _ensureList(order['order_delivery_assignments']);
 
+    // Get city ID for delivery fee (use delivery_city_id if provided, otherwise order city)
+    final String? orderCityId =
+        order['delivery_city_id'] as String? ?? order['city_id'] as String?;
+    final String? orderCityName = orderCityId != null
+        ? _cityNamesById[orderCityId]
+        : null;
+
+    double deliveryFeeLbp = 0;
+    double deliveryFeeUsd = 0;
+
+    // Prefer per-order attached fees (populated during _loadData)
+    if (order.containsKey('delivery_fee_lbp')) {
+      deliveryFeeLbp = (order['delivery_fee_lbp'] as num?)?.toDouble() ?? 0;
+      deliveryFeeUsd = (order['delivery_fee_usd'] as num?)?.toDouble() ?? 0;
+    } else if (orderCityId != null) {
+      // Fallback to preloaded map by city
+      final prc = _deliveryPricingByCity[orderCityId];
+      if (prc != null &&
+          (prc['is_available'] == true || prc['is_available'] == null)) {
+        deliveryFeeLbp = (prc['price_lbp'] as num?)?.toDouble() ?? 0;
+        deliveryFeeUsd = (prc['price_usd'] as num?)?.toDouble() ?? 0;
+      }
+    }
+
     // Calculate time in status
     final timeInStatus = _getTimeInStatus(createdAt);
     final isWaitingTooLong = _isWaitingTooLong(status, timeInStatus);
@@ -1197,7 +1462,8 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
     // Show visual alert (border / header tint) only when waiting too long
     // or there is an unread delivery note — but do NOT show these when
     // the order status is `READY` (user requested no red/exclamation on Ready).
-    final bool showAlert = (isWaitingTooLong || hasUnreadNote) && status != 'READY';
+    final bool showAlert =
+        (isWaitingTooLong || hasUnreadNote) && status != 'READY';
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -1205,8 +1471,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: showAlert
-          ? BorderSide(color: Theme.of(context).colorScheme.error.withOpacity(0.6), width: 2)
-          : BorderSide.none,
+            ? BorderSide(
+                color: Theme.of(context).colorScheme.error.withOpacity(0.6),
+                width: 2,
+              )
+            : BorderSide.none,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1235,62 +1504,84 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       size: 24,
                     ),
                   ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _getStatusColor(status),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    Order.getStatusLabel(status),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Time in status badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: showAlert
-                        ? Theme.of(context).colorScheme.errorContainer
-                        : Theme.of(context).colorScheme.surfaceVariant,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                Expanded(
                   child: Row(
-                    mainAxisSize: MainAxisSize.min,
+                    mainAxisSize: MainAxisSize.max,
                     children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 14,
-                        color: isWaitingTooLong
-                            ? Theme.of(context).colorScheme.error
-                            : Theme.of(context).textTheme.bodyMedium?.color,
+                      Flexible(
+                        fit: FlexFit.loose,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getStatusColor(status),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            Order.getStatusLabel(status),
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        _formatDuration(timeInStatus),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: isWaitingTooLong
-                              ? Theme.of(context).colorScheme.error
-                              : Theme.of(context).textTheme.bodyMedium?.color,
+                      const SizedBox(width: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 90),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: showAlert
+                                ? Theme.of(context).colorScheme.errorContainer
+                                : Theme.of(context).colorScheme.surfaceVariant,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.access_time,
+                                size: 14,
+                                color: isWaitingTooLong
+                                    ? Theme.of(context).colorScheme.error
+                                    : Theme.of(
+                                        context,
+                                      ).textTheme.bodyMedium?.color,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  _formatDuration(timeInStatus),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isWaitingTooLong
+                                        ? Theme.of(context).colorScheme.error
+                                        : Theme.of(
+                                            context,
+                                          ).textTheme.bodyMedium?.color,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 Text(
                   '#${orderId.substring(0, 8)}',
                   style: TextStyle(
@@ -1348,7 +1639,9 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                         decoration: BoxDecoration(
                           color: Theme.of(context).colorScheme.surfaceVariant,
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Theme.of(context).dividerColor),
+                          border: Border.all(
+                            color: Theme.of(context).dividerColor,
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1445,36 +1738,177 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                               ],
                             ),
                             const SizedBox(height: 6),
-                            Text(
-                              _formatPrice(totalAmount, currencyCode),
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.white,
-                              ),
+                            Builder(
+                              builder: (context) {
+                                final currentDeliveryFee = currencyCode == 'LBP'
+                                    ? deliveryFeeLbp
+                                    : deliveryFeeUsd;
+                                final grandTotal =
+                                    totalAmount + currentDeliveryFee;
+
+                                // consider any attached or preloaded pricing as "applied"
+                                final bool hasAnyDeliveryFee =
+                                    (deliveryFeeLbp > 0) ||
+                                    (deliveryFeeUsd > 0);
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // Always show subtotal + delivery breakdown for clarity
+                                    Text(
+                                      'Subtotal: ${_formatPrice(totalAmount, currencyCode)}',
+                                      style: TextStyle(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.85,
+                                        ),
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    // If there is no fee at all and order has no resolved city -> show explicit hint
+                                    if (!hasAnyDeliveryFee &&
+                                        orderCityId == null)
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Icon(
+                                              Icons.location_off,
+                                              size: 12,
+                                              color: Colors.grey.shade300,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                'Delivery city unknown — fee not applied',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.grey.shade300,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else if (!hasAnyDeliveryFee &&
+                                        (orderCityId != null) &&
+                                        (currentDeliveryFee == 0) &&
+                                        !_deliveryPricingByCity.containsKey(
+                                          orderCityId,
+                                        ))
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 2),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Delivery not configured${orderCityName != null ? ' for $orderCityName' : ''}',
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.yellow.shade200,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.w500,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            InkWell(
+                                              onTap: () {
+                                                // Open delivery settings so admin can add pricing
+                                                Navigator.pushNamed(
+                                                  context,
+                                                  '/settings/delivery',
+                                                  arguments: {
+                                                    'accountId': _orgAccountId,
+                                                    'cityId': orderCityId,
+                                                  },
+                                                );
+                                              },
+                                              child: Icon(
+                                                Icons.add_circle_outline,
+                                                size: 14,
+                                                color: Colors.yellow.shade200,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      )
+                                    else
+                                      Text(
+                                        orderCityId == null && hasAnyDeliveryFee
+                                            ? 'Delivery Fee (applied): ${_formatPrice(currentDeliveryFee, currencyCode)}'
+                                            : 'Delivery Fee (based on city${orderCityName != null ? ': $orderCityName' : ''}): ${_formatPrice(currentDeliveryFee, currencyCode)}',
+                                        style: TextStyle(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.85,
+                                          ),
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _formatPrice(grandTotal, currencyCode),
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w900,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                             if (currencyCode == 'LBP')
                               Builder(
                                 builder: (_) {
-                                  double? usd;
+                                  double? usdBase;
                                   if (order['total_amount_usd'] != null) {
-                                    usd = (order['total_amount_usd'] as double);
+                                    usdBase =
+                                        (order['total_amount_usd'] as double);
                                   } else if (_usdRate != null) {
-                                    usd = totalAmount / _usdRate!;
+                                    usdBase = totalAmount / _usdRate!;
                                   }
-                                  if (usd == null)
+                                  if (usdBase == null) {
                                     return const SizedBox.shrink();
+                                  }
+
+                                  final grandTotalUsd =
+                                      usdBase + deliveryFeeUsd;
+
                                   return Padding(
                                     padding: const EdgeInsets.only(top: 4),
-                                    child: Text(
-                                      '\u2248 \$${usd.toStringAsFixed(2)}',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.white.withValues(
-                                          alpha: 0.8,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '\u2248 \$${grandTotalUsd.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: Colors.white.withValues(
+                                              alpha: 0.8,
+                                            ),
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                                        if (deliveryFeeUsd > 0)
+                                          Text(
+                                            '(Sub \$${usdBase.toStringAsFixed(2)} + Del \$${deliveryFeeUsd.toStringAsFixed(2)})',
+                                            style: TextStyle(
+                                              fontSize: 10,
+                                              color: Colors.white.withValues(
+                                                alpha: 0.6,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                   );
                                 },
@@ -1505,109 +1939,210 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.15)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.primary.withOpacity(0.15),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
                                 children: [
-                                  Row(
+                                  Icon(
+                                    Icons.person,
+                                    size: 18,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Customer Order Information',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.primary,
+                                        ),
+                                  ),
+                                ],
+                              ),
+                              if (deliveryPhone != null ||
+                                  deliveryAddress != null) ...[
+                                const SizedBox(height: 12),
+                                Divider(
+                                  height: 1,
+                                  color: Theme.of(context).dividerColor,
+                                ),
+                                const SizedBox(height: 12),
+                              ],
+                              if (contactName != null)
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.account_circle,
+                                      size: 16,
+                                      color: Theme.of(context).disabledColor,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        contactName,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyLarge
+                                            ?.copyWith(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 15,
+                                            ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              if (deliveryPhone != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Row(
                                     children: [
                                       Icon(
-                                        Icons.person,
-                                        size: 18,
-                                        color: Theme.of(context).colorScheme.primary,
+                                        Icons.phone,
+                                        size: 16,
+                                        color: Theme.of(context).disabledColor,
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
-                                        'Customer Delivery Info',
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              fontSize: 14,
-                                              color: Theme.of(context).colorScheme.primary,
-                                            ),
+                                        deliveryPhone,
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall?.color,
+                                          fontSize: 14,
+                                        ),
                                       ),
                                     ],
                                   ),
-                                  if (contactName != null ||
-                                      deliveryPhone != null ||
-                                      deliveryAddress != null) ...[
-                                    const SizedBox(height: 12),
-                                    Divider(height: 1, color: Theme.of(context).dividerColor),
-                                    const SizedBox(height: 12),
-                                  ],
-                                  if (contactName != null)
-                                    Row(
+                                ),
+                              // Zone / City / Address (combined on one line)
+                              Builder(
+                                builder: (_) {
+                                  String? zoneName;
+                                  String? cityName;
+
+                                  // Prefer delivery_city_id for the delivery location zone/city
+                                  if (order['delivery_city_id'] != null) {
+                                    final cityId =
+                                        order['delivery_city_id'] as String?;
+                                    if (cityId != null) {
+                                      // Look up city name
+                                      cityName = _cityNamesById[cityId];
+                                      // Look up zone for this city
+                                      if (cityName != null) {
+                                        final zoneId = _cityZoneMap[cityId];
+                                        if (zoneId != null) {
+                                          zoneName = _zoneNamesById[zoneId];
+                                        }
+                                      }
+                                    }
+                                  }
+
+                                  // Fallback to order zone_id / city_id if available
+                                  if (zoneName == null &&
+                                      order['zone_id'] != null) {
+                                    final z = order['zone_id'] as String?;
+                                    zoneName = z != null
+                                        ? (_zoneNamesById[z] ?? z)
+                                        : null;
+                                  }
+                                  if (cityName == null &&
+                                      order['city_id'] != null) {
+                                    final c = order['city_id'] as String?;
+                                    cityName = c != null
+                                        ? (_cityNamesById[c] ?? c)
+                                        : null;
+                                  }
+
+                                  // New fallback: use location from accounts table if both are still null
+                                  if (zoneName == null && cityName == null) {
+                                    final custLoc =
+                                        _customerLocationById[order['customer_id']];
+                                    if (custLoc != null) {
+                                      final zId = custLoc['zone_id'];
+                                      final cId = custLoc['city_id'];
+                                      if (zId != null)
+                                        zoneName = _zoneNamesById[zId];
+                                      if (cId != null)
+                                        cityName = _cityNamesById[cId];
+                                    }
+                                  }
+
+                                  // Final fallback to direct name fields
+                                  zoneName ??=
+                                      order['zone_name'] as String? ??
+                                      order['zone'] as String?;
+                                  cityName ??=
+                                      order['city_name'] as String? ??
+                                      order['city'] as String?;
+
+                                  final parts = <String>[];
+                                  if (zoneName != null && zoneName.isNotEmpty) {
+                                    parts.add(zoneName);
+                                  }
+                                  if (cityName != null && cityName.isNotEmpty) {
+                                    parts.add(cityName);
+                                  }
+                                  if (deliveryAddress != null &&
+                                      deliveryAddress.isNotEmpty) {
+                                    parts.add(deliveryAddress);
+                                  }
+
+                                  if (parts.isEmpty)
+                                    return const SizedBox.shrink();
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Icon(
-                                          Icons.account_circle,
+                                          Icons.location_on,
                                           size: 16,
-                                          color: Theme.of(context).disabledColor,
+                                          color: Theme.of(
+                                            context,
+                                          ).disabledColor,
                                         ),
                                         const SizedBox(width: 8),
                                         Expanded(
                                           child: Text(
-                                            contactName,
-                                            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                              fontSize: 15,
+                                            parts.join(', '),
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall?.color,
+                                              fontSize: 14,
                                             ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                  if (deliveryPhone != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8),
-                                      child: Row(
-                                        children: [
-                                          Icon(
-                                            Icons.phone,
-                                            size: 16,
-                                            color: Theme.of(context).disabledColor,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Text(
-                                            deliveryPhone,
-                                            style: TextStyle(
-                                              color: Theme.of(context).textTheme.bodySmall?.color,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  if (deliveryAddress != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8),
-                                      child: Row(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          Icon(
-                                            Icons.location_on,
-                                            size: 16,
-                                            color: Theme.of(context).disabledColor,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          Expanded(
-                                            child: Text(
-                                              deliveryAddress,
-                                              style: TextStyle(
-                                                color: Theme.of(context).textTheme.bodySmall?.color,
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                ],
+                                  );
+                                },
                               ),
-                            ),
+                            ],
+                          ),
+                        ),
                         const SizedBox(height: 16),
                       ],
                     );
@@ -2135,7 +2670,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                       },
                       errorBuilder: (context, error, stackTrace) {
                         return const Center(
-                          child: Icon(Icons.broken_image_outlined, color: Colors.white70, size: 48),
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white70,
+                            size: 48,
+                          ),
                         );
                       },
                     ),
@@ -2153,7 +2692,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
                         color: Colors.black.withOpacity(0.6),
                         shape: BoxShape.circle,
                       ),
-                      child: const Icon(Icons.close, color: Colors.white, size: 18),
+                      child: const Icon(
+                        Icons.close,
+                        color: Colors.white,
+                        size: 18,
+                      ),
                     ),
                   ),
                 ),
@@ -2185,7 +2728,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: imageUrl == null
-          ? Icon(Icons.image_outlined, color: Theme.of(context).disabledColor, size: 24)
+          ? Icon(
+              Icons.image_outlined,
+              color: Theme.of(context).disabledColor,
+              size: 24,
+            )
           : ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: Image.network(
@@ -2248,7 +2795,11 @@ class _OrgOrdersScreenState extends State<OrgOrdersScreen> {
         border: Border.all(color: Theme.of(context).dividerColor),
       ),
       child: imageUrl == null
-          ? Icon(Icons.image_outlined, color: Theme.of(context).disabledColor, size: 32)
+          ? Icon(
+              Icons.image_outlined,
+              color: Theme.of(context).disabledColor,
+              size: 32,
+            )
           : ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.network(

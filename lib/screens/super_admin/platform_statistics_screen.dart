@@ -74,115 +74,187 @@ class _PlatformStatisticsScreenState extends State<PlatformStatisticsScreen> {
                 ],
               )
             : _error != null
-                ? ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      _buildErrorState(theme),
-                    ],
-                  )
-                : _stats == null
-                    ? ListView(
-                        padding: const EdgeInsets.all(16),
-                        children: [
-                          _buildEmptyState(theme),
-                        ],
-                      )
-                    : ListView(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                        children: [
-                          _buildHeader(theme),
-                          const SizedBox(height: 16),
-                          _buildSectionTitle('Accounts', theme),
-                          const SizedBox(height: 8),
-                          _buildStatGrid([
-                            _stat('Total Accounts', _int('total_accounts'),
-                                Icons.business, Colors.indigo),
-                            _stat('Total Users', _int('total_users'),
-                                Icons.people, Colors.blue),
-                            _stat('Delivery Accounts',
-                                _int('total_delivery_accounts'),
-                                Icons.delivery_dining, Colors.orange),
-                            _stat('New Today', _int('new_accounts_today'),
-                                Icons.today, Colors.green),
-                            _stat('New This Week',
-                                _int('new_accounts_this_week'),
-                                Icons.view_week, Colors.teal),
-                            _stat('New This Month',
-                                _int('new_accounts_this_month'),
-                                Icons.calendar_month, Colors.purple),
-                          ], theme),
-                          const SizedBox(height: 16),
-                          _buildSectionTitle('Platform Usage', theme),
-                          const SizedBox(height: 8),
-                          _buildStatGrid([
-                            _stat('Total QR Codes', _int('total_qr_codes'),
-                                Icons.qr_code_2, Colors.deepPurple),
-                            _stat('Total Scans', _int('total_scans'),
-                                Icons.visibility, Colors.pink),
-                            _stat('Scans Today', _int('scans_today'),
-                                Icons.today, Colors.cyan),
-                            _stat('Scans This Week', _int('scans_this_week'),
-                                Icons.view_week, Colors.lightBlue),
-                            _stat('Scans This Month', _int('scans_this_month'),
-                                Icons.calendar_month, Colors.blueGrey),
-                          ], theme),
-                          const SizedBox(height: 16),
-                          _buildSectionTitle('Commerce', theme),
-                          const SizedBox(height: 8),
-                          _buildStatGrid([
-                            _stat('Total Products', _int('total_products'),
-                                Icons.inventory_2, Colors.teal),
-                            _stat('Total Orders', _int('total_orders'),
-                                Icons.shopping_cart, Colors.indigo),
-                            _stat('Orders Today', _int('orders_today'),
-                                Icons.today, Colors.orange),
-                            _stat('Orders This Week',
-                                _int('orders_this_week'),
-                                Icons.view_week, Colors.deepPurple),
-                            _stat('Orders This Month',
-                                _int('orders_this_month'),
-                                Icons.calendar_month, Colors.green),
-                          ], theme),
-                          const SizedBox(height: 16),
-                          _buildSectionTitle('Revenue', theme),
-                          const SizedBox(height: 8),
-                          _buildStatGrid([
-                            _stat('Total Revenue (LBP)',
-                                _currency('total_revenue_lbp', 'LBP'),
-                                Icons.attach_money, Colors.green),
-                            _stat('Total Revenue (USD)',
-                                _currency('total_revenue_usd', 'USD'),
-                                Icons.monetization_on, Colors.lightGreen),
-                            _stat('Revenue Today (LBP)',
-                                _currency('revenue_today_lbp', 'LBP'),
-                                Icons.trending_up, Colors.teal),
-                            _stat('Revenue Today (USD)',
-                                _currency('revenue_today_usd', 'USD'),
-                                Icons.trending_up, Colors.blue),
-                          ], theme),
-                          const SizedBox(height: 16),
-                          _buildSectionTitle('Deliveries', theme),
-                          const SizedBox(height: 8),
-                          _buildStatGrid([
-                            _stat('Total Deliveries',
-                                _int('total_deliveries'),
-                                Icons.local_shipping, Colors.brown),
-                            _stat('Active Deliveries',
-                                _int('active_deliveries'),
-                                Icons.delivery_dining, Colors.orange),
-                          ], theme),
-                          const SizedBox(height: 16),
-                          _buildLastUpdated(theme),
-                        ],
-                      ),
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: [_buildErrorState(theme)],
+              )
+            : _stats == null
+            ? ListView(
+                padding: const EdgeInsets.all(16),
+                children: [_buildEmptyState(theme)],
+              )
+            : ListView(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                children: [
+                  _buildHeader(theme),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Accounts', theme),
+                  const SizedBox(height: 8),
+                  _buildStatGrid([
+                    _stat(
+                      'Total Accounts',
+                      _int('total_accounts'),
+                      Icons.business,
+                      Colors.indigo,
+                    ),
+                    _stat(
+                      'Total Users',
+                      _int('total_users'),
+                      Icons.people,
+                      Colors.blue,
+                    ),
+                    _stat(
+                      'Delivery Accounts',
+                      _int('total_delivery_accounts'),
+                      Icons.delivery_dining,
+                      Colors.orange,
+                    ),
+                    _stat(
+                      'New Today',
+                      _int('new_accounts_today'),
+                      Icons.today,
+                      Colors.green,
+                    ),
+                    _stat(
+                      'New This Week',
+                      _int('new_accounts_this_week'),
+                      Icons.view_week,
+                      Colors.teal,
+                    ),
+                    _stat(
+                      'New This Month',
+                      _int('new_accounts_this_month'),
+                      Icons.calendar_month,
+                      Colors.purple,
+                    ),
+                  ], theme),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Platform Usage', theme),
+                  const SizedBox(height: 8),
+                  _buildStatGrid([
+                    _stat(
+                      'Total QR Codes',
+                      _int('total_qr_codes'),
+                      Icons.qr_code_2,
+                      Colors.deepPurple,
+                    ),
+                    _stat(
+                      'Total Scans',
+                      _int('total_scans'),
+                      Icons.visibility,
+                      Colors.pink,
+                    ),
+                    _stat(
+                      'Scans Today',
+                      _int('scans_today'),
+                      Icons.today,
+                      Colors.cyan,
+                    ),
+                    _stat(
+                      'Scans This Week',
+                      _int('scans_this_week'),
+                      Icons.view_week,
+                      Colors.lightBlue,
+                    ),
+                    _stat(
+                      'Scans This Month',
+                      _int('scans_this_month'),
+                      Icons.calendar_month,
+                      Colors.blueGrey,
+                    ),
+                  ], theme),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Commerce', theme),
+                  const SizedBox(height: 8),
+                  _buildStatGrid([
+                    _stat(
+                      'Total Products',
+                      _int('total_products'),
+                      Icons.inventory_2,
+                      Colors.teal,
+                    ),
+                    _stat(
+                      'Total Orders',
+                      _int('total_orders'),
+                      Icons.shopping_cart,
+                      Colors.indigo,
+                    ),
+                    _stat(
+                      'Orders Today',
+                      _int('orders_today'),
+                      Icons.today,
+                      Colors.orange,
+                    ),
+                    _stat(
+                      'Orders This Week',
+                      _int('orders_this_week'),
+                      Icons.view_week,
+                      Colors.deepPurple,
+                    ),
+                    _stat(
+                      'Orders This Month',
+                      _int('orders_this_month'),
+                      Icons.calendar_month,
+                      Colors.green,
+                    ),
+                  ], theme),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Revenue', theme),
+                  const SizedBox(height: 8),
+                  _buildStatGrid([
+                    _stat(
+                      'Total Revenue (LBP)',
+                      _currency('total_revenue_lbp', 'LBP'),
+                      Icons.attach_money,
+                      Colors.green,
+                    ),
+                    _stat(
+                      'Total Revenue (USD)',
+                      _currency('total_revenue_usd', 'USD'),
+                      Icons.monetization_on,
+                      Colors.lightGreen,
+                    ),
+                    _stat(
+                      'Revenue Today (LBP)',
+                      _currency('revenue_today_lbp', 'LBP'),
+                      Icons.trending_up,
+                      Colors.teal,
+                    ),
+                    _stat(
+                      'Revenue Today (USD)',
+                      _currency('revenue_today_usd', 'USD'),
+                      Icons.trending_up,
+                      Colors.blue,
+                    ),
+                  ], theme),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Deliveries', theme),
+                  const SizedBox(height: 8),
+                  _buildStatGrid([
+                    _stat(
+                      'Total Deliveries',
+                      _int('total_deliveries'),
+                      Icons.local_shipping,
+                      Colors.brown,
+                    ),
+                    _stat(
+                      'Active Deliveries',
+                      _int('active_deliveries'),
+                      Icons.delivery_dining,
+                      Colors.orange,
+                    ),
+                  ], theme),
+                  const SizedBox(height: 16),
+                  _buildLastUpdated(theme),
+                ],
+              ),
       ),
     );
   }
 
   Widget _buildHeader(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
-    final headerTextColor =
-        isDark ? theme.colorScheme.onSurface : Colors.white;
+    final headerTextColor = isDark ? theme.colorScheme.onSurface : Colors.white;
     final gradientColors = isDark
         ? <Color>[
             theme.colorScheme.surfaceVariant,
@@ -204,10 +276,11 @@ class _PlatformStatisticsScreenState extends State<PlatformStatisticsScreen> {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: (isDark
-                    ? theme.colorScheme.primaryContainer
-                    : theme.colorScheme.primary)
-                .withOpacity(0.3),
+            color:
+                (isDark
+                        ? theme.colorScheme.primaryContainer
+                        : theme.colorScheme.primary)
+                    .withOpacity(0.3),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -264,10 +337,7 @@ class _PlatformStatisticsScreenState extends State<PlatformStatisticsScreen> {
       decoration: BoxDecoration(
         color: theme.cardColor,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: item.color.withOpacity(0.3),
-          width: 1.2,
-        ),
+        border: Border.all(color: item.color.withOpacity(0.3), width: 1.2),
         boxShadow: [
           BoxShadow(
             color: theme.shadowColor.withOpacity(0.1),
@@ -331,9 +401,11 @@ class _PlatformStatisticsScreenState extends State<PlatformStatisticsScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.update,
-                size: 16,
-                color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6)),
+            Icon(
+              Icons.update,
+              size: 16,
+              color: theme.textTheme.bodyMedium?.color?.withOpacity(0.6),
+            ),
             const SizedBox(width: 8),
             Text(
               'Last updated: ${dateFormat.format(parsed)}',
@@ -354,8 +426,11 @@ class _PlatformStatisticsScreenState extends State<PlatformStatisticsScreen> {
       child: Column(
         children: [
           const SizedBox(height: 120),
-          Icon(Icons.analytics_outlined,
-              size: 64, color: theme.colorScheme.onSurface.withOpacity(0.4)),
+          Icon(
+            Icons.analytics_outlined,
+            size: 64,
+            color: theme.colorScheme.onSurface.withOpacity(0.4),
+          ),
           const SizedBox(height: 12),
           Text(
             'No statistics available',

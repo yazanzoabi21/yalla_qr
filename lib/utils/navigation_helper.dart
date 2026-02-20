@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/home/home_screen.dart';
 import '../screens/meals/meals_screen.dart';
+import '../screens/electronics/electronics_screen.dart';
 import '../screens/gym/gym_screen.dart';
 import '../screens/super_market/super_market_screen.dart';
 
@@ -44,6 +45,17 @@ class NavigationHelper {
     );
   }
 
+  /// Navigate to electronics screen
+  static void navigateToElectronics(BuildContext context) {
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ElectronicsScreen(),
+        settings: const RouteSettings(name: '/electronics'),
+      ),
+    );
+  }
+
   /// Navigate to gym screen
   static void navigateToGym(BuildContext context) {
     Navigator.pushReplacement(
@@ -71,6 +83,9 @@ class NavigationHelper {
     switch (category?.toLowerCase()) {
       case 'meals':
         navigateToMeals(context);
+        break;
+      case 'electronics':
+        navigateToElectronics(context);
         break;
       case 'gym':
         navigateToGym(context);

@@ -26,74 +26,82 @@ class _HomeItemState extends State<HomeItem> {
   @override
   Widget build(BuildContext context) {
     bool isSelected = widget.lastClicked == widget.title;
-    
+
     return Opacity(
-      opacity: widget.isHidden ? 0.4 : 1.0,
+      opacity: widget.isHidden ? 0.45 : 1.0,
       child: GestureDetector(
-        onTap: widget.isHidden ? null : () {
-          final localContext = context;
+        // Disable taps when hidden
+        onTap: widget.isHidden
+            ? null
+            : () {
+                final localContext = context;
 
-          // Inform the parent
-          widget.onTap?.call(widget.title);
+                // Inform the parent
+                widget.onTap?.call(widget.title);
 
-          if (!localContext.mounted) return;
-
-          ScaffoldMessenger.of(
-            localContext,
-          );
-        },
+                if (!localContext.mounted) return;
+              },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 300),
           curve: Curves.easeInOut,
           decoration: BoxDecoration(borderRadius: BorderRadius.circular(16)),
           child: ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _buildBackgroundImage(),
-              // Light gradient overlay for text readability
-              Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.2),
-                      Colors.black.withValues(alpha: 0.5),
-                    ],
-                  ),
-                ),
-              ),
-              // Selected state indicator
-              if (isSelected)
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _buildBackgroundImage(),
+                // Light gradient overlay for text readability
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.green.withValues(alpha: 0.2),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.2),
+                        Colors.black.withValues(alpha: 0.5),
+                      ],
+                    ),
                   ),
                 ),
-              Center(
-                child: Text(
-                  widget.title,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    shadows: [
-                      Shadow(
-                        offset: Offset(1.0, 1.0),
-                        blurRadius: 3.0,
-                        color: Colors.black54,
-                      ),
-                    ],
+                // Selected state indicator
+                if (isSelected && !widget.isHidden)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.green.withValues(alpha: 0.2),
+                    ),
                   ),
-                  textAlign: TextAlign.center,
+                // Disabled overlay for hidden items
+                if (widget.isHidden)
+                  Positioned.fill(
+                    child: Container(
+                      color: Theme.of(context).disabledColor.withOpacity(0.25),
+                    ),
+                  ),
+                Center(
+                  child: Text(
+                    widget.title,
+                    style: TextStyle(
+                      color: widget.isHidden
+                          ? Theme.of(context).disabledColor
+                          : Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      shadows: [
+                        Shadow(
+                          offset: Offset(1.0, 1.0),
+                          blurRadius: 3.0,
+                          color: Colors.black54,
+                        ),
+                      ],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-      ),
       ),
     );
   }

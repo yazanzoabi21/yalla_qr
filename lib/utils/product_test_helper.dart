@@ -72,7 +72,11 @@ class ProductTestHelper {
       debugPrint('🧪 Testing full workflow...');
       
       // Step 1: Capture image
-      final imageFile = await CameraService.showImageSourceDialog(context);
+      final imageFile = await CameraService.showImageSourceDialog(
+        context,
+        currentImageFile: null,
+        currentImageUrl: null,
+      );
       if (imageFile == null) {
         debugPrint('❌ No image selected');
         return;

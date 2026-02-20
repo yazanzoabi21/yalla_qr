@@ -8,22 +8,22 @@ import '../../models/category.dart';
 import '../../models/product.dart';
 import '../../widgets/category_products_grid.dart';
 
-class SuperMarketDetailScreen extends StatefulWidget {
+class ElectronicsDetailScreen extends StatefulWidget {
   final String parentCategoryId;
   final String childCategoryId;
 
-  const SuperMarketDetailScreen({
+  const ElectronicsDetailScreen({
     Key? key,
     required this.parentCategoryId,
     required this.childCategoryId,
   }) : super(key: key);
 
   @override
-  State<SuperMarketDetailScreen> createState() =>
-      _SuperMarketDetailScreenState();
+  State<ElectronicsDetailScreen> createState() =>
+      _ElectronicsDetailScreenState();
 }
 
-class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
+class _ElectronicsDetailScreenState extends State<ElectronicsDetailScreen> {
   bool isLoading = true;
   String? errorMessage;
   Category? childCategory;
@@ -73,6 +73,22 @@ class _SuperMarketDetailScreenState extends State<SuperMarketDetailScreen> {
         errorMessage = 'Failed to load data: ${e.toString()}';
       });
     }
+  }
+
+  void _showProductDetails(Product product) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(product.name ?? 'Product'),
+        content: Text(product.description ?? ''),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

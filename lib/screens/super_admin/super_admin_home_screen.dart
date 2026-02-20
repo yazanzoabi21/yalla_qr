@@ -3,6 +3,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'platform_statistics_screen.dart';
 import 'account_categories_control_screen.dart';
+import '../auth/welcome_screen.dart';
+import '../../services/auth_service.dart';
+import '../../services/secure_storage_service.dart';
 
 class SuperAdminHomeScreen extends StatefulWidget {
   const SuperAdminHomeScreen({super.key});
@@ -157,6 +160,60 @@ class _SuperAdminHomeScreenState extends State<SuperAdminHomeScreen> {
             ? theme.colorScheme.surfaceVariant 
             : theme.colorScheme.primary,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            color: Colors.red,
+            tooltip: 'Logout',
+            onPressed: () async {
+              final confirm = await showDialog<bool>(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Logout'),
+                  content: const Text('Are you sure you want to logout?'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      child: const Text('Logout'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (confirm != true) return;
+
+              // Show a simple loading indicator while logging out
+              showDialog<void>(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              );
+
+              try {
+                final auth = AuthService(Supabase.instance.client);
+                await auth.signOut();
+                await SecureStorageService.clearSession();
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.remove('login_context');
+                await prefs.remove('last_scanned_qr');
+              } catch (e) {
+                // ignore errors but log
+                debugPrint('Error during super-admin logout: $e');
+              } finally {
+                if (context.mounted) {
+                  Navigator.of(context, rootNavigator: true).pop(); // close loading
+                  Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+                }
+              }
+            },
+          ),
+        ],
       ),
       body: IndexedStack(
         index: _currentIndex,

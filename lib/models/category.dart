@@ -64,6 +64,8 @@ class Category {
         return 'assets/images/GYM.png';
       case 'super market':
         return 'assets/images/SuperMarket.png';
+      case 'electronics':
+        return 'assets/images/Electronics.png';
       default:
         return null;
     }

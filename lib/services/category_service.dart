@@ -362,4 +362,76 @@ class CategoryService {
       throw Exception('Failed to delete category: $e');
     }
   }
+
+  /// Ensure a category named 'Electronics' exists and link it to the
+  /// current user's ORG account. If the category already exists the method
+  /// will create the account relation if it's missing and return the category.
+  static Future<Category> createElectronicsForAccount({
+    String? parentId,
+    int? iconCode,
+    String? colorValue,
+  }) async {
+    try {
+      // Check if a category with this name already exists
+      final existing = await getCategoryByName('Electronics');
+
+      // If it exists, ensure it's linked to the account and return it
+      if (existing != null) {
+        final accountId = await _getCurrentAccountId();
+        if (accountId != null) {
+          final rel = await _supabase
+              .from('account_categories')
+              .select('id')
+              .eq('account_id', accountId)
+              .eq('category_id', existing.id)
+              .maybeSingle();
+
+          if (rel == null) {
+            await _supabase.from('account_categories').insert({
+              'account_id': accountId,
+              'category_id': existing.id,
+              'is_hidden': false,
+            });
+            debugPrint('✅ [CategoryService] Linked existing Electronics to account $accountId');
+          }
+        } else {
+          debugPrint('⚠️ [CategoryService] No account found to link existing Electronics');
+        }
+
+        return existing;
+      }
+
+      // Not found: create and link the category to the current account
+      final accountId = await _getCurrentAccountId();
+      if (accountId == null) {
+        throw Exception('No account found for current user');
+      }
+
+      final response = await _supabase
+          .from('categories')
+          .insert({
+            'name': 'Electronics',
+            'description': 'Electronics',
+            if (parentId != null) 'parent_id': parentId,
+            if (iconCode != null) 'icon_code': iconCode,
+            if (colorValue != null) 'color_value': colorValue,
+          })
+          .select()
+          .single();
+
+      final category = Category.fromJson(response as Map<String, dynamic>);
+
+      // Link it to the account
+      await _supabase.from('account_categories').insert({
+        'account_id': accountId,
+        'category_id': category.id,
+        'is_hidden': false,
+      });
+
+      debugPrint('✅ [CategoryService] Created Electronics and linked to account $accountId');
+      return category;
+    } catch (e) {
+      throw Exception('Failed to create/link Electronics category: $e');
+    }
+  }
 }

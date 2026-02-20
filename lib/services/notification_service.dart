@@ -556,6 +556,42 @@ class NotificationService {
     debugPrint('?? [NotificationService] notifyUserDeliveryTracking should be handled by backend');
   }
 
+  /// Notify organization that delivery agent accepted the assignment
+  Future<void> notifyOrgDeliveryAccepted({
+    required String orgAccountId,
+    required String orderNumber,
+    required String deliveryName,
+  }) async {
+    try {
+      debugPrint('🔔 [NotificationService] notifyOrgDeliveryAccepted for org: $orgAccountId');
+
+      final resp = await _supabase
+          .from('accounts')
+          .select('owner_id')
+          .eq('id', orgAccountId)
+          .maybeSingle();
+
+      if (resp == null) return;
+      final ownerId = resp['owner_id'] as String?;
+      if (ownerId == null || ownerId.isEmpty) return;
+
+      final title = 'Delivery Accepted: #$orderNumber';
+      final message = '$deliveryName accepted the delivery for order #$orderNumber';
+
+      await sendToUser(
+        userId: ownerId,
+        title: title,
+        message: message,
+        data: {
+          'type': 'delivery_accepted',
+          'order_number': orderNumber,
+        },
+      );
+    } catch (e) {
+      debugPrint('❌ [NotificationService] Error in notifyOrgDeliveryAccepted: $e');
+    }
+  }
+
   /// Get player ID for the current device
   String? get playerId => _playerId;
 

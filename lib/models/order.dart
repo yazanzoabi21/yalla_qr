@@ -6,8 +6,7 @@ class Order {
   final double totalAmount;
   final String currencyCode; // 'LBP' or 'USD'
   final double? totalAmountUsd; // Optional stored USD equivalent recorded at order creation
-  final String
-  status; // 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED'
+  final String status; // 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED'
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<OrderItem>? items; // Optional, populated when fetching with items
@@ -15,6 +14,12 @@ class Order {
   final String? deliveryAddress;
   final String? deliveryPhone;
   final String? notes;
+
+  // New optional delivery fields (may come from DB or be attached at runtime)
+  final String? deliveryCityId; // explicit delivery_city_id on order
+  final String? cityId; // customer's saved city_id
+  final double? deliveryFeeLbp; // delivery fee in LBP (if available)
+  final double? deliveryFeeUsd; // delivery fee in USD (if available)
 
   Order({
     required this.id,
@@ -31,6 +36,10 @@ class Order {
     this.deliveryAddress,
     this.deliveryPhone,
     this.notes,
+    this.deliveryCityId,
+    this.cityId,
+    this.deliveryFeeLbp,
+    this.deliveryFeeUsd,
   });
 
   factory Order.fromJson(Map<String, dynamic> json) {
@@ -40,7 +49,9 @@ class Order {
       customerId: json['customer_id'] as String,
       totalAmount: (json['total_amount'] as num).toDouble(),
       currencyCode: json['currency_code'] as String,
-      totalAmountUsd: json['total_amount_usd'] != null ? (json['total_amount_usd'] as num).toDouble() : null,
+      totalAmountUsd: json['total_amount_usd'] != null
+          ? (json['total_amount_usd'] as num).toDouble()
+          : null,
       status: json['status'] as String,
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
@@ -53,6 +64,12 @@ class Order {
       deliveryAddress: json['delivery_address'] as String?,
       deliveryPhone: json['delivery_phone'] as String?,
       notes: json['notes'] as String?,
+
+      // optional delivery fields if provided by the server/service
+      deliveryCityId: json['delivery_city_id'] as String?,
+      cityId: json['city_id'] as String?,
+      deliveryFeeLbp: json['delivery_fee_lbp'] != null ? (json['delivery_fee_lbp'] as num).toDouble() : null,
+      deliveryFeeUsd: json['delivery_fee_usd'] != null ? (json['delivery_fee_usd'] as num).toDouble() : null,
     );
   }
 
@@ -71,6 +88,10 @@ class Order {
       if (deliveryAddress != null) 'delivery_address': deliveryAddress,
       if (deliveryPhone != null) 'delivery_phone': deliveryPhone,
       if (notes != null) 'notes': notes,
+      if (deliveryCityId != null) 'delivery_city_id': deliveryCityId,
+      if (cityId != null) 'city_id': cityId,
+      if (deliveryFeeLbp != null) 'delivery_fee_lbp': deliveryFeeLbp,
+      if (deliveryFeeUsd != null) 'delivery_fee_usd': deliveryFeeUsd,
     };
   }
 
@@ -98,6 +119,10 @@ class Order {
     switch (status) {
       case 'PENDING':
         return 'Preparing'; // PENDING is now displayed as Preparing
+      case 'PENDING_DELIVERY_CONFIRMATION':
+        return 'Pending Confirmation';
+      case 'ACCEPTED_BY_DELIVERY':
+        return 'Accepted by Delivery';
       case 'CONFIRMED':
         return 'Ready'; // CONFIRMED is now displayed as Ready
       case 'PREPARING':

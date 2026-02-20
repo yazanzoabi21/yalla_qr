@@ -9,6 +9,7 @@ import '../../utils/event_bus.dart';
 import '../../services/order_service.dart';
 import '../../services/delivery_location_service.dart';
 import '../../services/delivery_tracking_service.dart';
+import '../../services/notification_service.dart';
 import '../../widgets/navbar.dart';
 import '../../services/currency_service.dart';
 import 'package:postgrest/postgrest.dart';
@@ -33,6 +34,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
   Map<String, OrderDeliveryAssignment?> _assignments = {};
   // Map of organization account id -> name
   Map<String, String> _orgNamesById = {};
+  // City / Zone lookup maps used to resolve delivery locations
+  final Map<String, String> _zoneNamesById = {};
+  final Map<String, String> _cityNamesById = {};
+  final Map<String, String> _cityZoneMap = {};
+  // customer owner_id -> { 'zone_id': ..., 'city_id': ... }
+  final Map<String, Map<String, String?>> _customerLocationById = {};
   double? _usdRate;
   late TabController _tabController;
   String _searchQuery = '';
@@ -58,9 +65,78 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       }
     });
 
+    // Preload zones/cities used in the UI
+    _loadZonesAndCities();
+
     // Request location permissions proactively when delivery driver logs in
     _requestLocationPermissions();
     _loadData();
+  }
+
+  Future<void> _acceptAssignment(Order order) async {
+    final orderId = order.id;
+
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
+              const SizedBox(width: 12),
+              const Text('Accept Delivery'),
+            ],
+          ),
+          content: Text('Do you want to accept delivery for order #${orderId.substring(0,8)}?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+              ),
+              child: const Text('Accept'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        final success = await _orderService.acceptDeliveryAssignment(orderId);
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Order accepted', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
+              backgroundColor: Theme.of(context).colorScheme.primary,
+            ),
+          );
+
+          // Refresh local data and start tracking if needed
+          await _loadData();
+          _autoStartLocationTracking();
+          EventBus.emit('orders:updated');
+        } else if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Failed to accept order'),
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error accepting assignment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to accept order: $e'),
+            backgroundColor: Theme.of(context).colorScheme.error,
+          ),
+        );
+      }
+    }
   }
 
   /// Request location permissions upfront when delivery driver logs in
@@ -134,6 +210,39 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     super.dispose();
   }
 
+  /// Load zone and city name maps used by delivery UI
+  Future<void> _loadZonesAndCities() async {
+    try {
+      final cResp = await Supabase.instance.client
+          .from('cities')
+          .select('id, name_en, zone_id');
+      if (cResp != null) {
+        final list = List<Map<String, dynamic>>.from(cResp as List);
+        for (var c in list) {
+          final id = c['id'] as String?;
+          final name = c['name_en'] as String?;
+          final zoneId = c['zone_id'] as String?;
+          if (id != null && name != null) _cityNamesById[id] = name;
+          if (id != null && zoneId != null) _cityZoneMap[id] = zoneId;
+        }
+      }
+
+      final zResp = await Supabase.instance.client
+          .from('zones')
+          .select('id, name_en');
+      if (zResp != null) {
+        final zlist = List<Map<String, dynamic>>.from(zResp as List);
+        for (var z in zlist) {
+          final id = z['id'] as String?;
+          final name = z['name_en'] as String?;
+          if (id != null && name != null) _zoneNamesById[id] = name;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading zones/cities: $e');
+    }
+  }
+
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
 
@@ -159,6 +268,35 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
             _deliveryAccountId!,
             includeCompleted: true,
           );
+
+          // Fetch customer locations (used as a fallback to resolve city/zone names)
+          final customerIds = orders
+              .map((o) => o.customerId)
+              .whereType<String>()
+              .toSet()
+              .toList();
+          if (customerIds.isNotEmpty) {
+            try {
+              final accLocs = await Supabase.instance.client
+                  .from('accounts')
+                  .select('owner_id, zone_id, city_id')
+                  .in_('owner_id', customerIds);
+
+              if (accLocs != null) {
+                for (var acc in (accLocs as List)) {
+                  final owner = acc['owner_id'] as String?;
+                  if (owner != null) {
+                    _customerLocationById[owner] = {
+                      'zone_id': acc['zone_id'] as String?,
+                      'city_id': acc['city_id'] as String?,
+                    };
+                  }
+                }
+              }
+            } catch (e) {
+              debugPrint('Error loading customer locations: $e');
+            }
+          }
 
           // Load assignments for those orders so we can show/edit notes
           final orderIds = orders.map((o) => o.id).toList();
@@ -371,6 +509,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     switch (status) {
       case 'PENDING':
         return Colors.yellow[700]!;
+      case 'PENDING_DELIVERY_CONFIRMATION':
+        return Colors.orange;
       case 'CONFIRMED':
         return Colors.blue;
       case 'PREPARING':
@@ -378,6 +518,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       case 'READY':
         return Colors.teal;
       case 'DELIVERED':
+        return Colors.green.shade600;
+      case 'ACCEPTED_BY_DELIVERY':
         return Colors.green.shade600;
       case 'CANCELLED':
         return Colors.red;
@@ -956,41 +1098,94 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                 ],
                               ),
                               const SizedBox(height: 6),
-                              Text(
-                                order.formattedTotalAmount,
-                                style: const TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w900,
-                                  color: Colors.white,
-                                ),
-                              ),
-                              if (order.currencyCode == 'LBP')
-                                Builder(
-                                  builder: (_) {
-                                    double? usd;
-                                    // Prefer stored USD value if available (consistent with admin)
-                                    if (order.totalAmountUsd != null) {
-                                      usd = order.totalAmountUsd;
-                                    } else if (_usdRate != null) {
-                                      usd = order.totalAmount / _usdRate!;
-                                    }
-                                    if (usd == null)
-                                      return const SizedBox.shrink();
-                                    return Padding(
-                                      padding: const EdgeInsets.only(top: 4),
-                                      child: Text(
-                                        '\u2248 \$${usd.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: Colors.white.withValues(
-                                            alpha: 0.8,
-                                          ),
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                              // Show subtotal, delivery fee (if available) and grand total
+                              Builder(builder: (_) {
+                                final subtotal = order.totalAmount;
+                                final currency = order.currencyCode;
+                                final deliveryLbp = order.deliveryFeeLbp ?? 0.0;
+                                final deliveryUsd = order.deliveryFeeUsd ?? 0.0;
+                                final currentDeliveryFee = currency == 'LBP' ? deliveryLbp : deliveryUsd;
+                                final hasAnyDeliveryFee = (deliveryLbp > 0) || (deliveryUsd > 0);
+                                final grandTotalValue = subtotal + currentDeliveryFee;
+
+                                String formatPrice(double amt, String? curr) {
+                                  if (curr == 'LBP') return '${_formatNumber(amt)} LBP';
+                                  return '\$${amt.toStringAsFixed(2)}';
+                                }
+
+                                return Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Subtotal: ${formatPrice(subtotal, currency)}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.white.withValues(alpha: 0.9),
+                                        fontWeight: FontWeight.w500,
                                       ),
-                                    );
-                                  },
-                                ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    if (!hasAnyDeliveryFee && (order.deliveryCityId == null && order.cityId == null))
+                                      Text(
+                                        'Delivery city unknown — fee not applied',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
+                                      )
+                                    else if (!hasAnyDeliveryFee && (order.deliveryCityId != null || order.cityId != null))
+                                      Text(
+                                        'Delivery not configured',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(color: Colors.yellow.shade200, fontSize: 12),
+                                      )
+                                    else
+                                      Text(
+                                        'Delivery Fee: ${formatPrice(currentDeliveryFee, currency)}',
+                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
+                                      ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      // Grand total = order total (stored subtotal) + delivery fee
+                                      currency == 'LBP'
+                                          ? '${_formatNumber(grandTotalValue)} LBP'
+                                          : '\$${grandTotalValue.toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 20,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    if (currency == 'LBP')
+                                      Builder(builder: (_) {
+                                        double? usdSub = order.totalAmountUsd ?? (_usdRate != null ? (order.totalAmount / _usdRate!) : null);
+                                        double? usdDel = deliveryUsd > 0 ? deliveryUsd : (_usdRate != null ? (deliveryLbp / _usdRate!) : null);
+                                        final grandUsd = (usdSub ?? 0) + (usdDel ?? 0);
+                                        return Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const SizedBox(height: 4),
+                                            if (_usdRate != null)
+                                              Text(
+                                                '\u2248 \$${grandUsd.toStringAsFixed(2)}',
+                                                style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w600),
+                                              )
+                                            else
+                                              Text(
+                                                '\u2248 \$${(order.totalAmount / 89500).toStringAsFixed(2)}',
+                                                style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w600),
+                                              ),
+                                            if (usdSub != null && usdDel != null)
+                                              Text(
+                                                '(Sub \$${usdSub.toStringAsFixed(2)} + Del \$${usdDel.toStringAsFixed(2)})',
+                                                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.6)),
+                                              ),
+                                          ],
+                                        );
+                                      }),
+                                  ],
+                                );
+                              }),
                             ],
                           ),
                         ),
@@ -1022,7 +1217,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                   ),
                               const SizedBox(width: 8),
                               Text(
-                                'Customer Delivery Info',
+                                'Customer Order Information',
                                 style: TextStyle(
                                   fontWeight: FontWeight.w700,
                                   fontSize: 14,
@@ -1075,30 +1270,119 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                 ],
                               ),
                             ),
-                          if (order.deliveryAddress != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.location_on,
-                                    size: 16,
-                                    color: Colors.grey.shade600,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      order.deliveryAddress!,
-                                      style: TextStyle(
-                                        color: Colors.grey.shade700,
-                                        fontSize: 14,
-                                      ),
+
+                            // Zone / City / Address (combined on one line)
+                              Builder(
+                                builder: (_) {
+                                  String? zoneName;
+                                  String? cityName;
+
+                                  // Prefer explicit `deliveryCityId` from the typed `Order` model
+                                  if (order.deliveryCityId != null) {
+                                    final cityId = order.deliveryCityId;
+                                    if (cityId != null) {
+                                      // Look up city name and its zone
+                                      cityName = _cityNamesById[cityId];
+                                      if (cityName != null) {
+                                        final zoneId = _cityZoneMap[cityId];
+                                        if (zoneId != null) {
+                                          zoneName = _zoneNamesById[zoneId];
+                                        }
+                                      }
+                                    }
+                                  }
+
+                                  // Fallback to customer's saved `cityId` on the Order model
+                                  if (cityName == null && order.cityId != null) {
+                                    final c = order.cityId;
+                                    cityName = c != null ? (_cityNamesById[c] ?? c) : null;
+                                    final zId = c != null ? _cityZoneMap[c] : null;
+                                    if (zId != null) zoneName = _zoneNamesById[zId];
+                                  }
+
+                                  // Fallback to account-stored customer location if still unresolved
+                                  if (zoneName == null && cityName == null) {
+                                    final custLoc = _customerLocationById[order.customerId];
+                                    if (custLoc != null) {
+                                      final zId = custLoc['zone_id'] as String?;
+                                      final cId = custLoc['city_id'] as String?;
+                                      if (zId != null) zoneName = _zoneNamesById[zId];
+                                      if (cId != null) cityName = _cityNamesById[cId];
+                                    }
+                                  }
+
+                                  // Note: `Order` model does not expose `zone_name`/`city_name` fields;
+                                  // leave `zoneName`/`cityName` null if not resolved above.
+
+                                  final parts = <String>[];
+                                  if (zoneName != null && zoneName.isNotEmpty) {
+                                    parts.add(zoneName);
+                                  }
+                                  if (cityName != null && cityName.isNotEmpty) {
+                                    parts.add(cityName);
+                                  }
+                                  if (order.deliveryAddress != null &&
+                                      order.deliveryAddress!.isNotEmpty) {
+                                    parts.add(order.deliveryAddress!);
+                                  }
+
+                                  if (parts.isEmpty)
+                                    return const SizedBox.shrink();
+
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 8),
+                                    child: Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Icon(
+                                          Icons.location_on,
+                                          size: 16,
+                                          color: Theme.of(
+                                            context,
+                                          ).disabledColor,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Expanded(
+                                          child: Text(
+                                            parts.join(', '),
+                                            style: TextStyle(
+                                              color: Theme.of(
+                                                context,
+                                              ).textTheme.bodySmall?.color,
+                                              fontSize: 14,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                                  );
+                                },
+                              )
+                          // if (order.deliveryAddress != null)
+                          //   Padding(
+                          //     padding: const EdgeInsets.only(top: 8),
+                          //     child: Row(
+                          //       crossAxisAlignment: CrossAxisAlignment.start,
+                          //       children: [
+                          //         Icon(
+                          //           Icons.location_on,
+                          //           size: 16,
+                          //           color: Colors.grey.shade600,
+                          //         ),
+                          //         const SizedBox(width: 8),
+                          //         Expanded(
+                          //           child: Text(
+                          //             order.deliveryAddress!,
+                          //             style: TextStyle(
+                          //               color: Colors.grey.shade700,
+                          //               fontSize: 14,
+                          //             ),
+                          //           ),
+                          //         ),
+                          //       ],
+                          //     ),
+                          //   ),
                         ],
                       ),
                     ),
@@ -1180,51 +1464,79 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
 
                   if (isPending) ...[
                     const SizedBox(height: 16),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: OutlinedButton.icon(
-                            onPressed: () => _showAddNoteDialog(order),
-                            icon: Icon(
-                              _assignments[order.id]?.deliveryNotes == null
-                                  ? Icons.note_add
-                                  : Icons.edit,
-                              size: 18,
-                              color: Theme.of(context).colorScheme.secondary,
-                            ),
-                            label: Text(
-                              _assignments[order.id]?.deliveryNotes == null
-                                  ? 'Add Note'
-                                  : 'Edit Note',
-                            ),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: Theme.of(context).colorScheme.secondary,
-                              side: BorderSide(color: Theme.of(context).colorScheme.secondary.withOpacity(0.28)),
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                    // Evaluate assignment in a Builder to allow local variable declaration
+                    Builder(
+                      builder: (_) {
+                        final assign = _assignments[order.id];
+                        if (assign != null && assign.userId == null) {
+                          return Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  onPressed: () => _acceptAssignment(order),
+                                  icon: const Icon(Icons.check),
+                                  label: const Text('Accept Delivery'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.green,
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showAddNoteDialog(order),
+                                icon: Icon(
+                                  _assignments[order.id]?.deliveryNotes == null
+                                      ? Icons.note_add
+                                      : Icons.edit,
+                                  size: 18,
+                                  color: Theme.of(context).colorScheme.secondary,
+                                ),
+                                label: Text(
+                                  _assignments[order.id]?.deliveryNotes == null
+                                      ? 'Add Note'
+                                      : 'Edit Note',
+                                ),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: Theme.of(context).colorScheme.secondary,
+                                  side: BorderSide(color: Theme.of(context).colorScheme.secondary.withOpacity(0.28)),
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 2,
-                          child: ElevatedButton.icon(
-                            onPressed: () => _markAsDelivered(order),
-                            icon: const Icon(Icons.check_circle),
-                            label: const Text('Mark as Delivered'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: completedColorLocal,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: () => _markAsDelivered(order),
+                                icon: const Icon(Icons.check_circle),
+                                label: const Text('Mark as Delivered'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: completedColorLocal,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                      ],
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ],
@@ -1894,6 +2206,22 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           await _loadData();
           if (mounted) {
             _tabController.animateTo(1);
+          }
+          // Notify the customer (user) that their order was delivered
+          try {
+            final notifier = NotificationService();
+            await notifier.sendToUser(
+              userId: order.customerId,
+              title: 'Order Delivered: #${order.id.substring(0,8)}',
+              message: 'Your order #${order.id.substring(0,8)} has been delivered.',
+              data: {
+                'type': 'order_delivered',
+                'order_id': order.id,
+              },
+            );
+            debugPrint('✅ [DeliveryHome] Notified customer ${order.customerId} about delivery');
+          } catch (e) {
+            debugPrint('⚠️ [DeliveryHome] Failed to notify customer: $e');
           }
         }
       } else if (mounted) {

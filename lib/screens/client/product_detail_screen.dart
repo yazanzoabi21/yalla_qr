@@ -35,67 +35,69 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         builder: (context) {
           final innerTheme = Theme.of(context);
           return Scaffold(
-          backgroundColor: innerTheme.scaffoldBackgroundColor,
-          body: Stack(
-            children: [
-              Center(
-                child: InteractiveViewer(
-                  minScale: 0.5,
-                  maxScale: 5.0,
-                  child: GestureDetector(
-                    onDoubleTap: () {
-                      // Double tap handled by InteractiveViewer
-                    },
-                    child: Image.network(
-                      widget.product.imageUrl!,
-                      fit: BoxFit.contain,
-                      errorBuilder: (context, error, stackTrace) =>
-                          Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              size: 100,
-                              color: innerTheme.colorScheme.onSurface.withOpacity(0.6),
+            backgroundColor: innerTheme.scaffoldBackgroundColor,
+            body: Stack(
+              children: [
+                Center(
+                  child: InteractiveViewer(
+                    minScale: 0.5,
+                    maxScale: 5.0,
+                    child: GestureDetector(
+                      onDoubleTap: () {
+                        // Double tap handled by InteractiveViewer
+                      },
+                      child: Image.network(
+                        widget.product.imageUrl!,
+                        fit: BoxFit.contain,
+                        errorBuilder: (context, error, stackTrace) => Center(
+                          child: Icon(
+                            Icons.broken_image,
+                            size: 100,
+                            color: innerTheme.colorScheme.onSurface.withOpacity(
+                              0.6,
                             ),
                           ),
-                    ),
-                  ),
-                ),
-              ),
-              SafeArea(
-                child: Positioned(
-                  top: 16,
-                  right: 16,
-                  child: Material(
-                    color: Colors.transparent,
-                    child: IconButton(
-                      icon: Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: innerTheme.cardColor,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: innerTheme.shadowColor.withOpacity(0.3),
-                              blurRadius: 8,
-                              spreadRadius: 2,
-                            ),
-                          ],
-                        ),
-                        child: Icon(
-                          Icons.close,
-                          color: innerTheme.colorScheme.onSurface,
-                          size: 24,
                         ),
                       ),
-                      onPressed: () => Navigator.pop(context),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        );
-  }),
+                SafeArea(
+                  child: Positioned(
+                    top: 16,
+                    right: 16,
+                    child: Material(
+                      color: Colors.transparent,
+                      child: IconButton(
+                        icon: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: innerTheme.cardColor,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: innerTheme.shadowColor.withOpacity(0.3),
+                                blurRadius: 8,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.close,
+                            color: innerTheme.colorScheme.onSurface,
+                            size: 24,
+                          ),
+                        ),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -239,7 +241,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                   // Product Details
                   SliverToBoxAdapter(
-                          child: Container(
+                    child: Container(
                       decoration: BoxDecoration(
                         color: theme.cardColor,
                         borderRadius: const BorderRadius.only(
@@ -275,11 +277,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
-                                      color: widget.product.isAvailable
-                                          ? Colors.green.shade600.withOpacity(0.15)
-                                          : Colors.red.shade600.withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(12),
-                                    ),
+                                    color: widget.product.isAvailable
+                                        ? Colors.green.shade600.withOpacity(
+                                            0.15,
+                                          )
+                                        : Colors.red.shade600.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
@@ -289,8 +293,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                             : Icons.cancel,
                                         size: 16,
                                         color: widget.product.isAvailable
-                                          ? Colors.green.shade600
-                                          : Colors.red.shade600,
+                                            ? Colors.green.shade600
+                                            : Colors.red.shade600,
                                       ),
                                       const SizedBox(width: 6),
                                       Text(
@@ -298,7 +302,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                         style: TextStyle(
                                           fontSize: 12,
                                           fontWeight: FontWeight.w700,
-                                            color: widget.product.isAvailable
+                                          color: widget.product.isAvailable
                                               ? Colors.green.shade600
                                               : Colors.red.shade600,
                                         ),
@@ -318,10 +322,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 Text(
                                   'Price',
                                   style: TextStyle(
-                                      fontSize: 12,
-                                      color: theme.textTheme.bodyMedium?.color,
-                                      fontWeight: FontWeight.w500,
-                                    ),
+                                    fontSize: 12,
+                                    color: theme.textTheme.bodyMedium?.color,
+                                    fontWeight: FontWeight.w500,
+                                  ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
@@ -597,7 +601,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 Icon(Icons.shopping_cart_outlined, size: 20),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Add to Cart',
+                                  'Add here',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,

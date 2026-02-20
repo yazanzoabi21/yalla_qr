@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import '../../widgets/theme_selector.dart';
 import 'notification.dart';
+import 'delivery_settings_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   final String? categoryName;
@@ -580,8 +581,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ],
                     ),
-                  if (_categoryInfo != null) 
-                  const SizedBox(height: 20),
+                  if (_categoryInfo != null) const SizedBox(height: 20),
                   // Admin Profile Section
                   Card(
                     elevation: 4,
@@ -917,6 +917,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           MaterialPageRoute(
                             builder: (context) =>
                                 const NotificationSettingsScreen(),
+                          ),
+                        );
+                      },
+                    ),
+                    _buildSettingsTile(
+                      'Delivery Settings',
+                      Icons.local_shipping,
+                      () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => DeliverySettingsScreen(
+                              accountId: _accountProfile?['id'],
+                            ),
                           ),
                         );
                       },

@@ -78,6 +78,8 @@ class AuthService {
     String? categoryName, // Add category name parameter
     String? role, // Optional role (e.g. 'ADMIN') - should be used carefully
     String? logoUrl, // Profile image URL
+    String? zoneId,
+    String? cityId,
   }) async {
     debugPrint('🔐 [AuthService.signUpUser] Starting registration');
     debugPrint('   📧 Email: $email');
@@ -143,6 +145,8 @@ class AuthService {
       'location_lat': coords['lat'],
       'location_lng': coords['lng'],
       'logo_url': logoUrl,
+      'zone_id': zoneId,
+      'city_id': cityId,
       'created_at': DateTime.now().toIso8601String(),
       'updated_at': DateTime.now().toIso8601String(),
       'role': role != null && role.trim().isNotEmpty ? role.trim().toUpperCase() : 'USER', // Default to USER if not specified
