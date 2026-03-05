@@ -52,7 +52,8 @@ notification_config.json
 
 # Keys and credentials
 # Android
-android/app/google-services.json
+# google-services.json can sit at android/app/ or android/app/src/ depending on setup
+**/google-services.json
 android/key.properties
 android/*.keystore
 android/*.jks
@@ -86,3 +87,24 @@ fastlane/metadata/
 # IDE / local settings
 .gradle/
 .vscode/settings.json
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Supabase local dev
+supabase/.env
+supabase/config.toml.local
+
+# Dart / Flutter generated
+lib/generated/
+*.g.dart
+*.freezed.dart
+
+# Coverage
+coverage/

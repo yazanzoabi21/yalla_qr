@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/organization_visitor.dart';
+import 'enrollment_service.dart';
 
 class VisitorTrackingService {
   static final SupabaseClient _supabase = Supabase.instance.client;
@@ -73,6 +74,13 @@ class VisitorTrackingService {
             .eq('org_id', orgId);
         
         debugPrint('✅ Visitor record updated');
+        // Best-effort: enroll the scanning user's account into the organization they scanned
+        try {
+          await EnrollmentService.instance.enrollAccount(orgId);
+          debugPrint('✅ Auto-enrolled account into org $orgId after scan');
+        } catch (e) {
+          debugPrint('⚠️ Auto-enroll after scan failed (ignored): $e');
+        }
       } else {
         // Create new visitor record (using account ID, not auth user ID)
         debugPrint('➕ Creating new visitor record');
@@ -83,6 +91,13 @@ class VisitorTrackingService {
         });
         
         debugPrint('✅ New visitor record created');
+        // Best-effort: enroll the scanning user's account into the organization they scanned
+        try {
+          await EnrollmentService.instance.enrollAccount(orgId);
+          debugPrint('✅ Auto-enrolled account into org $orgId after scan');
+        } catch (e) {
+          debugPrint('⚠️ Auto-enroll after scan failed (ignored): $e');
+        }
       }
     } catch (e) {
       debugPrint('❌ Error tracking visitor: $e');

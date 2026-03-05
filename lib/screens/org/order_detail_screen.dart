@@ -33,7 +33,6 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   double? _usdRate;
   String? _deliveryCityName; // human-readable city name (for display)
 
-
   @override
   void initState() {
     super.initState();
@@ -420,26 +419,38 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              if (_deliveryCityName == null && (_deliveryFeeLbp == 0 && _deliveryFeeUsd == 0))
+                              if (_deliveryCityName == null &&
+                                  (_deliveryFeeLbp == 0 &&
+                                      _deliveryFeeUsd == 0))
                                 Padding(
                                   padding: const EdgeInsets.only(top: 2),
                                   child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Icon(Icons.location_off, size: 14, color: Colors.grey.shade500),
+                                      Icon(
+                                        Icons.location_off,
+                                        size: 14,
+                                        color: Colors.grey.shade500,
+                                      ),
                                       const SizedBox(width: 6),
                                       Expanded(
                                         child: Text(
                                           'Delivery city unknown — fee not applied',
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(color: Colors.grey.shade500, fontSize: 13),
+                                          style: TextStyle(
+                                            color: Colors.grey.shade500,
+                                            fontSize: 13,
+                                          ),
                                         ),
                                       ),
                                     ],
                                   ),
                                 )
-                              else if ((_deliveryFeeLbp == 0 && _deliveryFeeUsd == 0) && _deliveryCityName != null)
+                              else if ((_deliveryFeeLbp == 0 &&
+                                      _deliveryFeeUsd == 0) &&
+                                  _deliveryCityName != null)
                                 Row(
                                   children: [
                                     Expanded(
@@ -447,15 +458,28 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                                         'Delivery not configured for $_deliveryCityName',
                                         maxLines: 2,
                                         overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: Colors.orange.shade300, fontSize: 13),
+                                        style: TextStyle(
+                                          color: Colors.orange.shade300,
+                                          fontSize: 13,
+                                        ),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     TextButton(
                                       onPressed: () {
-                                        Navigator.pushNamed(context, '/settings/delivery', arguments: {'accountId': _order['account_id'], 'cityId': null});
+                                        Navigator.pushNamed(
+                                          context,
+                                          '/settings/delivery',
+                                          arguments: {
+                                            'accountId': _order['account_id'],
+                                            'cityId': null,
+                                          },
+                                        );
                                       },
-                                      child: const Text('Add price', style: TextStyle(fontSize: 12)),
+                                      child: const Text(
+                                        'Add price',
+                                        style: TextStyle(fontSize: 12),
+                                      ),
                                     ),
                                   ],
                                 )
@@ -484,37 +508,50 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
                               // USD approximation + explicit breakdown in parentheses for LBP orders
                               if (currencyCode == 'LBP') ...[
                                 const SizedBox(height: 4),
-                                Builder(builder: (_) {
-                                  final usdSub = _order['total_amount_usd'] != null
-                                      ? (_order['total_amount_usd'] as num).toDouble()
-                                      : (_usdRate != null ? (totalAmount / _usdRate!) : null);
-                                  final usdDel = _deliveryFeeUsd > 0 ? _deliveryFeeUsd : (_usdRate != null ? (_deliveryFeeLbp / _usdRate!) : null);
-                                  final grandUsd = (usdSub != null ? usdSub : 0) + (usdDel != null ? usdDel : 0);
+                                Builder(
+                                  builder: (_) {
+                                    final usdSub =
+                                        _order['total_amount_usd'] != null
+                                        ? (_order['total_amount_usd'] as num)
+                                              .toDouble()
+                                        : (_usdRate != null
+                                              ? (totalAmount / _usdRate!)
+                                              : null);
+                                    final usdDel = _deliveryFeeUsd > 0
+                                        ? _deliveryFeeUsd
+                                        : (_usdRate != null
+                                              ? (_deliveryFeeLbp / _usdRate!)
+                                              : null);
+                                    final grandUsd =
+                                        (usdSub != null ? usdSub : 0) +
+                                        (usdDel != null ? usdDel : 0);
 
-                                  return Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _usdRate != null
-                                            ? '\u2248 \$${grandUsd.toStringAsFixed(2)}'
-                                            : '\u2248 \$${(totalAmount.toDouble() / 89500).toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w600,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                      if (usdSub != null && usdDel != null)
+                                    return Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
                                         Text(
-                                          '(Sub \$${usdSub.toStringAsFixed(2)} + Del \$${usdDel.toStringAsFixed(2)})',
+                                          _usdRate != null
+                                              ? '\u2248 \$${grandUsd.toStringAsFixed(2)}'
+                                              : '\u2248 \$${(totalAmount.toDouble() / 89500).toStringAsFixed(2)}',
                                           style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey.shade500,
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.grey.shade600,
                                           ),
                                         ),
-                                    ],
-                                  );
-                                }),
+                                        if (usdSub != null && usdDel != null)
+                                          Text(
+                                            '(Sub \$${usdSub.toStringAsFixed(2)} + Del \$${usdDel.toStringAsFixed(2)})',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey.shade500,
+                                            ),
+                                          ),
+                                      ],
+                                    );
+                                  },
+                                ),
                               ],
                             ],
                           ),

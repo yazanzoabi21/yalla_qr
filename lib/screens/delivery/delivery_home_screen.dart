@@ -80,7 +80,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (context) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(Icons.check, color: Theme.of(context).colorScheme.primary),
@@ -88,14 +90,19 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
               const Text('Accept Delivery'),
             ],
           ),
-          content: Text('Do you want to accept delivery for order #${orderId.substring(0,8)}?'),
+          content: Text(
+            'Do you want to accept delivery for order #${orderId.substring(0, 8)}?',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('No'),
+            ),
             ElevatedButton(
               onPressed: () => Navigator.pop(context, true),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  foregroundColor: Colors.white,
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
               ),
               child: const Text('Accept'),
             ),
@@ -108,7 +115,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
         if (success && mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Order accepted', style: TextStyle(color: Theme.of(context).colorScheme.onPrimary)),
+              content: Text(
+                'Order accepted',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
               backgroundColor: Theme.of(context).colorScheme.primary,
             ),
           );
@@ -423,7 +435,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           SnackBar(
             behavior: SnackBarBehavior.floating,
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
             content: Row(
               children: [
                 Icon(Icons.location_on, color: snackText, size: 20),
@@ -541,7 +555,8 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           final now = DateTime.now();
-          if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+          if (_lastBackPress == null ||
+              now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
             // First press or timeout - show snackbar
             _lastBackPress = now;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -551,7 +566,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
                 margin: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             );
           } else {
@@ -563,275 +580,294 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: Navbar(
-        showMenuButton: true,
-        searchHint: 'Search orders, customers, addresses...',
-        onSearchChanged: (query) {
-          setState(() {
-            _searchQuery = query;
-          });
-        },
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SafeArea(
-              child: Column(
-                children: [
-                  // Welcome Header
-                  Container(
-                    margin: const EdgeInsets.all(16),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          Colors.orange.shade400,
-                          Colors.orange.shade600,
+          showMenuButton: true,
+          showExploreButton: false,
+          searchHint: 'Search orders, customers, addresses...',
+          onSearchChanged: (query) {
+            setState(() {
+              _searchQuery = query;
+            });
+          },
+        ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : SafeArea(
+                child: Column(
+                  children: [
+                    // Welcome Header
+                    Container(
+                      margin: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Colors.orange.shade400,
+                            Colors.orange.shade600,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.orange.withValues(alpha: 0.3),
+                            blurRadius: 15,
+                            offset: const Offset(0, 8),
+                          ),
                         ],
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
                       ),
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.orange.withValues(alpha: 0.3),
-                          blurRadius: 15,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(
+                              Icons.delivery_dining,
+                              color: Colors.white,
+                              size: 32,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Hello, ${_userName ?? 'Driver'}!',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${_pendingOrders.length} pending ${_pendingOrders.length == 1 ? 'delivery' : 'deliveries'}',
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.9),
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // IconButton(
+                          //   onPressed: _loadData,
+                          //   icon: const Icon(Icons.refresh, color: Colors.white),
+                          // ),
+                        ],
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.delivery_dining,
-                            color: Colors.white,
-                            size: 32,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Hello, ${_userName ?? 'Driver'}!',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
+
+                    // Tab Bar
+                    Container(
+                      margin: const EdgeInsets.symmetric(horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: theme.cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: AnimatedBuilder(
+                        animation: _tabController.animation ?? _tabController,
+                        builder: (context, _) {
+                          return TabBar(
+                            controller: _tabController,
+                            indicator: BoxDecoration(
+                              color: _tabController.index == 0
+                                  ? pendingColor
+                                  : completedColor,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            labelColor: Colors.white,
+                            unselectedLabelColor: theme
+                                .textTheme
+                                .bodyMedium
+                                ?.color
+                                ?.withOpacity(0.8),
+                            indicatorSize: TabBarIndicatorSize.tab,
+                            dividerColor: Colors.transparent,
+                            tabs: [
+                              Tab(
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.pending_actions,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text('Pending'),
+                                      ],
+                                    ),
+                                    if (_pendingOrders.isNotEmpty)
+                                      Positioned(
+                                        top: -2,
+                                        right: -10,
+                                        child: Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: pendingColor,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.12,
+                                                ),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '${_pendingOrders.length}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${_pendingOrders.length} pending ${_pendingOrders.length == 1 ? 'delivery' : 'deliveries'}',
-                                style: TextStyle(
-                                  color: Colors.white.withValues(alpha: 0.9),
-                                  fontSize: 14,
+                              Tab(
+                                child: Stack(
+                                  clipBehavior: Clip.none,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(
+                                          Icons.check_circle,
+                                          size: 18,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Text('Completed'),
+                                      ],
+                                    ),
+                                    if (_completedOrders.isNotEmpty)
+                                      Positioned(
+                                        top: -4,
+                                        right: -10,
+                                        child: Container(
+                                          width: 24,
+                                          height: 24,
+                                          decoration: BoxDecoration(
+                                            color: completedColor,
+                                            shape: BoxShape.circle,
+                                            border: Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.12,
+                                                ),
+                                                blurRadius: 4,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                          child: Center(
+                                            child: Text(
+                                              '${_completedOrders.length}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                  ],
                                 ),
                               ),
                             ],
-                          ),
-                        ),
-                        // IconButton(
-                        //   onPressed: _loadData,
-                        //   icon: const Icon(Icons.refresh, color: Colors.white),
-                        // ),
-                      ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
 
-                  // Tab Bar
-                  Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 16),
-                    decoration: BoxDecoration(
-                      color: theme.cardColor,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: AnimatedBuilder(
-                      animation: _tabController.animation ?? _tabController,
-                      builder: (context, _) {
-                        return TabBar(
-                          controller: _tabController,
-                          indicator: BoxDecoration(
-                            color: _tabController.index == 0 ? pendingColor : completedColor,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          labelColor: Colors.white,
-                          unselectedLabelColor: theme.textTheme.bodyMedium?.color?.withOpacity(0.8),
-                          indicatorSize: TabBarIndicatorSize.tab,
-                          dividerColor: Colors.transparent,
-                          tabs: [
-                            Tab(
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.pending_actions, size: 18),
-                                      const SizedBox(width: 8),
-                                      Text('Pending'),
-                                    ],
-                                  ),
-                                  if (_pendingOrders.isNotEmpty)
-                                    Positioned(
-                                      top: -2,
-                                      right: -10,
-                                      child: Container(
-                                        width: 24,
-                                        height: 24,
-                                        decoration: BoxDecoration(
-                                          color: pendingColor,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.12),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            '${_pendingOrders.length}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                    const SizedBox(height: 16),
+
+                    // Tab Content
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          // Pending Orders
+                          _filteredPendingOrders.isEmpty
+                              ? _buildEmptyState(
+                                  _searchQuery.isNotEmpty
+                                      ? 'No deliveries match your search'
+                                      : 'No pending deliveries',
+                                  _searchQuery.isNotEmpty
+                                      ? Icons.search_off
+                                      : Icons.local_shipping_outlined,
+                                )
+                              : RefreshIndicator(
+                                  onRefresh: _loadData,
+                                  child: ListView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
                                     ),
-                                ],
-                              ),
-                            ),
-                            Tab(
-                              child: Stack(
-                                clipBehavior: Clip.none,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      const Icon(Icons.check_circle, size: 18),
-                                      const SizedBox(width: 8),
-                                      Text('Completed'),
-                                    ],
+                                    itemCount: _filteredPendingOrders.length,
+                                    itemBuilder: (context, index) =>
+                                        _buildOrderCard(
+                                          _filteredPendingOrders[index],
+                                          isPending: true,
+                                        ),
                                   ),
-                                  if (_completedOrders.isNotEmpty)
-                                    Positioned(
-                                      top: -4,
-                                      right: -10,
-                                      child: Container(
-                                        width: 24,
-                                        height: 24,
-                                        decoration: BoxDecoration(
-                                          color: completedColor,
-                                          shape: BoxShape.circle,
-                                          border: Border.all(
-                                            color: Colors.white,
-                                            width: 2,
-                                          ),
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.12),
-                                              blurRadius: 4,
-                                              offset: const Offset(0, 2),
-                                            ),
-                                          ],
-                                        ),
-                                        child: Center(
-                                          child: Text(
-                                            '${_completedOrders.length}',
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
+                                ),
+
+                          // Completed Orders
+                          _filteredCompletedOrders.isEmpty
+                              ? _buildEmptyState(
+                                  _searchQuery.isNotEmpty
+                                      ? 'No deliveries match your search'
+                                      : 'No completed deliveries',
+                                  _searchQuery.isNotEmpty
+                                      ? Icons.search_off
+                                      : Icons.history,
+                                )
+                              : RefreshIndicator(
+                                  onRefresh: _loadData,
+                                  child: ListView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
                                     ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Tab Content
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        // Pending Orders
-                        _filteredPendingOrders.isEmpty
-                            ? _buildEmptyState(
-                                _searchQuery.isNotEmpty
-                                    ? 'No deliveries match your search'
-                                    : 'No pending deliveries',
-                                _searchQuery.isNotEmpty
-                                    ? Icons.search_off
-                                    : Icons.local_shipping_outlined,
-                              )
-                            : RefreshIndicator(
-                                onRefresh: _loadData,
-                                child: ListView.builder(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
+                                    itemCount: _filteredCompletedOrders.length,
+                                    itemBuilder: (context, index) =>
+                                        _buildOrderCard(
+                                          _filteredCompletedOrders[index],
+                                          isPending: false,
+                                        ),
                                   ),
-                                  itemCount: _filteredPendingOrders.length,
-                                  itemBuilder: (context, index) =>
-                                      _buildOrderCard(
-                                        _filteredPendingOrders[index],
-                                        isPending: true,
-                                      ),
                                 ),
-                              ),
-
-                        // Completed Orders
-                        _filteredCompletedOrders.isEmpty
-                            ? _buildEmptyState(
-                                _searchQuery.isNotEmpty
-                                    ? 'No deliveries match your search'
-                                    : 'No completed deliveries',
-                                _searchQuery.isNotEmpty
-                                    ? Icons.search_off
-                                    : Icons.history,
-                              )
-                            : RefreshIndicator(
-                                onRefresh: _loadData,
-                                child: ListView.builder(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                  ),
-                                  itemCount: _filteredCompletedOrders.length,
-                                  itemBuilder: (context, index) =>
-                                      _buildOrderCard(
-                                        _filteredCompletedOrders[index],
-                                        isPending: false,
-                                      ),
-                                ),
-                              ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-    )
+      ),
     );
   }
 
@@ -839,11 +875,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     final theme = Theme.of(context);
     final circleColor = theme.colorScheme.surfaceVariant;
     final isDarkMode = theme.brightness == Brightness.dark;
-    final iconColor = isDarkMode 
-        ? Colors.yellow[700]! 
+    final iconColor = isDarkMode
+        ? Colors.yellow[700]!
         : theme.colorScheme.onSurface.withOpacity(0.4);
-    final textColor = isDarkMode 
-        ? Colors.yellow[700]! 
+    final textColor = isDarkMode
+        ? Colors.yellow[700]!
         : (theme.textTheme.bodyMedium?.color ?? theme.colorScheme.onSurface);
 
     return Center(
@@ -859,10 +895,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
             child: Icon(icon, size: 48, color: iconColor),
           ),
           const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(fontSize: 16, color: textColor),
-          ),
+          Text(message, style: TextStyle(fontSize: 16, color: textColor)),
         ],
       ),
     );
@@ -988,7 +1021,7 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                     children: [
                       // Item count card with image
                       Expanded(
-                          child: Container(
+                        child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: BoxDecoration(
                             color: theme.cardColor,
@@ -1006,20 +1039,25 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                     Row(
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
-                                          Icon(
-                                            Icons.shopping_bag_outlined,
-                                            size: 14,
-                                            color: theme.iconTheme.color?.withOpacity(0.75),
-                                          ),
+                                        Icon(
+                                          Icons.shopping_bag_outlined,
+                                          size: 14,
+                                          color: theme.iconTheme.color
+                                              ?.withOpacity(0.75),
+                                        ),
                                         const SizedBox(width: 3),
                                         Flexible(
                                           child: Text(
-                                                'Items',
-                                                style: TextStyle(
-                                                  color: theme.textTheme.bodyMedium?.color?.withOpacity(0.85),
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
+                                            'Items',
+                                            style: TextStyle(
+                                              color: theme
+                                                  .textTheme
+                                                  .bodyMedium
+                                                  ?.color
+                                                  ?.withOpacity(0.85),
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w500,
+                                            ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
@@ -1028,10 +1066,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                     const SizedBox(height: 4),
                                     Text(
                                       '${order.items?.length ?? 0}',
-                                      style: theme.textTheme.titleLarge?.copyWith(
-                                        fontSize: 18,
-                                        fontWeight: FontWeight.w800,
-                                      ),
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                            fontSize: 18,
+                                            fontWeight: FontWeight.w800,
+                                          ),
                                     ),
                                   ],
                                 ),
@@ -1043,7 +1082,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                 child: SizedBox(
                                   width: 34,
                                   height: 34,
-                                  child: _buildOrderImageSmall(order.items ?? []),
+                                  child: _buildOrderImageSmall(
+                                    order.items ?? [],
+                                  ),
                                 ),
                               ),
                             ],
@@ -1099,93 +1140,159 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                               ),
                               const SizedBox(height: 6),
                               // Show subtotal, delivery fee (if available) and grand total
-                              Builder(builder: (_) {
-                                final subtotal = order.totalAmount;
-                                final currency = order.currencyCode;
-                                final deliveryLbp = order.deliveryFeeLbp ?? 0.0;
-                                final deliveryUsd = order.deliveryFeeUsd ?? 0.0;
-                                final currentDeliveryFee = currency == 'LBP' ? deliveryLbp : deliveryUsd;
-                                final hasAnyDeliveryFee = (deliveryLbp > 0) || (deliveryUsd > 0);
-                                final grandTotalValue = subtotal + currentDeliveryFee;
+                              Builder(
+                                builder: (_) {
+                                  final subtotal = order.totalAmount;
+                                  final currency = order.currencyCode;
+                                  final deliveryLbp =
+                                      order.deliveryFeeLbp ?? 0.0;
+                                  final deliveryUsd =
+                                      order.deliveryFeeUsd ?? 0.0;
+                                  final currentDeliveryFee = currency == 'LBP'
+                                      ? deliveryLbp
+                                      : deliveryUsd;
+                                  final hasAnyDeliveryFee =
+                                      (deliveryLbp > 0) || (deliveryUsd > 0);
+                                  final grandTotalValue =
+                                      subtotal + currentDeliveryFee;
 
-                                String formatPrice(double amt, String? curr) {
-                                  if (curr == 'LBP') return '${_formatNumber(amt)} LBP';
-                                  return '\$${amt.toStringAsFixed(2)}';
-                                }
+                                  String formatPrice(double amt, String? curr) {
+                                    if (curr == 'LBP')
+                                      return '${_formatNumber(amt)} LBP';
+                                    return '\$${amt.toStringAsFixed(2)}';
+                                  }
 
-                                return Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      'Subtotal: ${formatPrice(subtotal, currency)}',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.white.withValues(alpha: 0.9),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    if (!hasAnyDeliveryFee && (order.deliveryCityId == null && order.cityId == null))
+                                  return Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
                                       Text(
-                                        'Delivery city unknown — fee not applied',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12),
-                                      )
-                                    else if (!hasAnyDeliveryFee && (order.deliveryCityId != null || order.cityId != null))
-                                      Text(
-                                        'Delivery not configured',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(color: Colors.yellow.shade200, fontSize: 12),
-                                      )
-                                    else
-                                      Text(
-                                        'Delivery Fee: ${formatPrice(currentDeliveryFee, currency)}',
-                                        style: TextStyle(color: Colors.white.withValues(alpha: 0.9), fontSize: 12),
+                                        'Subtotal: ${formatPrice(subtotal, currency)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.white.withValues(
+                                            alpha: 0.9,
+                                          ),
+                                          fontWeight: FontWeight.w500,
+                                        ),
                                       ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      // Grand total = order total (stored subtotal) + delivery fee
-                                      currency == 'LBP'
-                                          ? '${_formatNumber(grandTotalValue)} LBP'
-                                          : '\$${grandTotalValue.toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 20,
-                                        color: Colors.white,
+                                      const SizedBox(height: 4),
+                                      if (!hasAnyDeliveryFee &&
+                                          (order.deliveryCityId == null &&
+                                              order.cityId == null))
+                                        Text(
+                                          'Delivery city unknown — fee not applied',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.8,
+                                            ),
+                                            fontSize: 12,
+                                          ),
+                                        )
+                                      else if (!hasAnyDeliveryFee &&
+                                          (order.deliveryCityId != null ||
+                                              order.cityId != null))
+                                        Text(
+                                          'Delivery not configured',
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: Colors.yellow.shade200,
+                                            fontSize: 12,
+                                          ),
+                                        )
+                                      else
+                                        Text(
+                                          'Delivery Fee: ${formatPrice(currentDeliveryFee, currency)}',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.9,
+                                            ),
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                      const SizedBox(height: 6),
+                                      Text(
+                                        // Grand total = order total (stored subtotal) + delivery fee
+                                        currency == 'LBP'
+                                            ? '${_formatNumber(grandTotalValue)} LBP'
+                                            : '\$${grandTotalValue.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                    ),
-                                    if (currency == 'LBP')
-                                      Builder(builder: (_) {
-                                        double? usdSub = order.totalAmountUsd ?? (_usdRate != null ? (order.totalAmount / _usdRate!) : null);
-                                        double? usdDel = deliveryUsd > 0 ? deliveryUsd : (_usdRate != null ? (deliveryLbp / _usdRate!) : null);
-                                        final grandUsd = (usdSub ?? 0) + (usdDel ?? 0);
-                                        return Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
-                                          children: [
-                                            const SizedBox(height: 4),
-                                            if (_usdRate != null)
-                                              Text(
-                                                '\u2248 \$${grandUsd.toStringAsFixed(2)}',
-                                                style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w600),
-                                              )
-                                            else
-                                              Text(
-                                                '\u2248 \$${(order.totalAmount / 89500).toStringAsFixed(2)}',
-                                                style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8), fontWeight: FontWeight.w600),
-                                              ),
-                                            if (usdSub != null && usdDel != null)
-                                              Text(
-                                                '(Sub \$${usdSub.toStringAsFixed(2)} + Del \$${usdDel.toStringAsFixed(2)})',
-                                                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.6)),
-                                              ),
-                                          ],
-                                        );
-                                      }),
-                                  ],
-                                );
-                              }),
+                                      if (currency == 'LBP')
+                                        Builder(
+                                          builder: (_) {
+                                            double? usdSub =
+                                                order.totalAmountUsd ??
+                                                (_usdRate != null
+                                                    ? (order.totalAmount /
+                                                          _usdRate!)
+                                                    : null);
+                                            double? usdDel = deliveryUsd > 0
+                                                ? deliveryUsd
+                                                : (_usdRate != null
+                                                      ? (deliveryLbp /
+                                                            _usdRate!)
+                                                      : null);
+                                            final grandUsd =
+                                                (usdSub ?? 0) + (usdDel ?? 0);
+                                            return Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                const SizedBox(height: 4),
+                                                if (_usdRate != null)
+                                                  Text(
+                                                    '\u2248 \$${grandUsd.toStringAsFixed(2)}',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.8,
+                                                          ),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  )
+                                                else
+                                                  Text(
+                                                    '\u2248 \$${(order.totalAmount / 89500).toStringAsFixed(2)}',
+                                                    style: TextStyle(
+                                                      fontSize: 14,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.8,
+                                                          ),
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                if (usdSub != null &&
+                                                    usdDel != null)
+                                                  Text(
+                                                    '(Sub \$${usdSub.toStringAsFixed(2)} + Del \$${usdDel.toStringAsFixed(2)})',
+                                                    style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: Colors.white
+                                                          .withValues(
+                                                            alpha: 0.6,
+                                                          ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            );
+                                          },
+                                        ),
+                                    ],
+                                  );
+                                },
+                              ),
                             ],
                           ),
                         ),
@@ -1210,11 +1317,11 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                         children: [
                           Row(
                             children: [
-                                  Icon(
-                                    Icons.person,
-                                    size: 18,
-                                    color: theme.colorScheme.primary,
-                                  ),
+                              Icon(
+                                Icons.person,
+                                size: 18,
+                                color: theme.colorScheme.primary,
+                              ),
                               const SizedBox(width: 8),
                               Text(
                                 'Customer Order Information',
@@ -1271,94 +1378,95 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                               ),
                             ),
 
-                            // Zone / City / Address (combined on one line)
-                              Builder(
-                                builder: (_) {
-                                  String? zoneName;
-                                  String? cityName;
+                          // Zone / City / Address (combined on one line)
+                          Builder(
+                            builder: (_) {
+                              String? zoneName;
+                              String? cityName;
 
-                                  // Prefer explicit `deliveryCityId` from the typed `Order` model
-                                  if (order.deliveryCityId != null) {
-                                    final cityId = order.deliveryCityId;
-                                    if (cityId != null) {
-                                      // Look up city name and its zone
-                                      cityName = _cityNamesById[cityId];
-                                      if (cityName != null) {
-                                        final zoneId = _cityZoneMap[cityId];
-                                        if (zoneId != null) {
-                                          zoneName = _zoneNamesById[zoneId];
-                                        }
-                                      }
+                              // Prefer explicit `deliveryCityId` from the typed `Order` model
+                              if (order.deliveryCityId != null) {
+                                final cityId = order.deliveryCityId;
+                                if (cityId != null) {
+                                  // Look up city name and its zone
+                                  cityName = _cityNamesById[cityId];
+                                  if (cityName != null) {
+                                    final zoneId = _cityZoneMap[cityId];
+                                    if (zoneId != null) {
+                                      zoneName = _zoneNamesById[zoneId];
                                     }
                                   }
+                                }
+                              }
 
-                                  // Fallback to customer's saved `cityId` on the Order model
-                                  if (cityName == null && order.cityId != null) {
-                                    final c = order.cityId;
-                                    cityName = c != null ? (_cityNamesById[c] ?? c) : null;
-                                    final zId = c != null ? _cityZoneMap[c] : null;
-                                    if (zId != null) zoneName = _zoneNamesById[zId];
-                                  }
+                              // Fallback to customer's saved `cityId` on the Order model
+                              if (cityName == null && order.cityId != null) {
+                                final c = order.cityId;
+                                cityName = c != null
+                                    ? (_cityNamesById[c] ?? c)
+                                    : null;
+                                final zId = c != null ? _cityZoneMap[c] : null;
+                                if (zId != null) zoneName = _zoneNamesById[zId];
+                              }
 
-                                  // Fallback to account-stored customer location if still unresolved
-                                  if (zoneName == null && cityName == null) {
-                                    final custLoc = _customerLocationById[order.customerId];
-                                    if (custLoc != null) {
-                                      final zId = custLoc['zone_id'] as String?;
-                                      final cId = custLoc['city_id'] as String?;
-                                      if (zId != null) zoneName = _zoneNamesById[zId];
-                                      if (cId != null) cityName = _cityNamesById[cId];
-                                    }
-                                  }
+                              // Fallback to account-stored customer location if still unresolved
+                              if (zoneName == null && cityName == null) {
+                                final custLoc =
+                                    _customerLocationById[order.customerId];
+                                if (custLoc != null) {
+                                  final zId = custLoc['zone_id'] as String?;
+                                  final cId = custLoc['city_id'] as String?;
+                                  if (zId != null)
+                                    zoneName = _zoneNamesById[zId];
+                                  if (cId != null)
+                                    cityName = _cityNamesById[cId];
+                                }
+                              }
 
-                                  // Note: `Order` model does not expose `zone_name`/`city_name` fields;
-                                  // leave `zoneName`/`cityName` null if not resolved above.
+                              // Note: `Order` model does not expose `zone_name`/`city_name` fields;
+                              // leave `zoneName`/`cityName` null if not resolved above.
 
-                                  final parts = <String>[];
-                                  if (zoneName != null && zoneName.isNotEmpty) {
-                                    parts.add(zoneName);
-                                  }
-                                  if (cityName != null && cityName.isNotEmpty) {
-                                    parts.add(cityName);
-                                  }
-                                  if (order.deliveryAddress != null &&
-                                      order.deliveryAddress!.isNotEmpty) {
-                                    parts.add(order.deliveryAddress!);
-                                  }
+                              final parts = <String>[];
+                              if (zoneName != null && zoneName.isNotEmpty) {
+                                parts.add(zoneName);
+                              }
+                              if (cityName != null && cityName.isNotEmpty) {
+                                parts.add(cityName);
+                              }
+                              if (order.deliveryAddress != null &&
+                                  order.deliveryAddress!.isNotEmpty) {
+                                parts.add(order.deliveryAddress!);
+                              }
 
-                                  if (parts.isEmpty)
-                                    return const SizedBox.shrink();
+                              if (parts.isEmpty) return const SizedBox.shrink();
 
-                                  return Padding(
-                                    padding: const EdgeInsets.only(top: 8),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Icon(
-                                          Icons.location_on,
-                                          size: 16,
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Icon(
+                                      Icons.location_on,
+                                      size: 16,
+                                      color: Theme.of(context).disabledColor,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        parts.join(', '),
+                                        style: TextStyle(
                                           color: Theme.of(
                                             context,
-                                          ).disabledColor,
+                                          ).textTheme.bodySmall?.color,
+                                          fontSize: 14,
                                         ),
-                                        const SizedBox(width: 8),
-                                        Expanded(
-                                          child: Text(
-                                            parts.join(', '),
-                                            style: TextStyle(
-                                              color: Theme.of(
-                                                context,
-                                              ).textTheme.bodySmall?.color,
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                      ),
                                     ),
-                                  );
-                                },
-                              )
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
                           // if (order.deliveryAddress != null)
                           //   Padding(
                           //     padding: const EdgeInsets.only(top: 8),
@@ -1399,20 +1507,18 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                  color: theme.cardColor,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: theme.dividerColor,
-                                  ),
+                                color: theme.cardColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: theme.dividerColor),
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                    Icon(
-                                      Icons.sticky_note_2,
-                                      size: 20,
-                                      color: theme.colorScheme.secondary,
-                                    ),
+                                  Icon(
+                                    Icons.sticky_note_2,
+                                    size: 20,
+                                    color: theme.colorScheme.secondary,
+                                  ),
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: Column(
@@ -1430,9 +1536,15 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                         Text(
                                           deliveryNotes,
                                           style: TextStyle(
-                                            color: theme.brightness == Brightness.dark
+                                            color:
+                                                theme.brightness ==
+                                                    Brightness.dark
                                                 ? Colors.white
-                                                : theme.textTheme.bodyMedium?.color ?? Colors.black,
+                                                : theme
+                                                          .textTheme
+                                                          .bodyMedium
+                                                          ?.color ??
+                                                      Colors.black,
                                           ),
                                         ),
                                       ],
@@ -1479,7 +1591,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: Colors.green,
                                     foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
@@ -1500,7 +1614,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                       ? Icons.note_add
                                       : Icons.edit,
                                   size: 18,
-                                  color: Theme.of(context).colorScheme.secondary,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
                                 ),
                                 label: Text(
                                   _assignments[order.id]?.deliveryNotes == null
@@ -1508,9 +1624,17 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                       : 'Edit Note',
                                 ),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: Theme.of(context).colorScheme.secondary,
-                                  side: BorderSide(color: Theme.of(context).colorScheme.secondary.withOpacity(0.28)),
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  foregroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.secondary,
+                                  side: BorderSide(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.secondary.withOpacity(0.28),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1527,7 +1651,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: completedColorLocal,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                  ),
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -1577,7 +1703,10 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
       final theme = Theme.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('No image available', style: TextStyle(color: theme.colorScheme.onSecondary)),
+          content: Text(
+            'No image available',
+            style: TextStyle(color: theme.colorScheme.onSecondary),
+          ),
           backgroundColor: theme.colorScheme.secondary,
         ),
       );
@@ -1705,21 +1834,28 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                       width: 50,
                                       height: 50,
                                       child: CircularProgressIndicator(
-                                        value: loadingProgress.expectedTotalBytes != null
-                                            ? loadingProgress.cumulativeBytesLoaded /
-                                                loadingProgress.expectedTotalBytes!
+                                        value:
+                                            loadingProgress
+                                                    .expectedTotalBytes !=
+                                                null
+                                            ? loadingProgress
+                                                      .cumulativeBytesLoaded /
+                                                  loadingProgress
+                                                      .expectedTotalBytes!
                                             : null,
                                         strokeWidth: 3,
-                                        valueColor: AlwaysStoppedAnimation<Color>(
-                                          theme.colorScheme.primary,
-                                        ),
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              theme.colorScheme.primary,
+                                            ),
                                       ),
                                     ),
                                     const SizedBox(height: 16),
                                     Text(
                                       'Loading image...',
                                       style: TextStyle(
-                                        color: theme.textTheme.bodyMedium?.color,
+                                        color:
+                                            theme.textTheme.bodyMedium?.color,
                                         fontSize: 14,
                                       ),
                                     ),
@@ -1729,40 +1865,42 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                             },
                             errorBuilder: (context, error, stackTrace) {
                               return Center(
-                                    child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Container(
-                                          padding: const EdgeInsets.all(20),
-                                          decoration: BoxDecoration(
-                                            color: theme.colorScheme.error.withOpacity(0.08),
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: Icon(
-                                            Icons.broken_image_outlined,
-                                            size: 48,
-                                            color: theme.colorScheme.error,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Text(
-                                          'Failed to load image',
-                                          style: TextStyle(
-                                            color: theme.textTheme.bodyMedium?.color,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          'Please try again later',
-                                          style: TextStyle(
-                                            color: theme.textTheme.bodySmall?.color,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ],
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(20),
+                                      decoration: BoxDecoration(
+                                        color: theme.colorScheme.error
+                                            .withOpacity(0.08),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: Icon(
+                                        Icons.broken_image_outlined,
+                                        size: 48,
+                                        color: theme.colorScheme.error,
+                                      ),
                                     ),
+                                    const SizedBox(height: 16),
+                                    Text(
+                                      'Failed to load image',
+                                      style: TextStyle(
+                                        color:
+                                            theme.textTheme.bodyMedium?.color,
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'Please try again later',
+                                      style: TextStyle(
+                                        color: theme.textTheme.bodySmall?.color,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               );
                             },
                           ),
@@ -1962,7 +2100,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                 ),
                                 title: Row(
                                   children: [
-                                    Icon(Icons.delete, color: Theme.of(context).colorScheme.error),
+                                    Icon(
+                                      Icons.delete,
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
+                                    ),
                                     const SizedBox(width: 12),
                                     const Text('Delete Note'),
                                   ],
@@ -1980,7 +2123,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                                     onPressed: () =>
                                         Navigator.pop(context, true),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Theme.of(context).colorScheme.error,
+                                      backgroundColor: Theme.of(
+                                        context,
+                                      ).colorScheme.error,
                                       foregroundColor: Colors.black,
                                     ),
                                     child: const Text('Delete'),
@@ -1993,7 +2138,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                           },
                           child: Text(
                             'Delete Note',
-                            style: TextStyle(color: Theme.of(context).colorScheme.error),
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.error,
+                            ),
                           ),
                         ),
                       const SizedBox(width: 8),
@@ -2001,8 +2148,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                         onPressed: () =>
                             Navigator.pop(context, noteController.text.trim()),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Theme.of(context).colorScheme.secondary,
-                          foregroundColor: Theme.of(context).colorScheme.onSecondary,
+                          backgroundColor: Theme.of(
+                            context,
+                          ).colorScheme.secondary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.onSecondary,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(20),
                           ),
@@ -2034,9 +2185,12 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
 
         if (assignmentResponse == null) {
           if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
+            ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Failed to locate assignment', style: TextStyle(color: theme.colorScheme.onError)),
+                content: Text(
+                  'Failed to locate assignment',
+                  style: TextStyle(color: theme.colorScheme.onError),
+                ),
                 backgroundColor: theme.colorScheme.error,
               ),
             );
@@ -2072,7 +2226,10 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
-                content: Text('Note deleted', style: TextStyle(color: theme.colorScheme.onSecondary)),
+                content: Text(
+                  'Note deleted',
+                  style: TextStyle(color: theme.colorScheme.onSecondary),
+                ),
                 backgroundColor: theme.colorScheme.secondary,
               ),
             );
@@ -2087,7 +2244,9 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                 .update({
                   'delivery_notes': note,
                   'delivery_notes_by': _deliveryAccountId,
-                  'delivery_notes_updated_at': DateTime.now().toUtc().toIso8601String(),
+                  'delivery_notes_updated_at': DateTime.now()
+                      .toUtc()
+                      .toIso8601String(),
                   'delivery_notes_unread': true,
                 })
                 .eq('id', assignmentId);
@@ -2099,13 +2258,18 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
                   .update({
                     'delivery_notes': note,
                     'delivery_notes_by': _deliveryAccountId,
-                    'delivery_notes_updated_at': DateTime.now().toUtc().toIso8601String(),
+                    'delivery_notes_updated_at': DateTime.now()
+                        .toUtc()
+                        .toIso8601String(),
                   })
                   .eq('id', assignmentId);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text('Note saved (schema missing unread flag).', style: TextStyle(color: theme.colorScheme.onSecondary)),
+                    content: Text(
+                      'Note saved (schema missing unread flag).',
+                      style: TextStyle(color: theme.colorScheme.onSecondary),
+                    ),
                     backgroundColor: theme.colorScheme.secondary,
                   ),
                 );
@@ -2125,12 +2289,15 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
           }
 
           if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Note saved', style: TextStyle(color: theme.colorScheme.onSecondary)),
-                    backgroundColor: theme.colorScheme.secondary,
-                  ),
-                );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Note saved',
+                  style: TextStyle(color: theme.colorScheme.onSecondary),
+                ),
+                backgroundColor: theme.colorScheme.secondary,
+              ),
+            );
             await _loadData();
             EventBus.emit('orders:updated');
           }
@@ -2139,7 +2306,10 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Failed to save note: $e', style: TextStyle(color: Theme.of(context).colorScheme.onError)),
+              content: Text(
+                'Failed to save note: $e',
+                style: TextStyle(color: Theme.of(context).colorScheme.onError),
+              ),
               backgroundColor: Theme.of(context).colorScheme.error,
             ),
           );
@@ -2155,7 +2325,10 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.check_circle, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.check_circle,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 12),
             const Text('Confirm Delivery'),
           ],
@@ -2212,14 +2385,14 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
             final notifier = NotificationService();
             await notifier.sendToUser(
               userId: order.customerId,
-              title: 'Order Delivered: #${order.id.substring(0,8)}',
-              message: 'Your order #${order.id.substring(0,8)} has been delivered.',
-              data: {
-                'type': 'order_delivered',
-                'order_id': order.id,
-              },
+              title: 'Order Delivered: #${order.id.substring(0, 8)}',
+              message:
+                  'Your order #${order.id.substring(0, 8)} has been delivered.',
+              data: {'type': 'order_delivered', 'order_id': order.id},
             );
-            debugPrint('✅ [DeliveryHome] Notified customer ${order.customerId} about delivery');
+            debugPrint(
+              '✅ [DeliveryHome] Notified customer ${order.customerId} about delivery',
+            );
           } catch (e) {
             debugPrint('⚠️ [DeliveryHome] Failed to notify customer: $e');
           }
@@ -2235,4 +2408,3 @@ class _DeliveryHomeScreenState extends State<DeliveryHomeScreen>
     }
   }
 }
-

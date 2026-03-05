@@ -5,8 +5,10 @@ class Order {
   final String customerId; // User ID from auth.users
   final double totalAmount;
   final String currencyCode; // 'LBP' or 'USD'
-  final double? totalAmountUsd; // Optional stored USD equivalent recorded at order creation
-  final String status; // 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED'
+  final double?
+  totalAmountUsd; // Optional stored USD equivalent recorded at order creation
+  final String
+  status; // 'PENDING', 'CONFIRMED', 'PREPARING', 'READY', 'DELIVERED', 'CANCELLED'
   final DateTime createdAt;
   final DateTime updatedAt;
   final List<OrderItem>? items; // Optional, populated when fetching with items
@@ -68,8 +70,12 @@ class Order {
       // optional delivery fields if provided by the server/service
       deliveryCityId: json['delivery_city_id'] as String?,
       cityId: json['city_id'] as String?,
-      deliveryFeeLbp: json['delivery_fee_lbp'] != null ? (json['delivery_fee_lbp'] as num).toDouble() : null,
-      deliveryFeeUsd: json['delivery_fee_usd'] != null ? (json['delivery_fee_usd'] as num).toDouble() : null,
+      deliveryFeeLbp: json['delivery_fee_lbp'] != null
+          ? (json['delivery_fee_lbp'] as num).toDouble()
+          : null,
+      deliveryFeeUsd: json['delivery_fee_usd'] != null
+          ? (json['delivery_fee_usd'] as num).toDouble()
+          : null,
     );
   }
 

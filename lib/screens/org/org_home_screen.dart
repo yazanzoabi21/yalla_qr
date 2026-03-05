@@ -64,9 +64,7 @@ class _OrgHomeScreenState extends State<OrgHomeScreen> {
         account: widget.account,
         categories: widget.categories,
       ),
-      OrgStatisticsScreen(
-        account: widget.account,
-      ),
+      OrgStatisticsScreen(account: widget.account),
     ];
 
     return Scaffold(
@@ -79,10 +77,7 @@ class _OrgHomeScreenState extends State<OrgHomeScreen> {
           color: isDark ? theme.colorScheme.surface : theme.colorScheme.surface,
           gradient: LinearGradient(
             colors: isDark
-                ? [
-                    theme.colorScheme.surface,
-                    theme.colorScheme.surfaceVariant,
-                  ]
+                ? [theme.colorScheme.surface, theme.colorScheme.surfaceVariant]
                 : [
                     theme.colorScheme.surface,
                     theme.colorScheme.primary.withOpacity(0.06),
@@ -116,12 +111,12 @@ class _OrgHomeScreenState extends State<OrgHomeScreen> {
           type: BottomNavigationBarType.fixed,
           backgroundColor: Colors.transparent,
           selectedItemColor: theme.colorScheme.primary,
-          unselectedItemColor: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
+          unselectedItemColor: theme.textTheme.bodyMedium?.color?.withOpacity(
+            0.5,
+          ),
           selectedFontSize: 14,
           unselectedFontSize: 12,
-          selectedLabelStyle: const TextStyle(
-            fontWeight: FontWeight.w600,
-          ),
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
           elevation: 0,
           items: const [
             BottomNavigationBarItem(

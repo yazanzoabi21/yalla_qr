@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/auth/login_screen.dart';
 import '../screens/settings/settings_screen.dart';
 import '../screens/search/search_results_screen.dart';
+import '../screens/search/explore_search_screen.dart';
 import '../screens/client/product_detail_screen.dart';
 import '../screens/org/org_orders_screen.dart';
 import '../screens/info/contact_screen.dart';
@@ -23,6 +24,8 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final String? categoryId; // The actual category UUID
   final bool showScanButton;
   final VoidCallback? onScanPressed;
+  final bool showExploreButton;
+  final VoidCallback? onExplorePressed;
   final bool showBackButton;
   final bool showMenuButton; // New parameter to control menu visibility
   final String? organizationAccountId; // For client search mode
@@ -39,6 +42,8 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
     this.categoryId,
     this.showScanButton = false,
     this.onScanPressed,
+    this.showExploreButton = true,
+    this.onExplorePressed,
     this.showBackButton = false,
     this.showMenuButton = true, // Default to true (show menu)
     this.organizationAccountId,
@@ -60,6 +65,7 @@ class _NavbarState extends State<Navbar> {
   bool _isAuthenticated = false;
   bool _isOrgUser = false;
   bool _isSuperAdmin = false;
+  bool _isDelivery = false;
   late final AuthService _authService;
   late final StreamSubscription<AuthState> _authSubscription;
   final TextEditingController _searchController = TextEditingController();
@@ -230,6 +236,7 @@ class _NavbarState extends State<Navbar> {
       setState(() {
         _isOrgUser = loginContext == 'ORG';
         _isSuperAdmin = loginContext == 'SUPER_ADMIN';
+        _isDelivery = loginContext == 'DELIVERY';
       });
     }
 
@@ -421,12 +428,39 @@ class _NavbarState extends State<Navbar> {
                 ),
                 if (widget.showScanButton && widget.onScanPressed != null)
                   IconButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
                     icon: Icon(Icons.qr_code_scanner, color: Theme.of(context).iconTheme.color?.withOpacity(0.85)),
                     onPressed: widget.onScanPressed,
                     tooltip: 'Scan QR Code',
                   ),
+                if (widget.showExploreButton && !_isOrgUser && !_isDelivery)
+                  IconButton(
+                    padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                    constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+                    icon: Icon(Icons.explore, color: Theme.of(context).iconTheme.color?.withOpacity(0.85)),
+                    onPressed: widget.onExplorePressed ??
+                        () {
+                          // Default action: explore organizations if not already
+                          // browsing a specific org. Otherwise behave like
+                          // client search within the current organization.
+                          if (widget.organizationAccountId != null) {
+                            _navigateToClientSearch(_searchController.text.trim());
+                          } else {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => const ExploreSearchScreen(),
+                              ),
+                            );
+                          }
+                        },
+                    tooltip: 'Explore',
+                  ),
                 if (widget.showMenuButton)
                   PopupMenuButton<String>(
+                    padding: const EdgeInsets.symmetric(horizontal: 2.0),
+                    iconSize: 20,
                     icon: Stack(
                       clipBehavior: Clip.none,
                       children: [

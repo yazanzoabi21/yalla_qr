@@ -38,31 +38,35 @@ class _MealsScreenState extends State<MealsScreen> {
 
       // Find the "Meals" category
       final categories = await CategoryService.getCategoriesForAccount();
-      
+
       try {
-        mealsCategory = categories.firstWhere((category) => 
-          category.name.toLowerCase().trim() == 'meals'
+        mealsCategory = categories.firstWhere(
+          (category) => category.name.toLowerCase().trim() == 'meals',
         );
       } catch (e) {
         try {
-          mealsCategory = categories.firstWhere((category) => 
-            category.name.toLowerCase().trim().contains('meals')
+          mealsCategory = categories.firstWhere(
+            (category) => category.name.toLowerCase().trim().contains('meals'),
           );
         } catch (e2) {
           mealsCategory = null;
         }
       }
-      
+
       if (mealsCategory == null) {
-        throw Exception('Category not found. Available categories: ${categories.map((c) => '"${c.name}"').join(', ')}');
+        throw Exception(
+          'Category not found. Available categories: ${categories.map((c) => '"${c.name}"').join(', ')}',
+        );
       }
 
       // Load child categories
-      childCategories = await CategoryService.getChildCategoriesForAccount(mealsCategory!.id);
-      
+      childCategories = await CategoryService.getChildCategoriesForAccount(
+        mealsCategory!.id,
+      );
+
       // Load product counts
       await _loadProductCounts();
-      
+
       setState(() {
         isLoading = false;
       });
@@ -78,7 +82,9 @@ class _MealsScreenState extends State<MealsScreen> {
     try {
       Map<String, int> counts = {};
       for (var childCategory in childCategories) {
-        final products = await ProductService.getProductsByCategory(childCategory.id);
+        final products = await ProductService.getProductsByCategory(
+          childCategory.id,
+        );
         counts[childCategory.id] = products.length;
       }
       setState(() {
@@ -92,7 +98,9 @@ class _MealsScreenState extends State<MealsScreen> {
   Future<void> _refreshChildCategories() async {
     try {
       if (mealsCategory != null) {
-        final updated = await CategoryService.getChildCategoriesForAccount(mealsCategory!.id);
+        final updated = await CategoryService.getChildCategoriesForAccount(
+          mealsCategory!.id,
+        );
         await _loadProductCounts();
         setState(() {
           childCategories = updated;
@@ -116,10 +124,8 @@ class _MealsScreenState extends State<MealsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => MealDetailScreen(
-          meal: meal,
-          onProductAdded: (product) {},
-        ),
+        builder: (context) =>
+            MealDetailScreen(meal: meal, onProductAdded: (product) {}),
       ),
     ).then((_) async {
       await _loadProductCounts();
@@ -240,13 +246,8 @@ class _MealsScreenState extends State<MealsScreen> {
       },
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        appBar: Navbar(
-          showMenuButton: false,
-        ),
-        body: Padding(
-          padding: const EdgeInsets.all(12.0),
-          child: _buildBody(),
-        ),
+        appBar: Navbar(showMenuButton: false),
+        body: Padding(padding: const EdgeInsets.all(12.0), child: _buildBody()),
       ),
     );
   }
@@ -273,11 +274,7 @@ class _MealsScreenState extends State<MealsScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.error_outline,
-              size: 64,
-              color: Colors.red.shade300,
-            ),
+            Icon(Icons.error_outline, size: 64, color: Colors.red.shade300),
             const SizedBox(height: 16),
             Text(
               'Error',
@@ -331,10 +328,7 @@ class _MealsScreenState extends State<MealsScreen> {
             const SizedBox(width: 12),
             const Text(
               'Meals',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
           ],
         ),
@@ -350,7 +344,9 @@ class _MealsScreenState extends State<MealsScreen> {
                 SliverToBoxAdapter(
                   child: CategoryHeaderCard(
                     title: 'Meals',
-                    description: mealsCategory?.description ?? 'Manage your meal categories',
+                    description:
+                        mealsCategory?.description ??
+                        'Manage your meal categories',
                     icon: Icons.restaurant,
                     gradientColors: [
                       Colors.deepOrange.shade600,
@@ -369,10 +365,11 @@ class _MealsScreenState extends State<MealsScreen> {
                       children: [
                         Text(
                           'Meal Categories',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w700,
+                              ),
                         ),
                         FloatingActionButton(
                           onPressed: _showAddMealDialog,
@@ -390,7 +387,9 @@ class _MealsScreenState extends State<MealsScreen> {
                     categories: childCategories,
                     productCounts: productCounts,
                     onCategoryTap: (categoryId) {
-                      final category = childCategories.firstWhere((c) => c.id == categoryId);
+                      final category = childCategories.firstWhere(
+                        (c) => c.id == categoryId,
+                      );
                       _navigateToMealDetail(category);
                     },
                     onEditCategory: _showEditMealDialog,

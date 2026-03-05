@@ -345,12 +345,12 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                             // Description
                             if (widget.product.description != null) ...[
-                              const Text(
-                                'Description',
+                              Text(
+                                'Description:',
                                 style: TextStyle(
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.w700,
-                                  color: Color(0xFF1A1A1A),
+                                  fontSize: 14,
+                                  color: theme.textTheme.bodyMedium?.color,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                               const SizedBox(height: 12),
@@ -367,36 +367,36 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ],
 
                             // Quantity info if available
-                            if (widget.product.quantity > 0) ...[
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: widget.accentColor.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: widget.accentColor.withOpacity(0.3),
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.inventory_2,
-                                      color: widget.accentColor,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Text(
-                                      'Available Stock: ${widget.product.quantity}',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w600,
-                                        color: widget.accentColor,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(height: 24),
-                            ],
+                            // if (widget.product.quantity > 0) ...[
+                            //   Container(
+                            //     padding: const EdgeInsets.all(16),
+                            //     decoration: BoxDecoration(
+                            //       color: widget.accentColor.withOpacity(0.1),
+                            //       borderRadius: BorderRadius.circular(12),
+                            //       border: Border.all(
+                            //         color: widget.accentColor.withOpacity(0.3),
+                            //       ),
+                            //     ),
+                            //     child: Row(
+                            //       children: [
+                            //         Icon(
+                            //           Icons.inventory_2,
+                            //           color: widget.accentColor,
+                            //         ),
+                            //         const SizedBox(width: 12),
+                            //         Text(
+                            //           'Available Stock: ${widget.product.quantity}',
+                            //           style: TextStyle(
+                            //             fontSize: 15,
+                            //             fontWeight: FontWeight.w600,
+                            //             color: widget.accentColor,
+                            //           ),
+                            //         ),
+                            //       ],
+                            //     ),
+                            //   ),
+                            //   const SizedBox(height: 24),
+                            // ],
 
                             // Extra spacing for button
                             const SizedBox(height: 100),
@@ -416,13 +416,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Colors.transparent,
                     boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, -5),
-                      ),
+                      // BoxShadow(
+                      //   color: theme.shadowColor.withOpacity(0.08),
+                      //   blurRadius: 10,
+                      //   offset: const Offset(0, -5),
+                      // ),
                     ],
                   ),
                   child: SafeArea(
@@ -601,7 +601,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                 Icon(Icons.shopping_cart_outlined, size: 20),
                                 SizedBox(width: 10),
                                 Text(
-                                  'Add here',
+                                  'Add to cart',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.w700,

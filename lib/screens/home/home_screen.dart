@@ -15,6 +15,7 @@ import '../../models/qr_code.dart';
 import '../../models/account.dart';
 import '../../services/category_service.dart';
 import '../../services/qr_code_service.dart';
+import '../../services/enrollment_service.dart';
 import '../../utils/navigation_helper.dart';
 import '../org/org_statistics_screen.dart';
 
@@ -40,6 +41,10 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _initialize();
+    // keep screen reactive to any enrollment changes even though the
+    // current implementation doesn't directly use it yet. this ensures the
+    // UI will update immediately if we add enrollment-dependent content.
+    EnrollmentService.instance.addListener(_onEnrollmentChanged);
   }
 
   Future<void> _initialize() async {
@@ -77,6 +82,11 @@ class _HomeScreenState extends State<HomeScreen> {
     // Load data (navbar will prompt for login)
     await loadLastClicked();
 
+    // Ensure enrollment state is loaded app-wide
+    try {
+      await EnrollmentService.instance.load();
+    } catch (_) {}
+
     // Ensure 'Electronics' exists and is linked to the current ORG account.
     // This call is idempotent: it will create the category if missing and
     // link it to the account if the relation doesn't exist.
@@ -90,7 +100,20 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadOrgAccount(); // Load ORG account for QR button
   }
 
-  /// Load ORG account ID for QR code display
+  void _onEnrollmentChanged() {
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    EnrollmentService.instance.removeListener(_onEnrollmentChanged);
+    super.dispose();
+  }
+
+  /// Retrieves the organization account owned by the current user so that
+  /// the QR code button can target it. This is split out because it is
+  /// also invoked from init and needs to be asynchronous.
   Future<void> _loadOrgAccount() async {
     try {
       final user = Supabase.instance.client.auth.currentUser;
@@ -252,7 +275,8 @@ class _HomeScreenState extends State<HomeScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           final now = DateTime.now();
-          if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+          if (_lastBackPress == null ||
+              now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
             // First press or timeout - show snackbar
             _lastBackPress = now;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -262,7 +286,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
                 margin: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             );
           } else {
@@ -274,11 +300,40 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         appBar: const Navbar(),
-        body: _currentNavIndex == 0
-            ? Padding(padding: const EdgeInsets.all(12.0), child: _buildBody())
-            : (_orgAccount != null
-                ? OrgStatisticsScreen(account: _orgAccount!)
-                : Padding(padding: const EdgeInsets.all(12.0), child: _buildBody())),
+        body: Builder(builder: (context) {
+          // build a banner if the user has any enrollments – this makes the
+          // Home screen react visibly to enrollment changes as requested.
+          final enrolCount = EnrollmentService.instance.enrolled.length;
+          Widget content = _currentNavIndex == 0
+              ? _buildBody()
+              : (_orgAccount != null
+                    ? OrgStatisticsScreen(account: _orgAccount!)
+                    : _buildBody());
+          if (enrolCount > 0) {
+            content = Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                  margin: const EdgeInsets.only(bottom: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'You are enrolled in $enrolCount organization${enrolCount > 1 ? 's' : ''}',
+                    style: TextStyle(
+                      color: Colors.green.shade800,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Expanded(child: content),
+              ],
+            );
+          }
+          return Padding(padding: const EdgeInsets.all(12.0), child: content);
+        }),
         bottomNavigationBar: _orgAccount != null ? _buildBottomNav() : null,
         floatingActionButton: _orgAccountId != null && _currentNavIndex == 0
             ? AnimatedContainer(
@@ -425,8 +480,14 @@ class _HomeScreenState extends State<HomeScreen> {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: isDark
-                                ? [const Color(0xFF1E3A8A), const Color(0xFF3B82F6)]
-                                : [const Color(0xFF3B82F6), const Color(0xFF60A5FA)],
+                                ? [
+                                    const Color(0xFF1E3A8A),
+                                    const Color(0xFF3B82F6),
+                                  ]
+                                : [
+                                    const Color(0xFF3B82F6),
+                                    const Color(0xFF60A5FA),
+                                  ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -493,7 +554,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               'Share this code with your clients',
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.textTheme.bodySmall?.color?.withOpacity(0.85),
+                                color: theme.textTheme.bodySmall?.color
+                                    ?.withOpacity(0.85),
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
@@ -517,7 +579,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Theme.of(context).brightness == Brightness.dark
+                                  backgroundColor:
+                                      Theme.of(context).brightness ==
+                                          Brightness.dark
                                       ? Color(0xFF1E3A8A)
                                       : Color(0xFF3B82F6),
                                   foregroundColor: Colors.white,
@@ -790,12 +854,12 @@ class _HomeScreenState extends State<HomeScreen> {
         type: BottomNavigationBarType.fixed,
         backgroundColor: theme.cardColor,
         selectedItemColor: theme.colorScheme.primary,
-        unselectedItemColor: theme.textTheme.bodyMedium?.color?.withOpacity(0.5),
+        unselectedItemColor: theme.textTheme.bodyMedium?.color?.withOpacity(
+          0.5,
+        ),
         selectedFontSize: 14,
         unselectedFontSize: 12,
-        selectedLabelStyle: const TextStyle(
-          fontWeight: FontWeight.w600,
-        ),
+        selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
         elevation: 0,
         items: const [
           BottomNavigationBarItem(

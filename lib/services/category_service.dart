@@ -217,6 +217,58 @@ class CategoryService {
     return getCategoriesForAccount(parentOnly: true);
   }
 
+  /// Fetch categories linked to a specific account (ORG).
+  ///
+  /// This mirrors [getCategoriesForAccount] but accepts an explicit
+  /// `accountId` so clients can load categories for organizations they
+  /// are _not_ authenticated as. By default this returns all categories
+  /// related to the account; set [parentOnly] to true to restrict to
+  /// root/parent categories (those whose `parent_id` is null).
+  static Future<List<Category>> getCategoriesForSpecificAccount(
+    String accountId, {
+    bool parentOnly = false,
+  }) async {
+    try {
+      // load the category relations (respecting is_hidden flag)
+      final categoryRelations = await _supabase
+          .from('account_categories')
+          .select('category_id, is_hidden')
+          .eq('account_id', accountId);
+
+      final categoryMap = Map<String, bool>.fromEntries(
+        (categoryRelations as List).map((item) =>
+            MapEntry(item['category_id'] as String, item['is_hidden'] as bool? ?? false)),
+      );
+
+      if (categoryMap.isEmpty) {
+        debugPrint('⚠️ [CategoryService] No categories linked to account $accountId');
+        return [];
+      }
+
+      var query = _supabase
+          .from('categories')
+          .select('*')
+          .in_('id', categoryMap.keys.toList());
+
+      if (parentOnly) {
+        query = query.filter('parent_id', 'is', null);
+      }
+
+      final response = await query.order('name', ascending: true);
+
+      return (response as List<dynamic>)
+          .map((json) {
+            final categoryJson = Map<String, dynamic>.from(json as Map<String, dynamic>);
+            // Attach is_hidden from account_categories junction table
+            categoryJson['is_hidden'] = categoryMap[categoryJson['id']] ?? false;
+            return Category.fromJson(categoryJson);
+          })
+          .toList();
+    } catch (e) {
+      throw Exception('Failed to fetch categories for account $accountId: $e');
+    }
+  }
+
   /// Get a specific category by ID.
   static Future<Category?> getCategoryById(String id) async {
     try {

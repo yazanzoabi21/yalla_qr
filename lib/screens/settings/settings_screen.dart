@@ -921,20 +921,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         );
                       },
                     ),
-                    _buildSettingsTile(
-                      'Delivery Settings',
-                      Icons.local_shipping,
-                      () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => DeliverySettingsScreen(
-                              accountId: _accountProfile?['id'],
+                    if (_userRole == 'ORG')
+                      _buildSettingsTile(
+                        'Delivery Settings',
+                        Icons.local_shipping,
+                        () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => DeliverySettingsScreen(
+                                accountId: _accountProfile?['id'],
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
                     // _buildSettingsTile('Privacy', Icons.privacy_tip, () {
                     //   ScaffoldMessenger.of(context).showSnackBar(
                     //     const SnackBar(
