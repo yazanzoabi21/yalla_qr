@@ -10,6 +10,7 @@ import '../../widgets/floating_cart_icon.dart';
 import '../../widgets/floating_tracking_button.dart';
 import 'organization_category_products_screen.dart';
 import 'product_detail_screen.dart';
+import 'ai_chat_screen.dart';
 
 /// Screen to display an organization's products organized by categories
 /// Shows the same design as the category screens (e.g., MealsScreen)
@@ -218,6 +219,30 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
             FloatingCartIcon(
               organizationId: widget.account.id,
               organizationName: widget.account.name ?? 'Organization',
+            ),
+            // AI Shopping Assistant FAB
+            Positioned(
+              bottom: 90,
+              right: 16,
+              child: FloatingActionButton.small(
+                heroTag: 'ai_chat_fab',
+                backgroundColor: Colors.amber,
+                tooltip: 'AI Shopping Assistant',
+                onPressed: () {
+                  final allProducts =
+                      categoryProducts.values.expand((list) => list).toList();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => AiChatScreen(
+                        account: widget.account,
+                        products: allProducts,
+                      ),
+                    ),
+                  );
+                },
+                child: const Icon(Icons.auto_awesome, color: Colors.black, size: 20),
+              ),
             ),
           ],
         ),

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../services/ai_service.dart';
 import '../services/camera_service.dart';
 import '../services/currency_service.dart';
 import '../services/product_service.dart';
@@ -35,6 +36,8 @@ class _AddProductFormState extends State<AddProductForm> {
   File? _imageFile;
   String? _existingImageUrl;
   bool _isSaving = false;
+  bool _isGenerating = false;
+  String _aiLanguage = 'en';
 
   @override
   void dispose() {
@@ -50,6 +53,8 @@ class _AddProductFormState extends State<AddProductForm> {
   void initState() {
     super.initState();
     _loadUsdRate();
+    // Rebuild when name changes so the AI button enables/disables correctly
+    _nameCtrl.addListener(() => setState(() {}));
     // populate if editing
     final ip = widget.initialProduct;
     if (ip != null) {
@@ -63,6 +68,34 @@ class _AddProductFormState extends State<AddProductForm> {
           : '';
       _quantityCtrl.text = ip.quantity?.toString() ?? '1';
       _existingImageUrl = ip.imageUrl;
+    }
+  }
+
+  Future<void> _generateDescription() async {
+    final name = _nameCtrl.text.trim();
+    if (name.isEmpty) return;
+
+    setState(() => _isGenerating = true);
+    try {
+      final description = await AiService.generateProductDescription(
+        productName: name,
+        priceLbp: double.tryParse(_priceLbpCtrl.text.replaceAll(',', '')),
+        priceUsd: double.tryParse(_priceUsdCtrl.text.replaceAll(',', '')),
+        language: _aiLanguage,
+      );
+      if (!mounted) return;
+      setState(() => _descCtrl.text = description);
+    } catch (e) {
+      debugPrint('❌ [AddProductForm] AI generation failed: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('AI error: $e'),
+          duration: const Duration(seconds: 6),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
     }
   }
 
@@ -257,8 +290,55 @@ class _AddProductFormState extends State<AddProductForm> {
                   ),
                   TextFormField(
                     controller: _descCtrl,
-                    decoration: const InputDecoration(labelText: 'Description'),
+                    decoration: InputDecoration(
+                      labelText: 'Description',
+                      suffixIcon: Tooltip(
+                        message: _nameCtrl.text.trim().isEmpty
+                            ? 'Enter a product name first'
+                            : 'Generate description with AI',
+                        child: _isGenerating
+                            ? const Padding(
+                                padding: EdgeInsets.all(12),
+                                child: SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                ),
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.auto_awesome),
+                                color: Colors.amber,
+                                onPressed: _nameCtrl.text.trim().isEmpty
+                                    ? null
+                                    : _generateDescription,
+                              ),
+                      ),
+                    ),
                     maxLines: 2,
+                  ),
+                  const SizedBox(height: 6),
+                  // Language selector for AI description
+                  Row(
+                    children: [
+                      const Text('AI Language:', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(width: 8),
+                      for (final entry in const [
+                        ('en', 'EN'),
+                        ('ar', 'AR'),
+                        ('fr', 'FR'),
+                      ])
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: ChoiceChip(
+                            label: Text(entry.$2, style: const TextStyle(fontSize: 12)),
+                            selected: _aiLanguage == entry.$1,
+                            onSelected: (_) => setState(() => _aiLanguage = entry.$1),
+                            selectedColor: const Color.fromARGB(255, 85, 68, 17),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                    ],
                   ),
                   Row(
                     children: [
