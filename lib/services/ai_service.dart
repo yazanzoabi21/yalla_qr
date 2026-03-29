@@ -65,7 +65,7 @@ class AiService {
         if (p.description != null) 'description': p.description!,
         if (p.priceLbp != null) 'priceLbp': p.priceLbp.toString(),
         if (p.priceUsd != null) 'priceUsd': p.priceUsd!.toStringAsFixed(2),
-        'inStock': p.isAvailable,
+        'inStock': p.isAvailable == true,
       }).toList();
 
       final response = await _supabase.functions.invoke(

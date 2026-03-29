@@ -1,11 +1,8 @@
-// Supabase Edge Function: generate-product-description
-// Deploy: supabase functions deploy generate-product-description
-// Set secret: supabase secrets set OPENROUTER_API_KEY=<your-key>
-
 // @ts-nocheck
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
-const OPENROUTER_API_KEY = Deno.env.get('OPENROUTER_API_KEY')!
+const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')!
+const GROQ_MODEL = Deno.env.get('GROQ_MODEL') || 'llama-3.1-8b-instant'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,9 +16,9 @@ serve(async (req) => {
   }
 
   try {
-    if (!OPENROUTER_API_KEY) {
+    if (!GROQ_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'OPENROUTER_API_KEY secret is not set' }),
+        JSON.stringify({ error: 'GROQ_API_KEY secret is not set' }),
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       )
     }
@@ -35,7 +32,6 @@ serve(async (req) => {
       )
     }
 
-    // Supported languages — default to English
     const supportedLanguages: Record<string, string> = {
       en: 'English',
       ar: 'Arabic',
@@ -44,7 +40,6 @@ serve(async (req) => {
     const langCode = (typeof language === 'string' && supportedLanguages[language]) ? language : 'en'
     const langName = supportedLanguages[langCode]
 
-    // Build context for the prompt
     let context = `Product name: "${productName.trim()}"`
     if (categoryName) context += `\nCategory: ${categoryName}`
     if (priceLbp) context += `\nPrice: ${priceLbp} LBP`
@@ -52,34 +47,33 @@ serve(async (req) => {
 
     const prompt = `You are a helpful assistant for small businesses. Write a short, appealing product description (2-3 sentences max) for the following product. Be concise, highlight key benefits, and make it sound desirable. Do not repeat the product name in the description. Write the description in ${langName}. Return only the description text with no extra formatting or prefixes.\n\n${context}`
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+    // Call GROQ/chat-compatible endpoint with the prompt as system message
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': 'https://yallaqr.app',
-        'X-Title': 'Yalla QR',
       },
       body: JSON.stringify({
-        model: 'google/gemma-3-27b-it:free',
+        model: GROQ_MODEL,
         messages: [
-          { role: 'user', content: prompt }
+          { role: 'system', content: prompt },
         ],
-        max_tokens: 150,
         temperature: 0.7,
+        max_tokens: 200,
       }),
     })
 
     if (!response.ok) {
-      const errText = await response.text()
+      const err = await response.text()
       return new Response(
-        JSON.stringify({ error: `OpenRouter error: ${errText}` }),
+        JSON.stringify({ error: `Groq API error: ${err}` }),
         { status: 502, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       )
     }
 
     const data = await response.json()
-    const description: string = data.choices?.[0]?.message?.content?.trim() ?? ''
+    const description: string = data?.choices?.[0]?.message?.content?.trim() ?? ''
 
     return new Response(
       JSON.stringify({ description }),
