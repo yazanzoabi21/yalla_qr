@@ -7,6 +7,7 @@ import '../../widgets/empty_state_widget.dart';
 import '../../widgets/scan_prompt_overlay.dart';
 import '../../widgets/floating_cart_icon.dart';
 import '../../widgets/floating_tracking_button.dart';
+import 'ai_chat_screen.dart';
 import '../../widgets/client_filter_dialog.dart';
 import '../../services/qr_scanner_service.dart';
 import '../../services/qr_code_service.dart';
@@ -14,6 +15,7 @@ import '../../services/cart_service.dart';
 import '../../models/organization_visitor.dart';
 import '../../models/account.dart';
 import '../../models/category.dart';
+import '../../models/product.dart';
 import '../../services/category_service.dart';
 import '../auth/login_screen.dart';
 import '../org/org_home_screen.dart';
@@ -617,10 +619,8 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (context) => OrgHomeScreen(
-            account: account,
-            categories: categories,
-          ),
+          builder: (context) =>
+              OrgHomeScreen(account: account, categories: categories),
         ),
       );
     } catch (e) {
@@ -728,7 +728,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                       color: theme.colorScheme.error.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(Icons.exit_to_app, color: theme.colorScheme.error),
+                    child: Icon(
+                      Icons.exit_to_app,
+                      color: theme.colorScheme.error,
+                    ),
                   ),
                   title: Text(
                     'Unenroll',
@@ -740,7 +743,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                   ),
                   subtitle: Text(
                     'Remove this organization from your list',
-                    style: TextStyle(fontSize: 13, color: theme.colorScheme.onBackground.withOpacity(0.8)),
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: theme.colorScheme.onBackground.withOpacity(0.8),
+                    ),
                   ),
                   onTap: () async {
                     Navigator.pop(context);
@@ -767,7 +773,12 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                                 backgroundColor: theme.colorScheme.error,
                                 foregroundColor: theme.colorScheme.onError,
                               ),
-                              child: Text('Unenroll', style: TextStyle(color: theme.colorScheme.onError)),
+                              child: Text(
+                                'Unenroll',
+                                style: TextStyle(
+                                  color: theme.colorScheme.onError,
+                                ),
+                              ),
                             ),
                           ],
                         );
@@ -798,7 +809,8 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       onPopInvokedWithResult: (didPop, result) {
         if (!didPop) {
           final now = DateTime.now();
-          if (_lastBackPress == null || now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
+          if (_lastBackPress == null ||
+              now.difference(_lastBackPress!) > const Duration(seconds: 2)) {
             // First press or timeout - show snackbar
             _lastBackPress = now;
             ScaffoldMessenger.of(context).showSnackBar(
@@ -808,7 +820,9 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                 duration: const Duration(seconds: 2),
                 behavior: SnackBarBehavior.floating,
                 margin: const EdgeInsets.all(16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             );
           } else {
@@ -820,196 +834,205 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
       child: Scaffold(
         backgroundColor: theme.scaffoldBackgroundColor,
         appBar: Navbar(
-        showScanButton: true,
-        onScanPressed: _handleScan,
-        isClientHomePage: _scanHistory.isNotEmpty,
-        onSearchChanged: (query) {
-          setState(() {
-            _searchQuery = query;
-          });
-        },
-        searchHint: 'Search organizations...',
-      ),
-      body: Stack(
-        children: [
-          // Main content - Show scan history
-          _isLoadingHistory
-              ? const Center(child: CircularProgressIndicator())
-              : _scanHistory.isEmpty
-              ? EmptyStateWidget(
-                  message: 'No Scans Yet',
-                  icon: Icons.qr_code_2,
-                  subtitle: 'Scan a QR code to get started',
-                )
-              : Column(
-                  children: [
-                    // Filter status bar
-                    if (_hasActiveFilters)
-                      Container(
-                        margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.primary.withOpacity(0.06),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: theme.colorScheme.primary.withOpacity(0.22)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.filter_list,
-                              color: theme.colorScheme.primary,
-                              size: 20,
+          showScanButton: true,
+          onScanPressed: _handleScan,
+          isClientHomePage: _scanHistory.isNotEmpty,
+          onSearchChanged: (query) {
+            setState(() {
+              _searchQuery = query;
+            });
+          },
+          searchHint: 'Search organizations...',
+        ),
+        body: Stack(
+          children: [
+            // Main content - Show scan history
+            _isLoadingHistory
+                ? const Center(child: CircularProgressIndicator())
+                : _scanHistory.isEmpty
+                ? EmptyStateWidget(
+                    message: 'No Scans Yet',
+                    icon: Icons.qr_code_2,
+                    subtitle: 'Scan a QR code to get started',
+                  )
+                : Column(
+                    children: [
+                      // Filter status bar
+                      if (_hasActiveFilters)
+                        Container(
+                          margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: theme.colorScheme.primary.withOpacity(
+                                0.22,
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${filteredHistory.length} of ${_scanHistory.length} organizations',
-                                    style: TextStyle(
-                                      color: theme.colorScheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 14,
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.filter_list,
+                                color: theme.colorScheme.primary,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      '${filteredHistory.length} of ${_scanHistory.length} organizations',
+                                      style: TextStyle(
+                                        color: theme.colorScheme.primary,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 14,
+                                      ),
                                     ),
-                                  ),
-                                  if (_searchQuery.isNotEmpty ||
-                                      _selectedOrganizationIds.isNotEmpty ||
-                                      _selectedCategoryIds.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Wrap(
-                                      spacing: 6,
-                                      runSpacing: 4,
-                                      children: [
-                                        if (_searchQuery.isNotEmpty)
-                                          Chip(
-                                            label: Text(
-                                              'Search: \"$_searchQuery\"',
+                                    if (_searchQuery.isNotEmpty ||
+                                        _selectedOrganizationIds.isNotEmpty ||
+                                        _selectedCategoryIds.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 4,
+                                        children: [
+                                          if (_searchQuery.isNotEmpty)
+                                            Chip(
+                                              label: Text(
+                                                'Search: \"$_searchQuery\"',
+                                              ),
+                                              labelStyle: TextStyle(
+                                                fontSize: 11,
+                                                color:
+                                                    theme.colorScheme.primary,
+                                              ),
+                                              backgroundColor: theme.cardColor,
+                                              padding: EdgeInsets.zero,
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
                                             ),
-                                            labelStyle: TextStyle(
-                                              fontSize: 11,
-                                              color: theme.colorScheme.primary,
+                                          if (_selectedOrganizationIds
+                                              .isNotEmpty)
+                                            Chip(
+                                              label: Text(
+                                                '${_selectedOrganizationIds.length} org${_selectedOrganizationIds.length != 1 ? 's' : ''}',
+                                              ),
+                                              labelStyle: TextStyle(
+                                                fontSize: 11,
+                                                color:
+                                                    theme.colorScheme.primary,
+                                              ),
+                                              backgroundColor: theme.cardColor,
+                                              padding: EdgeInsets.zero,
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
                                             ),
-                                            backgroundColor: theme.cardColor,
-                                            padding: EdgeInsets.zero,
-                                            materialTapTargetSize:
-                                                MaterialTapTargetSize
-                                                    .shrinkWrap,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                        if (_selectedOrganizationIds.isNotEmpty)
-                                          Chip(
-                                            label: Text(
-                                              '${_selectedOrganizationIds.length} org${_selectedOrganizationIds.length != 1 ? 's' : ''}',
+                                          if (_selectedCategoryIds.isNotEmpty)
+                                            Chip(
+                                              label: Text(
+                                                '${_selectedCategoryIds.length} category${_selectedCategoryIds.length != 1 ? 's' : ''}',
+                                              ),
+                                              labelStyle: TextStyle(
+                                                fontSize: 11,
+                                                color:
+                                                    theme.colorScheme.primary,
+                                              ),
+                                              backgroundColor: theme.cardColor,
+                                              padding: EdgeInsets.zero,
+                                              materialTapTargetSize:
+                                                  MaterialTapTargetSize
+                                                      .shrinkWrap,
+                                              visualDensity:
+                                                  VisualDensity.compact,
                                             ),
-                                            labelStyle: TextStyle(
-                                              fontSize: 11,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                            backgroundColor: theme.cardColor,
-                                            padding: EdgeInsets.zero,
-                                            materialTapTargetSize:
-                                                MaterialTapTargetSize
-                                                    .shrinkWrap,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                        if (_selectedCategoryIds.isNotEmpty)
-                                          Chip(
-                                            label: Text(
-                                              '${_selectedCategoryIds.length} category${_selectedCategoryIds.length != 1 ? 's' : ''}',
-                                            ),
-                                            labelStyle: TextStyle(
-                                              fontSize: 11,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                            backgroundColor: theme.cardColor,
-                                            padding: EdgeInsets.zero,
-                                            materialTapTargetSize:
-                                                MaterialTapTargetSize
-                                                    .shrinkWrap,
-                                            visualDensity:
-                                                VisualDensity.compact,
-                                          ),
-                                      ],
-                                    ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
-                                ],
-                              ),
-                            ),
-                            TextButton.icon(
-                              onPressed: () {
-                                setState(() {
-                                  _selectedOrganizationIds.clear();
-                                  _selectedCategoryIds.clear();
-                                  _searchQuery = '';
-                                });
-                              },
-                              icon: const Icon(Icons.clear, size: 18),
-                              label: const Text('Clear'),
-                              style: TextButton.styleFrom(
-                                foregroundColor: theme.colorScheme.primary,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
                                 ),
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                    // List of organizations
-                    Expanded(
-                      child: filteredHistory.isEmpty
-                          ? EmptyStateWidget(
-                              message: 'No Results',
-                              icon: Icons.search_off,
-                              subtitle: 'Try adjusting your filters',
-                            )
-                          : RefreshIndicator(
-                              onRefresh: _loadScanHistory,
-                              child: ListView.builder(
-                                padding: EdgeInsets.only(
-                                  left: 16,
-                                  right: 16,
-                                  bottom: 16,
-                                  top: _hasActiveFilters ? 0 : 16,
-                                ),
-                                itemCount: filteredHistory.length,
-                                itemBuilder: (context, index) {
-                                  final visit = filteredHistory[index];
-                                  return _buildScanHistoryCard(visit);
+                              TextButton.icon(
+                                onPressed: () {
+                                  setState(() {
+                                    _selectedOrganizationIds.clear();
+                                    _selectedCategoryIds.clear();
+                                    _searchQuery = '';
+                                  });
                                 },
+                                icon: const Icon(Icons.clear, size: 18),
+                                label: const Text('Clear'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: theme.colorScheme.primary,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                  ),
+                                ),
                               ),
-                            ),
-                    ),
-                  ],
-                ),
+                            ],
+                          ),
+                        ),
 
-          // Scan prompt overlay - only show when there's no scan history and user hasn't skipped
-          if (_scanHistory.isEmpty && !_isLoadingHistory && _showScanPrompt)
-            ScanPromptOverlay(onScan: _handleScan, onSkip: _handleSkip),
+                      // List of organizations
+                      Expanded(
+                        child: filteredHistory.isEmpty
+                            ? EmptyStateWidget(
+                                message: 'No Results',
+                                icon: Icons.search_off,
+                                subtitle: 'Try adjusting your filters',
+                              )
+                            : RefreshIndicator(
+                                onRefresh: _loadScanHistory,
+                                child: ListView.builder(
+                                  padding: EdgeInsets.only(
+                                    left: 16,
+                                    right: 16,
+                                    bottom: 16,
+                                    top: _hasActiveFilters ? 0 : 16,
+                                  ),
+                                  itemCount: filteredHistory.length,
+                                  itemBuilder: (context, index) {
+                                    final visit = filteredHistory[index];
+                                    return _buildScanHistoryCard(visit);
+                                  },
+                                ),
+                              ),
+                      ),
+                    ],
+                  ),
 
-          // Floating Tracking Button - show delivery tracking status (above cart)
-          if (_scanHistory.isNotEmpty && !_isLoadingHistory)
-            const FloatingTrackingButton(),
+            // Scan prompt overlay - only show when there's no scan history and user hasn't skipped
+            if (_scanHistory.isEmpty && !_isLoadingHistory && _showScanPrompt)
+              ScanPromptOverlay(onScan: _handleScan, onSkip: _handleSkip),
 
-          // Floating Cart Icon - show combined count for all organizations
-          if (_scanHistory.isNotEmpty && !_isLoadingHistory)
-            FloatingCartIcon(
-              organizationId: _scanHistory.first.orgId,
-              organizationName:
-                  _orgAccounts[_scanHistory.first.orgId]?.name ??
-                  'Organization',
-              showAllOrganizations:
-                  true, // Show combined count from all organizations
-            ),
-        ],
-      ),
+            // Floating Tracking Button - show delivery tracking status (above cart)
+            if (_scanHistory.isNotEmpty && !_isLoadingHistory)
+              const FloatingTrackingButton(),
+
+            // Floating Cart Icon - show combined count for all organizations
+            if (_scanHistory.isNotEmpty && !_isLoadingHistory)
+              FloatingCartIcon(
+                organizationId: _scanHistory.first.orgId,
+                organizationName:
+                    _orgAccounts[_scanHistory.first.orgId]?.name ??
+                    'Organization',
+                showAllOrganizations:
+                    true, // Show combined count from all organizations
+              ),
+            // AI Shopping Assistant is provided globally via the Navbar overlay.
+          ],
+        ),
       ),
     );
   }
@@ -1055,7 +1078,10 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
           decoration: BoxDecoration(
             color: theme.cardColor,
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: categoryColor.withOpacity(0.08), width: 1),
+            border: Border.all(
+              color: categoryColor.withOpacity(0.08),
+              width: 1,
+            ),
             boxShadow: [
               BoxShadow(
                 color: theme.shadowColor.withOpacity(0.04),
@@ -1091,7 +1117,8 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                           width: 2,
                         ),
                       ),
-                      child: account?.logoUrl != null &&
+                      child:
+                          account?.logoUrl != null &&
                               account!.logoUrl!.isNotEmpty
                           ? GestureDetector(
                               onTap: () => _showLogoPreview(account!.logoUrl!),
@@ -1147,7 +1174,9 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                                 : '${categories.length} ${categories.length == 1 ? 'category' : 'categories'} available',
                             style: TextStyle(
                               fontSize: 13,
-                              color: theme.colorScheme.onSurface.withOpacity(0.72),
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.72,
+                              ),
                               fontWeight: FontWeight.w600,
                             ),
                             maxLines: 1,
@@ -1207,7 +1236,8 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
                     ),
                   ],
                 ),
-                if (account?.description != null && account!.description!.isNotEmpty) ...[
+                if (account?.description != null &&
+                    account!.description!.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   Text(
                     account.description!,
@@ -1416,4 +1446,3 @@ class _ClientCategoriesScreenState extends State<ClientCategoriesScreen> {
     return colors[colorIndex];
   }
 }
-

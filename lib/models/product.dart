@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class Product {
   final String id;
@@ -37,7 +38,19 @@ class Product {
       description: json['description'] as String?,
       priceLbp: json['price_lbp'] != null ? (json['price_lbp'] as num).toDouble() : null,
       priceUsd: json['price_usd'] != null ? (json['price_usd'] as num).toDouble() : null,
-      imageUrl: json['image_url'] as String?,
+      // Map DB column `image_url` to the model `imageUrl`.
+      // If the DB stores a storage path instead of a full URL, generate a public URL.
+      imageUrl: (() {
+        final raw = json['image_url'] as String?;
+        if (raw == null) return null;
+        try {
+          if (raw.startsWith('http')) return raw;
+          // Assume images are stored in the 'products-images' bucket (used elsewhere).
+          return Supabase.instance.client.storage.from('products-images').getPublicUrl(raw);
+        } catch (_) {
+          return raw;
+        }
+      })(),
       inStock: json['in_stock'] as bool? ?? true,
       quantity: json['quantity'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),

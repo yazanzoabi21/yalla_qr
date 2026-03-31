@@ -6,7 +6,9 @@ import '../../services/ai_service.dart';
 class _ChatMessage {
   final String role; // 'user' or 'assistant'
   final String content;
-  _ChatMessage({required this.role, required this.content});
+  final List<dynamic>? products;
+
+  _ChatMessage({required this.role, required this.content, this.products});
 }
 
 class AiChatScreen extends StatefulWidget {
@@ -33,12 +35,14 @@ class _AiChatScreenState extends State<AiChatScreen> {
   void initState() {
     super.initState();
     // Seed a greeting from the assistant
-    _messages.add(_ChatMessage(
-      role: 'assistant',
-      content:
-          'Hi! 👋 I\'m the shopping assistant for ${widget.account.name}. '
-          'Ask me anything — what\'s available, prices, recommendations, or what goes well together!',
-    ));
+    _messages.add(
+      _ChatMessage(
+        role: 'assistant',
+        content:
+            'Hi! 👋 I\'m the shopping assistant for ${widget.account.name}. '
+            'Ask me anything — what\'s available, prices, recommendations, or what goes well together!',
+      ),
+    );
   }
 
   @override
@@ -66,20 +70,33 @@ class _AiChatScreenState extends State<AiChatScreen> {
           .map((m) => {'role': m.role, 'content': m.content})
           .toList();
 
-      final reply = await AiService.shopAssistant(
+      final response = await AiService.shopAssistant(
         messages: history,
         products: widget.products,
         orgName: widget.account.name,
       );
 
       if (!mounted) return;
-      setState(() => _messages.add(_ChatMessage(role: 'assistant', content: reply)));
+      setState(
+        () => _messages.add(
+          _ChatMessage(
+            role: 'assistant',
+            content: response['reply'] ?? '',
+            products: response['products'] ?? [],
+          ),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
-      setState(() => _messages.add(_ChatMessage(
+      setState(
+        () => _messages.add(
+          _ChatMessage(
             role: 'assistant',
-            content: 'Sorry, I couldn\'t get a response right now. Please try again.',
-          )));
+            content:
+                'Sorry, I couldn\'t get a response right now. Please try again.',
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _isLoading = false);
       _scrollToBottom();
@@ -110,12 +127,18 @@ class _AiChatScreenState extends State<AiChatScreen> {
           children: [
             Text(
               'AI Shopping Assistant',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface),
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: theme.colorScheme.onSurface,
+              ),
             ),
             Text(
               '${widget.account.name} · $inStock items in stock',
-              style: TextStyle(fontSize: 11, color: theme.colorScheme.onSurface.withOpacity(0.6)),
+              style: TextStyle(
+                fontSize: 11,
+                color: theme.colorScheme.onSurface.withOpacity(0.6),
+              ),
             ),
           ],
         ),
@@ -172,7 +195,10 @@ class _AiChatScreenState extends State<AiChatScreen> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 isDense: true,
               ),
               onSubmitted: (_) => _sendMessage(),
@@ -209,14 +235,20 @@ class _MessageBubble extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: isUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        mainAxisAlignment: isUser
+            ? MainAxisAlignment.end
+            : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isUser) ...[
             CircleAvatar(
               radius: 14,
               backgroundColor: Colors.amber,
-              child: const Icon(Icons.auto_awesome, size: 14, color: Colors.black),
+              child: const Icon(
+                Icons.auto_awesome,
+                size: 14,
+                color: Colors.black,
+              ),
             ),
             const SizedBox(width: 8),
           ],
@@ -234,12 +266,71 @@ class _MessageBubble extends StatelessWidget {
                   bottomRight: Radius.circular(isUser ? 4 : 16),
                 ),
               ),
-              child: Text(
-                message.content,
-                style: TextStyle(
-                  color: isUser ? Colors.black : theme.colorScheme.onSurface,
-                  fontSize: 14,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    message.content,
+                    style: TextStyle(
+                      color: isUser
+                          ? Colors.black
+                          : theme.colorScheme.onSurface,
+                      fontSize: 14,
+                    ),
+                  ),
+
+                  if (message.products != null && message.products!.isNotEmpty)
+                    Column(
+                      children: message.products!.map((p) {
+                        final image =
+                            p['image'] ?? p['imageUrl'] ?? p['image_url'];
+                        debugPrint('IMAGE URL => $image');
+                        return Card(
+                          margin: const EdgeInsets.only(top: 8),
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              children: [
+                                if (image != null)
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Image.network(
+                                      image,
+                                      width: 60,
+                                      height: 60,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) =>
+                                          const Icon(Icons.image_not_supported),
+                                    ),
+                                  ),
+
+                                const SizedBox(width: 8),
+
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(p['name'] ?? ''),
+                                      if (p['priceUsd'] != null)
+                                        Text(
+                                          '\$${p['priceUsd']}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: theme.colorScheme.onSurface
+                                                .withOpacity(0.7),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                ],
               ),
             ),
           ),
@@ -284,7 +375,11 @@ class _TypingIndicatorState extends State<_TypingIndicator>
           CircleAvatar(
             radius: 14,
             backgroundColor: Colors.amber,
-            child: const Icon(Icons.auto_awesome, size: 14, color: Colors.black),
+            child: const Icon(
+              Icons.auto_awesome,
+              size: 14,
+              color: Colors.black,
+            ),
           ),
           const SizedBox(width: 8),
           Container(
@@ -305,7 +400,9 @@ class _TypingIndicatorState extends State<_TypingIndicator>
                   mainAxisSize: MainAxisSize.min,
                   children: List.generate(3, (i) {
                     final delay = i * 0.15;
-                    final opacity = (((_ctrl.value + delay) % 1.0) < 0.5) ? 1.0 : 0.3;
+                    final opacity = (((_ctrl.value + delay) % 1.0) < 0.5)
+                        ? 1.0
+                        : 0.3;
                     return Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 2),
                       child: Opacity(

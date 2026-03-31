@@ -220,30 +220,7 @@ class _OrganizationProductsScreenState extends State<OrganizationProductsScreen>
               organizationId: widget.account.id,
               organizationName: widget.account.name ?? 'Organization',
             ),
-            // AI Shopping Assistant FAB
-            Positioned(
-              bottom: 90,
-              right: 16,
-              child: FloatingActionButton.small(
-                heroTag: 'ai_chat_fab',
-                backgroundColor: Colors.amber,
-                tooltip: 'AI Shopping Assistant',
-                onPressed: () {
-                  final allProducts =
-                      categoryProducts.values.expand((list) => list).toList();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => AiChatScreen(
-                        account: widget.account,
-                        products: allProducts,
-                      ),
-                    ),
-                  );
-                },
-                child: const Icon(Icons.auto_awesome, color: Colors.black, size: 20),
-              ),
-            ),
+            // AI Shopping Assistant is now provided globally via the Navbar overlay.
           ],
         ),
       ),

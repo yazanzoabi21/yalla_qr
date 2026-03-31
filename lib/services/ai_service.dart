@@ -54,19 +54,25 @@ class AiService {
   /// [products] is the list of products available in this store.
   /// [orgName] is the organization display name.
   /// Returns the assistant's reply text. Throws on failure.
-  static Future<String> shopAssistant({
+  static Future<Map<String, dynamic>> shopAssistant({
     required List<Map<String, String>> messages,
     required List<Product> products,
     required String orgName,
   }) async {
     try {
-      final productPayload = products.map((p) => {
-        'name': p.name,
-        if (p.description != null) 'description': p.description!,
-        if (p.priceLbp != null) 'priceLbp': p.priceLbp.toString(),
-        if (p.priceUsd != null) 'priceUsd': p.priceUsd!.toStringAsFixed(2),
-        'inStock': p.isAvailable == true,
-      }).toList();
+      final productPayload = products
+          .map(
+            (p) => {
+              'name': p.name,
+              if (p.description != null) 'description': p.description!,
+              if (p.priceLbp != null) 'priceLbp': p.priceLbp.toString(),
+              if (p.priceUsd != null)
+                'priceUsd': p.priceUsd!.toStringAsFixed(2),
+              'inStock': p.isAvailable == true,
+              'imageUrl': p.imageUrl,
+            },
+          )
+          .toList();
 
       final response = await _supabase.functions.invoke(
         'shop-assistant',
@@ -79,12 +85,14 @@ class AiService {
 
       debugPrint('📨 [AiService] shopAssistant response: ${response.data}');
 
-      if (response.data == null) throw 'Empty response from Edge Function';
-      if (response.data['error'] != null) throw response.data['error'].toString();
+      final data = response.data;
+      if (data == null) throw 'Empty response from Edge Function';
+      if (data['error'] != null) throw data['error'].toString();
 
-      final reply = response.data['reply'] as String?;
-      if (reply == null || reply.isEmpty) throw 'AI returned an empty reply';
-      return reply;
+      final reply = data['reply'] as String? ?? '';
+      final productsResp = (data['products'] as List<dynamic>?) ?? [];
+
+      return {'reply': reply, 'products': productsResp};
     } catch (e) {
       debugPrint('❌ [AiService] shopAssistant error: $e');
       rethrow;

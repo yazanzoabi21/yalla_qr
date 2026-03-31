@@ -17,6 +17,8 @@ import '../utils/navigation_helper.dart';
 import '../services/secure_storage_service.dart';
 import '../services/order_service.dart';
 import '../utils/event_bus.dart';
+import '../screens/client/ai_chat_screen.dart';
+import '../models/account.dart';
 
 class Navbar extends StatefulWidget implements PreferredSizeWidget {
   final bool showLoginButton;
@@ -62,6 +64,8 @@ class Navbar extends StatefulWidget implements PreferredSizeWidget {
 }
 
 class _NavbarState extends State<Navbar> {
+  // Single global overlay for AI FAB to avoid duplicates across multiple Navbars
+  static OverlayEntry? _globalAiOverlayEntry;
   bool _isAuthenticated = false;
   bool _isOrgUser = false;
   bool _isSuperAdmin = false;
@@ -181,6 +185,63 @@ class _NavbarState extends State<Navbar> {
   
     // Initial load in case user is already logged in
     _loadOrgAccountAndOrders();
+
+    // Insert global AI FAB overlay once
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_globalAiOverlayEntry == null && mounted) {
+        final overlay = OverlayEntry(builder: (ctx) {
+          return Positioned(
+            bottom: 20,
+            right: 20,
+            child: SafeArea(
+              child: Material(
+                color: Colors.transparent,
+                child: FloatingActionButton.small(
+                  heroTag: 'ai_chat_fab_global',
+                  backgroundColor: Colors.amber,
+                  tooltip: 'AI Shopping Assistant',
+                  onPressed: () async {
+                    try {
+                      // Load a reasonable number of products to provide context (limit 200)
+                      final resp = await Supabase.instance.client
+                          .from('products')
+                          .select('id, name, description, price_lbp, price_usd, image_url, in_stock, quantity, created_at, category_id, account_id')
+                          .limit(200);
+
+                      final products = (resp as List?)
+                          ?.map((json) => Product.fromJson(json as Map<String, dynamic>))
+                          .toList() ?? [];
+
+                      final account = Account(
+                        id: 'global',
+                        name: 'All Stores',
+                        createdAt: DateTime.now(),
+                        updatedAt: DateTime.now(),
+                      );
+
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => AiChatScreen(account: account, products: products),
+                        ),
+                      );
+                    } catch (e) {
+                      debugPrint('❌ Failed to open global AI assistant: $e');
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Failed to open AI assistant')),
+                      );
+                    }
+                  },
+                  child: const Icon(Icons.auto_awesome, color: Colors.black, size: 20),
+                ),
+              ),
+            ),
+          );
+        });
+
+        Overlay.of(context)?.insert(overlay);
+        _globalAiOverlayEntry = overlay;
+      }
+    });
 
     // Periodically refresh orders count (keeps badge up-to-date)
     _ordersRefreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {

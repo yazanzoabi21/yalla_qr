@@ -67,9 +67,29 @@ Rules:
       ? (messages[messages.length - 1].content || '')
       : ''
 
-    const extractSystem = `You are a JSON extractor. Given a user's message, extract their shopping intent.
-Return ONLY a JSON object (no explanations) with any of these keys when available: keyword, category, color, price, size.
-If nothing is found, return an empty JSON object {}.`
+    const extractSystem = `
+  You are a JSON extractor for a shopping assistant.
+
+  Extract user intent into JSON with these fields when applicable:
+
+  - keyword (product name)
+  - category
+  - priceSort ("asc" for cheapest, "desc" for most expensive)
+  - priceFilter ("cheap", "expensive", or null)
+
+  Rules:
+  - If user asks for cheapest → priceSort = "asc"
+  - If user asks for most expensive → priceSort = "desc"
+  - If no price intent → leave priceSort null or omit it
+  - Return ONLY a JSON object (no explanations)
+
+  Examples:
+
+  "cheap bag" → { "keyword": "bag", "priceSort": "asc" }
+  "most expensive shoes" → { "keyword": "shoes", "priceSort": "desc" }
+  "I need a bag" → { "keyword": "bag" }
+  "hi" → {}
+  `
 
     const extractResponse = await fetch(
       'https://api.groq.com/openai/v1/chat/completions',
@@ -112,10 +132,84 @@ If nothing is found, return an empty JSON object {}.`
       aiResult = {}
     }
 
-    // Step 2: Search products using extracted intent
-    const keyword = (aiResult.keyword || '').toLowerCase()
-    const category = (aiResult.category || '').toLowerCase()
+    // Step 2: Decide whether this is a product query (keyword/category) or general chat
+    // Primary extraction from the model
+    let keyword = (aiResult.keyword || '').toLowerCase().trim()
+    const category = (aiResult.category || '').toLowerCase().trim()
 
+    // Lowercased user message text for fallback checks
+    const msg = (lastUserMessage || '').toLowerCase()
+
+    // Fallback: if extractor failed to extract keyword, try to find product names in the message
+    if (!keyword) {
+      const possibleMatches = productList.map((p: any) => (p.name || '').toLowerCase())
+      for (const name of possibleMatches) {
+        if (name && msg.includes(name)) {
+          keyword = name
+          break
+        }
+      }
+    }
+
+    // Image intent detection (user asking for images/photos)
+    const wantsImage = msg.includes('image') || msg.includes('picture') || msg.includes('photo') || msg.includes('photo of') || msg.includes('image of')
+
+    // Conversation memory: if user asks for an image with no keyword, try to find last-mentioned product in conversation
+    if (wantsImage && !keyword) {
+      let lastProductMention = ''
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const m = (messages[i].content || '').toLowerCase()
+        for (const p of productList) {
+          const pname = (p.name || '').toLowerCase()
+          if (pname && m.includes(pname)) {
+            lastProductMention = pname
+            break
+          }
+        }
+        if (lastProductMention) break
+      }
+      if (lastProductMention) keyword = lastProductMention
+    }
+
+    const isProductQuery = Boolean(keyword) || Boolean(category) || wantsImage
+
+    // If this is NOT a product query, forward to the model for a normal chat reply
+    if (!isProductQuery) {
+      const response = await fetch(
+        'https://api.groq.com/openai/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${GROQ_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: GROQ_MODEL,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: lastUserMessage },
+            ],
+            temperature: 0.7,
+            max_tokens: 200,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        const err = await response.text()
+        throw new Error(err)
+      }
+
+      const data = await response.json()
+      const reply = data?.choices?.[0]?.message?.content?.trim() || "I'm here to help 😊"
+
+      return new Response(
+        JSON.stringify({ reply, products: [] }),
+        { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
+    }
+
+    // Otherwise, perform product matching
     let matched: any[] = []
 
     if (category) {
@@ -130,75 +224,45 @@ If nothing is found, return an empty JSON object {}.`
       })
     }
 
-    const productsToSend = (matched.length ? matched : []).slice(0, 5).map((p: any) => ({
+    // Support priceSort extracted from the intent extractor
+    const priceSort = (aiResult.priceSort || aiResult.price_sort || null)
+
+    if (priceSort === 'asc') {
+      matched.sort((a: any, b: any) => {
+        const aPrice = typeof a.priceUsd === 'number' ? a.priceUsd : parseFloat(a.priceUsd) || 999999
+        const bPrice = typeof b.priceUsd === 'number' ? b.priceUsd : parseFloat(b.priceUsd) || 999999
+        return aPrice - bPrice
+      })
+    }
+
+    if (priceSort === 'desc') {
+      matched.sort((a: any, b: any) => {
+        const aPrice = typeof a.priceUsd === 'number' ? a.priceUsd : parseFloat(a.priceUsd) || 0
+        const bPrice = typeof b.priceUsd === 'number' ? b.priceUsd : parseFloat(b.priceUsd) || 0
+        return bPrice - aPrice
+      })
+    }
+
+    const productsToSend = matched.slice(0, 5).map((p: any) => ({
       name: p.name,
       priceUsd: p.priceUsd,
       image: p.imageUrl,
     }))
 
-    // Step 3: Fallback when no exact match
-    if (productsToSend.length === 0) {
-      const fallback = productList.length > 0
-  ? productList.slice(0, 5)
-  : [].map((p: any) => ({
-        name: p.name,
-        priceUsd: p.priceUsd,
-        image: p.imageUrl,
-      }))
+    if (productsToSend.length > 0) {
+      let replyText = `Here are the available ${keyword || category || 'products'} 👇`
+      if (priceSort === 'asc') replyText = 'Here are the cheapest options 👇'
+      if (priceSort === 'desc') replyText = 'Here are the most expensive options 👇'
 
       return new Response(
-        JSON.stringify({ reply: "I didn’t find an exact match, here are some products 👇", products: fallback }),
+        JSON.stringify({ reply: replyText, products: productsToSend }),
         { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       )
     }
 
-    // Successful filtered result
-    const displayKeyword = category || keyword || 'products'
+    // Smarter fallback when no products matched
     return new Response(
-      JSON.stringify({ reply: `Here are the available ${displayKeyword} 👇`, products: productsToSend }),
-      { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-    )
-    // ✅ FIXED: Changed v1 → v1beta and model to gemini-2.0-flash
-    const response = await fetch(
-      'https://api.groq.com/openai/v1/chat/completions',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${GROQ_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: GROQ_MODEL,
-          messages: [
-            {
-              role: 'system',
-              content: systemPrompt,
-            },
-            {
-              role: 'user',
-              content: userText,
-            },
-          ],
-          temperature: 0.7,
-          max_tokens: 200,
-        }),
-      }
-    )
-
-    if (!response.ok) {
-      const err = await response.text()
-      throw new Error(err)
-    }
-
-    const data = await response.json()
-
-    const reply =
-      data?.choices?.[0]?.message?.content?.trim() ||
-      'Sorry, I couldn’t respond.'
-
-    // Include an explicit `products` field so clients can rely on consistent shape.
-    return new Response(
-      JSON.stringify({ reply, products: [] }),
+      JSON.stringify({ reply: "I didn’t find an exact match. Want me to suggest something similar? 😊", products: [] }),
       { headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     )
   } catch (e) {
